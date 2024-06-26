@@ -1,0 +1,8 @@
+.idea
+*.o
+*.bin
+*.dis
+*.iso
+*.log
+*.map
+build
