@@ -27,35 +27,41 @@ CCFLAGS += -fno-builtin-function -fno-builtin
 QEMUFLAGS = -monitor stdio -d guest_errors -D qemu.log -no-reboot -no-shutdown
 
 # There should only be one boot sector file. Dependencies can be called on within it.
-BOOTSECT_SOURCES = boot.asm
+BOOTSECT_SOURCES = src/boot/boot.asm
 
-KERNEL_SOURCES_C = $(wildcard *.c)
-KERNEL_SOURCES_ASM = $(filter-out $(BOOTSECT_SOURCES), $(wildcard *.asm))
+SOURCEDIR = src
+
+KERNEL_SOURCES_C := $(shell find $(SOURCEDIR) -name '*.c')
+KERNEL_SOURCES_ASM := $(filter-out $(BOOTSECT_SOURCES), $(shell find $(SOURCEDIR) -name '*.asm'))
 KERNEL_OBJECTS = $(patsubst %.c, build/%.o, $(KERNEL_SOURCES_C)) $(patsubst %.asm, build/%.o, $(KERNEL_SOURCES_ASM))
+
+BUILD_DIRS = $(sort $(dir $(KERNEL_OBJECTS)))
 
 BOOTSECT = build/boot.bin
 KERNEL = build/kernel.bin
-ISO = build/out/NetOS.iso
+ISO = build/NetworkOS.iso
+FINISHEDISO = product/NetworkOS.iso
 
-all: clean build run
+all: run
 
 dirs:
-	@$(MKDIR) -p build
-	@$(MKDIR) -p build/out
+	@$(MKDIR) -p product
+	@$(MKDIR) -p $(BUILD_DIRS)
 
 build: dirs $(ISO)
-	@echo "\033[32;6mBuild complete. ISO is in build/out/NetOS.iso\033[0m"
+	@echo "\033[32;6mBuild complete. ISO is in product/NetOS.iso\033[0m"
 
 run: build
-	$(QEMU) -fda $(ISO) ${QEMUFLAGS}
+	$(QEMU) -drive file=$(FINISHEDISO),format=raw ${QEMUFLAGS}
 
 clean:
-	$(RM) ./**/*.bin ./**/*.o ./**/*.dis ./**/*.iso ./**/*.log ./**/*.map ./*.o ./*.bin ./*.dis ./*.iso ./*.log ./*.map build
+	$(RM) ./**/*.bin ./**/*.o ./**/*.dis ./**/*.iso ./**/*.log ./**/*.map ./*.o ./*.bin ./*.dis ./*.iso ./*.log ./*.map build product
 
 $(ISO): $(BOOTSECT) $(KERNEL)
 	$(DD) if=/dev/zero of=$(ISO) bs=512 count=2880
 	$(DD) if=$(BOOTSECT) of=$(ISO) conv=notrunc bs=512 seek=0 count=1
 	$(DD) if=$(KERNEL) of=$(ISO) conv=notrunc bs=512 seek=1 count=2879
+	mv $(ISO) product/
 
 $(BOOTSECT): $(BOOTSECT_SOURCES)
 	$(NASM) -fbin $^ -o $@
