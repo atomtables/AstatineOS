@@ -17,12 +17,15 @@ NASM = nasm
 DD = dd
 MKDIR = mkdir
 
+INCLUDE_PATHS := $(shell find src -type d)
+INCLUDE_FLAGS := $(foreach dir, $(INCLUDE_PATHS), -I$(dir))
+
 NASMFLAGS = -f elf
 LDFLAGS = -m elf_i386 -Ttext 0x1000 --oformat binary
 CCFLAGS  = -m32 -std=c11 -O2 -g -Wall -Wextra -Wpedantic -Wstrict-aliasing
 CCFLAGS += -Wno-pointer-arith -Wno-unused-parameter
 CCFLAGS += -nostdlib -nostdinc -ffreestanding -fno-pie -fno-stack-protector
-CCFLAGS += -fno-builtin-function -fno-builtin
+CCFLAGS += -fno-builtin-function -fno-builtin $(INCLUDE_FLAGS)
 
 QEMUFLAGS = -monitor stdio -d guest_errors -D qemu.log -no-reboot -no-shutdown
 
