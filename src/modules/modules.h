@@ -21,13 +21,15 @@ typedef char* string;
 #define true 1
 #define false 0
 
-extern const u8 char_to_int_conversions[10][2];
-
 extern u8 find_char_for_int(u8 item);
 
-extern const u8 char_to_hex_conversions[16][2];
-
 extern u8 find_char_for_hex(u8 item);
+
+extern string itoa(u32 number, char* str);
+
+extern string xtoa(u32 number, char* str);
+
+extern string xtoa_padded(u32 number, char* str);
 
 extern u8 inportb(u16 port);
 

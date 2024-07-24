@@ -5,8 +5,14 @@
 // The current implementation goes back to y=0 after
 // reaching the last line.
 
+#include <stdarg.h>
 #include "display.h"
-#include "modules.h"
+#include "modules/modules.h"
+
+/// VARIABLE: buf
+/// Used as a temporary buffer for storing results
+/// of functions that return a string (char*).
+char buf[10] = {0};
 
 /// STRUCTURE: display_data
 /// Property: integer x
@@ -16,7 +22,7 @@
 /// for holding the current X and Y coordinates
 /// of the cursor in memory. This struct is only
 /// to be seen by internal functions.
-struct {
+struct display_data {
     int x;
     int y;
 } display_data;
@@ -28,7 +34,8 @@ struct {
 /// Only for internal use, as this does not also
 /// configure the text mode VGA cursor.
 void __reset_displaydata__() {
-    display_data.x = 0; display_data.y = 0;
+    display_data.x = 0;
+    display_data.y = 0;
 }
 
 /// FUNCTION: __set_displaydata__
@@ -43,7 +50,8 @@ void __reset_displaydata__() {
 void __set_displaydata__(const int x, const int y) {
     if (x >= VGA_TEXT_WIDTH) return;
     if (y >= VGA_TEXT_HEIGHT) return;
-    display_data.x = x; display_data.y = y;
+    display_data.x = x;
+    display_data.y = y;
 }
 
 /// FUNCTION: __inc_displaydata__
@@ -93,10 +101,10 @@ void __set_vga_cursor_pos__(const int x, const int y) {
     const u16 pos = y * VGA_TEXT_WIDTH + x;
 
     outportb(0x3D4, 0x0F);
-    outportb(0x3D5, (u8) (pos & 0xFF));
+    outportb(0x3D5, (u8)(pos & 0xFF));
 
     outportb(0x3D4, 0x0E);
-    outportb(0x3D5, (u8) ((pos >> 8) & 0xFF));
+    outportb(0x3D5, (u8)((pos >> 8) & 0xFF));
 }
 
 /// FUNCTION: __write_char__
@@ -111,14 +119,14 @@ void __set_vga_cursor_pos__(const int x, const int y) {
 /// Only for internal use, since other functions
 /// like print and println do a better job.
 void __write_char__(const int x, const int y, const char character, const u8 color) {
-	if (x >= VGA_TEXT_WIDTH) return;
+    if (x >= VGA_TEXT_WIDTH) return;
 
-    volatile char* vga = (char*) 0xb8000;
+    volatile char* vga = (char*)0xb8000;
     vga += ((y * VGA_TEXT_WIDTH * 2) + (x * 2));
     *vga = character;
-	*(vga+1) = color;
+    *(vga + 1) = color;
 
-	__set_displaydata__(x, y);
+    __set_displaydata__(x, y);
     __set_vga_cursor_pos__(x, y);
 }
 
@@ -149,11 +157,7 @@ void __append_char__(const char character, const u8 color) {
 /// which is looped over until the null byte is reached.
 /// Only for debug use, since other functions
 /// like print and println are just better.
-void __append_string__(const string str) {
-    for (int i = 0; str[i] != '\0'; i++) {
-        __append_char__(str[i], 0x0f);
-    }
-}
+void __append_string__(const string str) { for (int i = 0; str[i] != '\0'; i++) { __append_char__(str[i], 0x0f); } }
 
 /// FUNCTION: __append_string__
 /// INTERNAL ONLY
@@ -167,9 +171,7 @@ void __append_string__(const string str) {
 /// built in.
 void __append_newline__() {
     display_data.y++;
-    if (display_data.y > VGA_TEXT_HEIGHT) {
-        display_data.y = 0;
-    }
+    if (display_data.y > VGA_TEXT_HEIGHT) { display_data.y = 0; }
     display_data.x = 0;
 
     __set_vga_cursor_pos__(display_data.x, display_data.y);
@@ -208,9 +210,7 @@ void write_number_to_text_memory(u32 number) {
         count--;
     }
 
-    for (int i = 0; i < 10; i++) {
-        __append_char__(find_char_for_int(digits[i]), 0x0f);
-    }
+    for (int i = 0; i < 10; i++) { __append_char__(find_char_for_int(digits[i]), 0x0f); }
 }
 
 /// FUNCTION: write_hex_to_text_memory
@@ -232,10 +232,62 @@ void write_hex_to_text_memory(u32 number) {
         count--;
     }
 
-    for (int i = 0; i < 8; i++) {
-        __append_char__(find_char_for_hex(digits[i]), 0x0f);
-    }
+    for (int i = 0; i < 8; i++) { __append_char__(find_char_for_hex(digits[i]), 0x0f); }
 }
 
+/// FUNCTION: print
+/// Parameter:
 
+/// FUNCTION: printf
+/// Parameter: string(char*) fmt
+/// Variadic Parameters: ...
+/// ----------------------------------------
+/// Prints a string to the screen, including fmt-str like
+/// data like %d, %x, %s, etc.
+void printf(const string fmt, ...) {
+    va_list args;
+    va_start(args, 0);
 
+    for (int i = 0; fmt[i] != '\0'; i++) {
+        if (fmt[i] == '%') {
+            i++;
+            switch (fmt[i]) {
+            case 'd': {
+                const string digits = itoa(va_arg(args, u32), &buf[0]);
+                __append_string__(digits);
+                break;
+            }
+            case 'x': {
+                const string digits = xtoa(va_arg(args, u32), &buf[0]);
+                __append_string__(digits);
+                break;
+            }
+            case 'p': {
+                __append_string__("0x");
+                const string digits = xtoa_padded(va_arg(args, u32), &buf[0]);
+                __append_string__(digits);
+                break;
+            }
+            case 's': {
+                __append_string__(va_arg(args, string));
+                break;
+            }
+            case 'c': {
+                __append_char__(va_arg(args, i32), 0x0f);
+                break;
+            }
+            default: {
+                __append_char__('%', 0x0f);
+                __append_char__(fmt[i], 0x0f);
+                break;
+            }
+            }
+        }
+        else if (fmt[i] == '\n') {
+            __append_newline__();
+        }
+        else { __append_char__(fmt[i], 0x0f); }
+    }
+
+    va_end(args);
+}

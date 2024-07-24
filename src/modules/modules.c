@@ -1,6 +1,5 @@
 //
 // Created by Adithiya Venkatakrishnan on 18/07/2024.
-//
 
 #include "modules.h"
 
@@ -52,6 +51,79 @@ u8 find_char_for_hex(u8 item) {
         }
     }
     return null;
+}
+
+string itoa(u32 number, const string str) {
+    u8 digits[10] = {0};
+    int count = 9;
+
+    while (number) {
+        const int digit = number % 10;
+        number = number / 10;
+        digits[count] = digit;
+        count--;
+    }
+
+    bool zero = false;
+    int j = 0;
+    for (int i = 0; i < 10; i++) {
+        if (!zero) {
+            if (digits[i] != 0) {
+                zero = true;
+                j = 0;
+            }
+            else continue;
+        }
+        str[j] = (i8)find_char_for_int(digits[i]);
+        j++;
+    }
+    str[j] = 0;
+    return str;
+}
+
+string xtoa(u32 number, const string str) {
+    u8 digits[8] = {0};
+    int count = 7;
+
+    while (number) {
+        const int digit = number % 16;
+        number = number / 16;
+        digits[count] = digit;
+        count--;
+    }
+
+    bool zero = false;
+    int j = 0;
+    for (int i = 0; i < 8; i++) {
+        if (!zero) {
+            if (digits[i] != 0) {
+                zero = true;
+                j = 0;
+            }
+            else continue;
+        }
+        str[j] = (i8)find_char_for_hex(digits[i]);
+        j++;
+    }
+    str[j] = 0;
+    return str;
+}
+
+string xtoa_padded(u32 number, const string str) {
+    u8 digits[8] = {0};
+    int count = 7;
+
+    while (number) {
+        const int digit = number % 16;
+        number = number / 16;
+        digits[count] = digit;
+        count--;
+    }
+
+    for (int i = 0; i < 8; i++) {
+        str[i] = (i8)find_char_for_hex(digits[i]);
+    }
+    return str;
 }
 
 u8 inportb(u16 port) {
