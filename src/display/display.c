@@ -1,52 +1,60 @@
-//
-// VGA Text-mode driver (display.c, display.h)
-// Created by Adithiya Venkatakrishnan on 17/07/2024.
-//
-// The current implementation goes back to y=0 after
-// reaching the last line.
+///
+/// VGA Text-mode driver (display.c, display.h)
+/// Created by Adithiya Venkatakrishnan on 17/07/2024.
+///
+/// The current implementation goes back to y=0 after
+/// reaching the last line.
+///
 
 #include <stdarg.h>
+
 #include "display.h"
-#include "modules/modules.h"
+#include <modules/modules.h>
 
-/// VARIABLE: buf
-/// Used as a temporary buffer for storing results
-/// of functions that return a string (char*).
-char buf[10] = {0};
+/**
+ * Used as a temporary buffer for storing results
+ * of functions that return a string(char*).
+ */
+char buf[11] = {0};
 
-/// STRUCTURE: display_data
-/// Property: integer x
-/// Property: integer y
-/// ----------------------------------------
-/// The variable `display_data` is responsible
-/// for holding the current X and Y coordinates
-/// of the cursor in memory. This struct is only
-/// to be seen by internal functions.
+/**
+ * @brief Structure for holding the current X and Y coordinates of the cursor.
+ *
+ * The variable `display_data` is responsible
+ * for holding the current X and Y coordinates
+ * of the cursor in memory. This struct is only
+ * to be seen by internal functions.
+ *
+ * @param x The X coordinate of the cursor
+ * @param y The Y coordinate of the cursor
+ */
 struct display_data {
-    int x;
-    int y;
+    i32 x;
+    i32 y;
 } display_data;
 
-/// FUNCTION: __reset_displaydata__
-/// INTERNAL ONLY
-/// ----------------------------------------
-/// Sets the x and y value of display_data to 0.
-/// Only for internal use, as this does not also
-/// configure the text mode VGA cursor.
+/**
+ * @brief Resets the display_data cursor position.
+ *
+ * Sets the x and y value of display_data to 0.
+ * Only for internal use, as this does not also
+ * configure the text mode VGA cursor.
+ */
 void __reset_displaydata__() {
     display_data.x = 0;
     display_data.y = 0;
 }
 
-/// FUNCTION: __set_displaydata__
-/// INTERNAL ONLY
-/// Parameter: integer x
-/// Parameter: integer y
-/// ----------------------------------------
-/// Sets the x and y value of display_data to
-/// the specified values and validates them.
-/// Only for internal use, as this does not also
-/// configure the text mode VGA cursor.
+/**
+ * @brief Sets the display_data cursor position.
+ *
+ * Sets the x and y value of display_data to
+ * the specified values and validates them.
+ * Only for internal use, as this does not also
+ * configure the text mode VGA cursor.
+ * @param x The X coordinate to set display_data to
+ * @param y The Y coordinate to set display_data
+ */
 void __set_displaydata__(const int x, const int y) {
     if (x >= VGA_TEXT_WIDTH) return;
     if (y >= VGA_TEXT_HEIGHT) return;
@@ -54,13 +62,14 @@ void __set_displaydata__(const int x, const int y) {
     display_data.y = y;
 }
 
-/// FUNCTION: __inc_displaydata__
-/// INTERNAL ONLY
-/// ----------------------------------------
-/// Sets the x and y value of display_data to
-/// the specified values and validates them.
-/// Only for internal use, as this does not also
-/// configure the text mode VGA cursor.
+/**
+ * @brief Increments display_data by a character.
+ *
+ * Sets the x and y value of display_data to
+ * the specified values and validates them.
+ * Only for internal use, as this does not also
+ * configure the text mode VGA cursor.
+ */
 void __inc_displaydata__() {
     display_data.x++;
     if (display_data.x >= VGA_TEXT_WIDTH) {
@@ -71,14 +80,16 @@ void __inc_displaydata__() {
         display_data.y = 0;
 }
 
-
-/// FUNCTION: __get_vga_cursor_pos__
-/// INTERNAL ONLY
-/// ----------------------------------------
-/// Gets the current x and y value of the VGA
-/// cursor position from the VGA registers.
-/// This is not necessary, as display_data and
-/// the VGA cursor should have position parity.
+/**
+ * @brief Gets the VGA cursor position. Internal only.
+ * @deprecated as display_data has position parity anyway.
+ *
+ * Gets the current x and y value of the VGA
+ * cursor position from the VGA registers. The individual
+ * coordinates can be found by dividing the result by 80, or
+ * modulating the result by 80.
+ * @return Coordinates of the VGA cursor, in pixel-count format.
+ */
 u16 __get_vga_cursor_pos__() {
     u16 pos = 0;
 
@@ -88,15 +99,16 @@ u16 __get_vga_cursor_pos__() {
     return pos;
 }
 
-/// FUNCTION: __set_vga_cursor_pos__
-/// INTERNAL ONLY
-/// Parameter: integer x
-/// Parameter: integer y
-/// ----------------------------------------
-/// Sets the current x and y value of the VGA
-/// cursor position to the VGA registers.
-/// Only for internal use, as this does not also
-/// configure the display_data variables.
+/**
+ * @brief Sets the VGA cursor position. Internal only.
+ *
+ * Sets the current x and y value of the VGA
+ * cursor position to the VGA registers.
+ * Only for internal use, as this does not also
+ * configure the display_data variables.
+ * @param x The X coordinate to set the cursor to
+ * @param y The Y coordinate to set the cursor to
+ */
 void __set_vga_cursor_pos__(const int x, const int y) {
     const u16 pos = y * VGA_TEXT_WIDTH + x;
 
@@ -107,22 +119,76 @@ void __set_vga_cursor_pos__(const int x, const int y) {
     outportb(0x3D5, (u8)((pos >> 8) & 0xFF));
 }
 
-/// FUNCTION: __write_char__
-/// INTERNAL ONLY
-/// Parameter: integer x
-/// Parameter: integer y
-/// Parameter: 8-bit-char character
-/// Parameter: 8-bit-integer color
-/// ----------------------------------------
-/// Writes a single ASCII character to the
-/// designated x and y coordinates with color.
-/// Only for internal use, since other functions
-/// like print and println do a better job.
-void __write_char__(const int x, const int y, const char character, const u8 color) {
+/**
+ * @brief Enables the VGA cursor.
+ *
+ * Writes to the VGA registor ports to stop
+ * the cursor from blinking. Only relevant in
+ * the case of a recovery from a blue-screen,
+ * interactive display, or a jump into a text mode.
+ * @param width The width of where the cursor can go.
+ * @param height The height of where the cursor can go.
+ */
+void enable_cursor(const u8 width, const u8 height) {
+    outportb(0x3D4, 0x0A);
+    outportb(0x3D5, inportb(0x3D5) & 0xC0 | width);
+
+    outportb(0x3D4, 0x0B);
+    outportb(0x3D5, inportb(0x3D5) & 0xE0 | height);
+}
+
+/**
+ * @brief Disables the VGA cursor.
+ *
+ * Writes to the VGA register ports to stop
+ * the cursor from blinking. Only relevant in
+ * the case of a blue-screen, non-interactive
+ * display, or a jump into a graphical mode.
+ */
+void disable_vga_cursor() {
+    outportb(0x3D4, 0x0A);
+    outportb(0x3D5, 0x20);
+}
+
+/**
+ * @brief Writes a character to a position on the screen. Internal only.
+ *
+ * Writes a single ASCII character to the
+ * designated x and y coordinates, ignoring color.
+ * Only for internal use, since other functions
+ * like print/printf do a better job.
+ * @param x The X coordinate to write to
+ * @param y The Y coordinate to write to
+ * @param character The character to write.
+ */
+void __write_char__(const int x, const int y, const char character) {
     if (x >= VGA_TEXT_WIDTH) return;
 
     volatile char* vga = (char*)0xb8000;
-    vga += ((y * VGA_TEXT_WIDTH * 2) + (x * 2));
+    vga += y * VGA_TEXT_WIDTH * 2 + x * 2;
+    *vga = character;
+
+    __set_displaydata__(x, y);
+    __set_vga_cursor_pos__(x, y);
+}
+
+/**
+ * @brief Writes a character with color to a position on the screen. Internal only.
+ *
+ * Writes a single ASCII character to the
+ * designated x and y coordinates, overwriting color.
+ * Only for internal use, since other functions
+ * like print/printf do a better job.
+ * @param x The X coordinate to write to
+ * @param y The Y coordinate to write to
+ * @param character The character to write
+ * @param color The color to write
+ */
+void __write_char_color__(const int x, const int y, const char character, const u8 color) {
+    if (x >= VGA_TEXT_WIDTH) return;
+
+    volatile char* vga = (char*)0xb8000;
+    vga += y * VGA_TEXT_WIDTH * 2 + x * 2;
     *vga = character;
     *(vga + 1) = color;
 
@@ -130,45 +196,118 @@ void __write_char__(const int x, const int y, const char character, const u8 col
     __set_vga_cursor_pos__(x, y);
 }
 
-/// FUNCTION: __append_char__
-/// INTERNAL ONLY
-/// Parameter: 8-bit-char character
-/// Parameter: 8-bit-integer
-/// ----------------------------------------
-/// Writes a single ASCII character after the
-/// next character, determined by the values
-/// of display_data.
-/// Only for internal use, since other functions
-/// like print and println do a better job.
-void __append_char__(const char character, const u8 color) {
-    __write_char__(display_data.x, display_data.y, character, color);
+/**
+ * @brief Writes a color to a position on the screen. Internal only.
+ *
+ * As color should not be overwritten when simply writing
+ * text to the screen, this function is used to write
+ * just a color to the screen at a specific position.
+ * This function is internal only, since other functions
+ * like print/printf do a better job.
+ * @param x The X coordinate to write to.
+ * @param y The Y coordinate to write to.
+ * @param color The color to write.
+ */
+void __write_color__(const int x, const int y, const u8 color) {
+    if (x >= VGA_TEXT_WIDTH) return;
+
+    volatile char* vga = (char*)0xb8000;
+    vga += y * VGA_TEXT_WIDTH * 2 + x * 2;
+    *(vga + 1) = color;
+}
+
+/**
+ * @brief Appends a character to the screen. Internal only.
+ *
+ * Writes a single ASCII character after the
+ * next character, determined by the values
+ * of display_data. It does not overwrite color.
+ * Only for internal use, since other functions
+ * like print/printf do a better job.
+ * @param character The character to append.
+ */
+void __append_char__(const char character) {
+    __write_char__(display_data.x, display_data.y, character);
 
     __inc_displaydata__();
     __set_vga_cursor_pos__(display_data.x, display_data.y);
 }
 
-/// FUNCTION: __append_string__
-/// DEBUG ONLY
-/// Parameter: string(char*) str
-/// ----------------------------------------
-/// Writes a string of ASCII characters after
-/// the next character, determined by the values
-/// of display_data. This will point to a char*,
-/// which is looped over until the null byte is reached.
-/// Only for debug use, since other functions
-/// like print and println are just better.
-void __append_string__(const string str) { for (int i = 0; str[i] != '\0'; i++) { __append_char__(str[i], 0x0f); } }
+/**
+ * @brief Appends a character to the screen with a specified color. Internal only.
+ *
+ * Writes a single ASCII character after the
+ * next character, determined by the values
+ * of display_data. It also overwrites the color
+ * with the one specified.
+ * Only for internal use, since other functions
+ * like print/printf do a better job.
+ * @param character The character to append.
+ * @param color The color to append it in.
+ */
+void __append_char_color__(const char character, const u8 color) {
+    __write_char_color__(display_data.x, display_data.y, character, color);
 
-/// FUNCTION: __append_string__
-/// INTERNAL ONLY
-/// ----------------------------------------
-/// Increments the y value of display_data and
-/// sets the value of x to 0, allowing writes
-/// to start from the next line of the previous
-/// character.
-/// Only for internal use, since other functions
-/// like print and println should add this to be
-/// built in.
+    __inc_displaydata__();
+    __set_vga_cursor_pos__(display_data.x, display_data.y);
+}
+
+/**
+ * @brief Appends a string to the screen. Internal only.
+ *
+ * Writes a string of ASCII characters after
+ * the next character, determined by the values
+ * of display_data. This will point to a char*,
+ * which is looped over until the null byte is reached.
+ * Color is not specified or written over.
+ * Only for debug use, since other functions
+ * like print/printf are just better.
+ * @param str The string to append.
+ */
+void __append_string__(const string str) {
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (str[i] == '\n') {
+            __append_newline__();
+            continue;
+        }
+        __append_char__(str[i]);
+    }
+}
+
+/**
+ * @brief Appends a string to the screen with a specified color. Internal only.
+ *
+ * Writes a string of ASCII characters after
+ * the next character, determined by the values
+ * of display_data. This will point to a char*,
+ * which is looped over until the null byte is reached.
+ * It also prints with a specified color.
+ * Only for debug use, since other functions
+ * like print/printf are just better.
+ * @param str The string to append.
+ * @param color The color to print it in.
+ */
+void __append_string_color__(const string str, const u8 color) {
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (str[i] == '\n') {
+            __append_newline__();
+            continue;
+        }
+        __append_char_color__(str[i], color);
+    }
+}
+
+/**
+ * @brief Moves the cursor to the next line. Internal only.
+ *
+ * Increments the y value of display_data and
+ * sets the value of x to 0, allowing writes
+ * to start from the next line of the previous
+ * character.
+ * Only for internal use, since other functions
+ * like print and println should add this to be
+ * built in.
+ */
 void __append_newline__() {
     display_data.y++;
     if (display_data.y > VGA_TEXT_HEIGHT) { display_data.y = 0; }
@@ -177,73 +316,77 @@ void __append_newline__() {
     __set_vga_cursor_pos__(display_data.x, display_data.y);
 }
 
-/// FUNCTION: clear_screen
-/// ----------------------------------------
-/// Resets the text mode screen by writing null
-/// bytes to all cells and setting the color of
-/// all cells to white-on-black or monochrome.
-/// It also resets display_data and sets the VGA
-/// cursor to 0, 0.
+/**
+ * @brief Clears all text and color off the screen.
+ *
+ * Resets the text mode screen by writing null
+ * bytes to all cells and setting the color of
+ * all cells to white-on-black or monochrome.
+ * It also resets display_data and sets the VGA
+ * cursor to 0, 0.
+ */
 void clear_screen() {
     for (int i = 0; i <= VGA_TEXT_WIDTH; i++)
         for (int j = 0; j <= VGA_TEXT_HEIGHT; j++)
-            __write_char__(i, j, '\0', 0x0f);
+            __write_char_color__(i, j, '\0', 0x0f);
     __reset_displaydata__();
     __set_vga_cursor_pos__(0, 0);
 }
 
-/// FUNCTION: write_number_to_text_memory
-/// DEBUG ONLY
-/// Parameter: 32-bit-integer number
-/// ----------------------------------------
-/// Writes a number in decimal form to the screen.
-/// Only for debug use, is integrated into print
-/// and println.
-void write_number_to_text_memory(u32 number) {
-    u8 digits[10] = {0};
-    int count = 9;
-
-    while (number) {
-        const int digit = number % 10;
-        number = number / 10;
-        digits[count] = digit;
-        count--;
-    }
-
-    for (int i = 0; i < 10; i++) { __append_char__(find_char_for_int(digits[i]), 0x0f); }
+/**
+ * Changes all color cells on the screen to
+ * the specified color.
+ * @param color The color to change to.
+ */
+void change_screen_color(const u8 color) {
+    for (int i = 0; i <= VGA_TEXT_WIDTH; i++)
+        for (int j = 0; j <= VGA_TEXT_HEIGHT; j++)
+            __write_color__(i, j, color);
 }
 
-/// FUNCTION: write_hex_to_text_memory
-/// DEBUG ONLY
-/// Parameter: 32-bit-integer number
-/// ----------------------------------------
-/// Writes a number in hexadecimal form to the
-/// screen.
-/// Only for debug use, is integrated into print
-/// and println.
-void write_hex_to_text_memory(u32 number) {
-    u8 digits[8] = {0};
-    int count = 9;
+/**
+ * Print a string to the screen.
+ * @param str The string to print.
+ */
+void print(const string str) { __append_string__(str); }
 
-    while (number) {
-        const int digit = number % 16;
-        number = number / 16;
-        digits[count] = digit;
-        count--;
-    }
-
-    for (int i = 0; i < 8; i++) { __append_char__(find_char_for_hex(digits[i]), 0x0f); }
+/**
+ * Print a string to the screen with
+ * a specified color.
+ * @param str The string to print.
+ * @param color The color to print in.
+ */
+void print_color(const string str, const u8 color) {
+    for (int i = 0; str[i] != '\0'; i++) { __append_char_color__(str[i], color); }
 }
 
-/// FUNCTION: print
-/// Parameter:
+/**
+ * Print a string to the screen with an
+ * extra line after.
+ * @param str The string to print.
+ */
+void println(const string str) {
+    __append_string__(str);
+    __append_newline__();
+}
 
-/// FUNCTION: printf
-/// Parameter: string(char*) fmt
-/// Variadic Parameters: ...
-/// ----------------------------------------
-/// Prints a string to the screen, including fmt-str like
-/// data like %d, %x, %s, etc.
+/**
+ * Print a string to the screen with a
+ * specified color and an extra line after.
+ * @param str The string to print.
+ * @param color The color to print it in.
+ */
+void println_color(const string str, const u8 color) {
+    __append_string_color__(str, color);
+    __append_newline__();
+}
+
+/**
+ * Prints a string to the screen with
+ * fmt-str data like numbers, strings, pointers.
+ * @param fmt The format string to print.
+ * @param ... The variadic arguments to print.
+ */
 void printf(const string fmt, ...) {
     va_list args;
     va_start(args, 0);
@@ -253,7 +396,7 @@ void printf(const string fmt, ...) {
             i++;
             switch (fmt[i]) {
             case 'd': {
-                const string digits = itoa(va_arg(args, u32), &buf[0]);
+                const string digits = itoa_signed(va_arg(args, i32), &buf[0]);
                 __append_string__(digits);
                 break;
             }
@@ -273,20 +416,23 @@ void printf(const string fmt, ...) {
                 break;
             }
             case 'c': {
-                __append_char__(va_arg(args, i32), 0x0f);
+                __append_char__(va_arg(args, i32));
+                break;
+            }
+            case 'u': {
+                const string digits = itoa(va_arg(args, u32), &buf[0]);
+                __append_string__(digits);
                 break;
             }
             default: {
-                __append_char__('%', 0x0f);
-                __append_char__(fmt[i], 0x0f);
+                __append_char__('%');
+                __append_char__(fmt[i]);
                 break;
             }
             }
         }
-        else if (fmt[i] == '\n') {
-            __append_newline__();
-        }
-        else { __append_char__(fmt[i], 0x0f); }
+        else if (fmt[i] == '\n') { __append_newline__(); }
+        else { __append_char__(fmt[i]); }
     }
 
     va_end(args);
