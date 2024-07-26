@@ -1,5 +1,6 @@
 //
 // Created by Adithiya Venkatakrishnan on 18/07/2024.
+//
 
 #include "modules.h"
 
@@ -44,8 +45,8 @@ const u8 char_to_hex_conversions[16][2] = {
     {15, 'F'},
 };
 
-u8 find_char_for_hex(u8 item) {
-    for (int i = 0; i < 10; i++) {
+u8 find_char_for_hex(const u8 item) {
+    for (int i = 0; i < 16; i++) {
         if (char_to_hex_conversions[i][0] == item) {
             return char_to_hex_conversions[i][1];
         }
@@ -78,6 +79,43 @@ string itoa(u32 number, const string str) {
         j++;
     }
     str[j] = 0;
+    return str;
+}
+
+string itoa_signed(i32 number, const string str) {
+    // took this code from geeks4geeks cuz i didnt feel like writing it myself
+
+    int i = 0;
+    // Save the sign of the number
+    const int sign = number;
+
+    // If the number is negative, make it positive
+    if (number < 0) {
+        number = -number;
+    }
+
+    // Extract digits from the number and add them to the
+    // string
+    do {
+        // Convert integer digit to character
+        str[i++] = number % 10 + '0';
+    } while ((number /= 10) > 0);
+
+    // If the number was negative, add a minus sign to the
+    // string
+    if (sign < 0) {
+        str[i++] = '-';
+    }
+
+    // Null-terminate the string
+    str[i] = '\0';
+
+    // Reverse the string to get the correct order
+    for (int j = 0, k = i - 1; j < k; j++, k--) {
+        const char temp = str[j];
+        str[j] = str[k];
+        str[k] = temp;
+    }
     return str;
 }
 
@@ -123,6 +161,7 @@ string xtoa_padded(u32 number, const string str) {
     for (int i = 0; i < 8; i++) {
         str[i] = (i8)find_char_for_hex(digits[i]);
     }
+    str[8] = 0;
     return str;
 }
 
