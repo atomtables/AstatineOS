@@ -8,14 +8,15 @@
 
 # also sorry people on windows, but you need to modify this
 # TODO: make this work on windows
-QEMU = qemu-system-i386
-GCC = i686-elf-gcc
-LD = i686-elf-ld
-CAT = cat
-RM = rm -rf
-NASM = nasm
-DD = dd
-MKDIR = mkdir
+QEMU 	= qemu-system-i386
+GCC 	= i686-elf-gcc
+LD 		= i686-elf-ld
+CAT 	= cat
+RM 		= rm -rf
+NASM 	= nasm
+DD 		= dd
+MKDIR 	= mkdir
+MV 		= mv
 
 NASMFLAGS = -f elf
 LDFLAGS   = -m elf_i386 -Ttext 0x1000 --oformat binary
@@ -44,7 +45,7 @@ KERNEL = build/kernel.bin
 ISO = build/NetworkOS.iso
 FINISHEDISO = product/NetworkOS.iso
 
-all: run
+all: build run
 
 $(BUILD_DIRS):
 	@$(MKDIR) -p product
@@ -53,7 +54,7 @@ $(BUILD_DIRS):
 build: $(BUILD_DIRS) $(ISO)
 	@echo "\033[32;6mBuild complete. ISO is in product/NetworkOS.iso\033[0m"
 
-run: build
+run: $(ISO)
 	$(QEMU) -drive file=$(FINISHEDISO),format=raw ${QEMUFLAGS}
 
 clean:
@@ -63,7 +64,7 @@ $(ISO): $(BOOTSECT) $(KERNEL)
 	$(DD) if=/dev/zero of=$(ISO) bs=512 count=2880 > /dev/null 2>&1
 	$(DD) if=$(BOOTSECT) of=$(ISO) conv=notrunc bs=512 seek=0 count=1 > /dev/null 2>&1
 	$(DD) if=$(KERNEL) of=$(ISO) conv=notrunc bs=512 seek=1 count=2879 > /dev/null 2>&1
-	@mv $(ISO) product/
+	@$(MV) $(ISO) product/
 
 $(BOOTSECT): $(BOOTSECT_SOURCES)
 	$(NASM) -fbin $^ -o $@
