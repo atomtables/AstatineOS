@@ -12,24 +12,27 @@
 #define DISPLAY_H
 
 #define VGA_TEXT_WIDTH  80
-#define VGA_TEXT_HEIGHT 26
+#define VGA_TEXT_HEIGHT 24
+#define VGA_TEXT_SIZE   VGA_TEXT_WIDTH * VGA_TEXT_HEIGHT
+
+#define VGA_TEXT_PAGING_WIDTH  80
+#define VGA_TEXT_PAGING_HEIGHT 48
+#define VGA_TEXT_PAGING_SIZE   VGA_TEXT_PAGING_WIDTH * VGA_TEXT_PAGING_HEIGHT
 
 #include "modules/modules.h"
 
-extern void disable_vga_cursor();
+void disable_vga_cursor();
 
-extern void __append_newline__();
+void clear_screen();
 
-extern void clear_screen();
+void change_screen_color(u8 color);
 
-extern void change_screen_color(u8 color);
+void print(string str);
 
-extern void print(string str);
+void print_color(string str, u8 color);
 
-extern void print_color(string str, u8 color);
+void println(string str);
 
-extern void println(string str);
-
-extern void printf(string fmt, ...);
+void printf(string fmt, ...);
 
 #endif //DISPLAY_H

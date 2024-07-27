@@ -1,11 +1,7 @@
+#include <exception/exception.h>
 #include <memory/memory.h>
 
 #include "display/display.h"
-// #include "memory/memory.h"
-
-/* the screen is 80x24 in text mode */
-#define VGA_TEXT_WIDTH 80
-#define VGA_TEXT_HEIGHT 24
 
 /* In our kernel, we can reserve memory
  * 0x100000-0x1FFFFF for the storage of heap data (like variables)
@@ -14,11 +10,19 @@
 
 // YO THIS GUY ONLINE WAS ACT LEGIT :skull:
 int main() {
+    clear_screen();
+
+    for (int i = 0; i < 1000000000; i++) {
+        asm ("nop");
+    }
+
+    u32* registers[8]; get_registers(registers);
+    fatal_error(0, "Testing Fatal Error Screen", (void*)main, &registers[0]);
+
     init_mem();
     clear_screen();
 
-    printf("Welcome to NetworkOS... Data: %d", 1234);
-    __append_newline__();
+    printf("Welcome to NetworkOS... Data: %x\n", 0x1234);
     int ptr1 = (int)malloc(10);
     *(char*)ptr1 = 'h';
     *(char*)(ptr1+1) = 'i';

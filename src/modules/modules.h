@@ -25,6 +25,17 @@ typedef char*   string;
 #define false   0
 
 #define alloca(b)   __builtin_alloca(b)
+#define asm         __asm__
+
+#define get_registers(registers) \
+    __asm__ volatile ("movl %%eax, %0": "=r"(registers[0])); \
+    __asm__ volatile ("movl %%ebx, %0": "=r"(registers[1])); \
+    __asm__ volatile ("movl %%ecx, %0": "=r"(registers[2])); \
+    __asm__ volatile ("movl %%edx, %0": "=r"(registers[3])); \
+    __asm__ volatile ("movl %%esi, %0": "=r"(registers[4])); \
+    __asm__ volatile ("movl %%edi, %0": "=r"(registers[5])); \
+    __asm__ volatile ("movl %%ebp, %0": "=r"(registers[6])); \
+    __asm__ volatile ("movl %%esp, %0": "=r"(registers[7]));
 
 string itoa(u32 number, char* str);
 

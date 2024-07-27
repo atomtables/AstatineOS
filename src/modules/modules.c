@@ -2,7 +2,8 @@
 // Created by Adithiya Venkatakrishnan on 18/07/2024.
 //
 
-#include "modules.h"
+#include <memory/memory.h>
+#include <modules/modules.h>
 
 const u8 char_to_int_conversions[10][2] = {
     {0, '0'},
@@ -167,10 +168,10 @@ string xtoa_padded(u32 number, const string str) {
 
 u8 inportb(u16 port) {
     u8 r;
-    __asm__ ("inb %1, %0" : "=a" (r) : "dN" (port));
+    asm ("inb %1, %0" : "=a" (r) : "dN" (port));
     return r;
 }
 
 void outportb(u16 port, u8 data) {
-    __asm__ ("outb %1, %0" : : "dN" (port), "a" (data));
+    asm ("outb %1, %0" : : "dN" (port), "a" (data));
 }

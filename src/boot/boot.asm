@@ -8,6 +8,8 @@ mov     al, 0x13
 KERNEL_OFFSET equ 0x1000 ; The same one we used when linking the kernel
 
 mov     bx, KERNEL_OFFSET ; Read from disk and store in 0x1000
+mov     es, bx
+mov     bx, 0x0000
 mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
 mov     al, 50   ; al <- number of sectors to read (0x01 .. 0x80)
 mov     cl, 0x02 ; cl <- sector (0x01 .. 0x11)
@@ -49,7 +51,7 @@ init_32bit:                 ; we are now using 32-bit instructions
 
 [bits 32]
 BEGIN_32BIT:
-    call    KERNEL_OFFSET   ; Give control to the kernel
+    call    0x10000         ; Give control to the kernel
     jmp     $               ; Stay here when the kernel returns control to us (if ever)
 
 
