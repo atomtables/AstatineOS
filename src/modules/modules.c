@@ -85,7 +85,6 @@ string itoa(u32 number, const string str) {
 
 string itoa_signed(i32 number, const string str) {
     // took this code from geeks4geeks cuz i didnt feel like writing it myself
-
     int i = 0;
     // Save the sign of the number
     const int sign = number;
@@ -164,6 +163,41 @@ string xtoa_padded(u32 number, const string str) {
     }
     str[8] = 0;
     return str;
+}
+
+void memset(void* dst, u8 value, u32 n) {
+    u8 *d = dst;
+
+    while (n-- > 0) {
+        *d++ = value;
+    }
+}
+
+void* memcpy(void* dst, const void* src, u32 n) {
+    u8 *d = dst;
+    const u8 *s = src;
+
+    while (n-- > 0) {
+        *d++ = *s++;
+    }
+
+    return d;
+}
+
+void* memmove(void* dst, const void* src, u32 n) {
+    // OK since we know that memcpy copies forwards
+    if (dst < src) {
+        return memcpy(dst, src, n);
+    }
+
+    u8 *d = dst;
+    const u8 *s = src;
+
+    for (size_t i = n; i > 0; i--) {
+        d[i - 1] = s[i - 1];
+    }
+
+    return dst;
 }
 
 u8 inportb(u16 port) {

@@ -9,8 +9,8 @@
 # also sorry people on windows, but you need to modify this
 # TODO: make this work on windows
 QEMU 	= qemu-system-i386
-GCC 	= i686-elf-gcc
-LD 		= i686-elf-ld
+GCC 	= /opt/homebrew/bin/i686-elf-gcc
+LD 		= /opt/homebrew/bin/i686-elf-ld
 CAT 	= cat
 RM 		= rm -rf
 NASM 	= nasm
@@ -26,7 +26,7 @@ CCFLAGS  += -nostdlib -nostdinc -ffreestanding -fno-pie -fno-stack-protector
 CCFLAGS  += -fno-builtin-function -fno-builtin -Isrc
 CCFLAGS  += -I/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include
 CCFLAGS  += -I/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include-fixed
-QEMUFLAGS = -monitor stdio -d guest_errors -D qemu.log -no-reboot -no-shutdown
+QEMUFLAGS = -monitor stdio -d int -D qemu.log -no-reboot -no-shutdown
 
 # There should only be one boot sector file. Dependencies can be called on within it.
 BOOTSECT_SOURCES = src/boot/boot.asm
