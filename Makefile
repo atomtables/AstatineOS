@@ -26,7 +26,7 @@ CCFLAGS  += -nostdlib -nostdinc -ffreestanding -fno-pie -fno-stack-protector
 CCFLAGS  += -fno-builtin-function -fno-builtin -Isrc
 CCFLAGS  += -I/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include
 CCFLAGS  += -I/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include-fixed
-QEMUFLAGS = -monitor stdio -d int -D qemu.log -no-reboot -no-shutdown
+QEMUFLAGS = -monitor stdio -d guest_errors -D qemu.log -no-reboot -no-shutdown
 
 # There should only be one boot sector file. Dependencies can be called on within it.
 BOOTSECT_SOURCES = src/boot/boot.asm

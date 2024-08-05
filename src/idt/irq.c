@@ -38,23 +38,33 @@ static void stub(struct registers *regs) {
     }
 
     // send EOI
-    if (regs->int_no >= 0x40) {
-        outportb(PIC2, PIC_EOI);
-    }
-
+    if (regs->int_no >= 0x40) outportb(PIC2, PIC_EOI);
     outportb(PIC1, PIC_EOI);
 }
 
 static void irq_remap() {
     u8 mask1 = inportb(PIC1_DATA), mask2 = inportb(PIC2_DATA);
-    outportb(PIC1, ICW1_INIT | ICW1_ICW4);
+
+    outportb(PIC1, ICW1_INIT | ICW1_ICW4); // complicated way of saying 0x11
+    PIC_WAIT();
     outportb(PIC2, ICW1_INIT | ICW1_ICW4);
+    PIC_WAIT();
+
     outportb(PIC1_DATA, PIC1_OFFSET);
+    PIC_WAIT();
     outportb(PIC2_DATA, PIC2_OFFSET);
+    PIC_WAIT();
+
     outportb(PIC1_DATA, 0x04); // PIC2 at IRQ2
+    PIC_WAIT();
     outportb(PIC2_DATA, 0x02); // Cascade indentity
+    PIC_WAIT();
+
     outportb(PIC1_DATA, PIC_MODE_8086);
+    PIC_WAIT();
     outportb(PIC1_DATA, PIC_MODE_8086);
+    PIC_WAIT();
+
     outportb(PIC1_DATA, mask1);
     outportb(PIC2_DATA, mask2);
 }

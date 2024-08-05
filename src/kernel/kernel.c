@@ -1,3 +1,4 @@
+#include <exception/exception.h>
 #include <idt/interrupt.h>
 #include <memory/memory.h>
 
@@ -10,15 +11,21 @@
 
 // YO THIS GUY ONLINE WAS ACT LEGIT :skull:
 int main() {
-    INIT_INTERRUPTS();
-
-    for (int i = 0; i < 1000000000; i++) { asm ("nop"); }
+    idt_init();
+    isr_init();
+    irq_init();
 
     init_mem();
     clear_screen();
 
-    printf("Welcome to NetworkOS... Data: %d\n", 1234);
+    int eax = 0;
+    while(true) {
+        printf("Welcome to NetworkOS... Data: %d\n", eax);
+        eax += 1;
 
+        if (eax > 1200) {
+            asm ("int3");
+        }
+    }
 
-    for (;;);
 }

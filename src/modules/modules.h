@@ -56,6 +56,7 @@ string xtoa(u32 number, char* str);
 string xtoa_padded(u32 number, char* str);
 
 void memset(void* dst, u8 value, u32 n);
+void memset_step(void* dst, u8 value, u32 n, u32 step);
 void* memcpy(void* dst, const void* src, u32 n);
 void* memmove(void* dst, const void* src, u32 n);
 

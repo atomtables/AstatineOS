@@ -173,6 +173,15 @@ void memset(void* dst, u8 value, u32 n) {
     }
 }
 
+void memset_step(void* dst, u8 value, u32 n, u32 step) {
+    u8 *d = dst;
+
+    while (n-- > 0) {
+        *d = value;
+        d += step;
+    }
+}
+
 void* memcpy(void* dst, const void* src, u32 n) {
     u8 *d = dst;
     const u8 *s = src;

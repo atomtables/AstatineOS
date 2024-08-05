@@ -2,8 +2,10 @@
 /// VGA Text-mode driver (display.c, display.h)
 /// Created by Adithiya Venkatakrishnan on 17/07/2024.
 ///
-/// The current implementation goes back to y=0 after
-/// reaching the last line.
+/// The current implementation stays at the last line
+/// during overflow. This may cause a tiny bit of performance
+/// loss, but should be negligent (seeing a transition to VGA
+/// color-pixel mode)
 ///
 
 #include <stdarg.h>
@@ -27,6 +29,8 @@ char buf[11] = {0};
  *
  * @param x The X coordinate of the cursor
  * @param y The Y coordinate of the cursor
+ * @param top The top line of the currently displayed text
+ * @param bottom The bottom line of the currently displayed text
  */
 struct display_data {
     i32 x;
@@ -161,8 +165,15 @@ void disable_vga_cursor() {
  * @param y The Y coordinate to write to
  * @param character The character to write.
  */
-void __write_char__(const int x, const int y, const char character) {
+void __write_char__(const int x, int y, const char character) {
     if (x >= VGA_TEXT_WIDTH) return;
+    // if y is greater than height, set y to height-1 and move lines 1-23 to 0-22 using memcpy
+    if (y >= VGA_TEXT_HEIGHT) {
+        y = VGA_TEXT_HEIGHT - 1;
+        for (int i = 0; i < VGA_TEXT_HEIGHT - 1; i++) {
+            memcpy((void*)0xb8000 + i * VGA_TEXT_WIDTH * 2, (void*)0xb8000 + (i + 1) * VGA_TEXT_WIDTH * 2, VGA_TEXT_WIDTH * 2);
+        }
+    }
 
     volatile char* vga = (char*)0xb8000;
     vga += y * VGA_TEXT_WIDTH * 2 + x * 2;
@@ -184,8 +195,14 @@ void __write_char__(const int x, const int y, const char character) {
  * @param character The character to write
  * @param color The color to write
  */
-void __write_char_color__(const int x, const int y, const char character, const u8 color) {
+void __write_char_color__(const int x, int y, const char character, const u8 color) {
     if (x >= VGA_TEXT_WIDTH) return;
+    if (y >= VGA_TEXT_HEIGHT) {
+        y = VGA_TEXT_HEIGHT - 1;
+        for (int i = 0; i < VGA_TEXT_HEIGHT - 1; i++) {
+            memcpy((void*)0xb8000 + i * VGA_TEXT_WIDTH * 2, (void*)0xb8000 + (i + 1) * VGA_TEXT_WIDTH * 2, VGA_TEXT_WIDTH * 2);
+        }
+    }
 
     volatile char* vga = (char*)0xb8000;
     vga += y * VGA_TEXT_WIDTH * 2 + x * 2;
@@ -208,8 +225,14 @@ void __write_char_color__(const int x, const int y, const char character, const 
  * @param y The Y coordinate to write to.
  * @param color The color to write.
  */
-void __write_color__(const int x, const int y, const u8 color) {
+void __write_color__(const int x, int y, const u8 color) {
     if (x >= VGA_TEXT_WIDTH) return;
+    if (y >= VGA_TEXT_HEIGHT) {
+        y = VGA_TEXT_HEIGHT - 1;
+        for (int i = 0; i < VGA_TEXT_HEIGHT - 1; i++) {
+            memcpy((void*)0xb8000 + i * VGA_TEXT_WIDTH * 2, (void*)0xb8000 + (i + 1) * VGA_TEXT_WIDTH * 2, VGA_TEXT_WIDTH * 2);
+        }
+    }
 
     volatile char* vga = (char*)0xb8000;
     vga += y * VGA_TEXT_WIDTH * 2 + x * 2;
@@ -251,6 +274,8 @@ void __append_char_color__(const char character, const u8 color) {
     __inc_displaydata__();
     __set_vga_cursor_pos__(display_data.x, display_data.y);
 }
+
+void __append_newline__();
 
 /**
  * @brief Appends a string to the screen. Internal only.
@@ -326,11 +351,10 @@ void __append_newline__() {
  * cursor to 0, 0.
  */
 void clear_screen() {
-    for (int i = 0; i <= VGA_TEXT_WIDTH; i++)
-        for (int j = 0; j <= VGA_TEXT_HEIGHT; j++)
-            __write_char_color__(i, j, '\0', 0x0f);
     __reset_displaydata__();
     __set_vga_cursor_pos__(0, 0);
+    memset_step((void*)0xb8000, 0, VGA_TEXT_SIZE, 2);
+    memset_step((void*)0xb8001, 0x0f, VGA_TEXT_SIZE, 2);
 }
 
 /**
@@ -339,9 +363,7 @@ void clear_screen() {
  * @param color The color to change to.
  */
 void change_screen_color(const u8 color) {
-    for (int i = 0; i <= VGA_TEXT_WIDTH; i++)
-        for (int j = 0; j <= VGA_TEXT_HEIGHT; j++)
-            __write_color__(i, j, color);
+    memset_step((void*)0xb8001, color, VGA_TEXT_SIZE, 2);
 }
 
 /**
