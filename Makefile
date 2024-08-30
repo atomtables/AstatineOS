@@ -30,11 +30,12 @@ QEMUFLAGS = -monitor stdio -d guest_errors -D qemu.log -no-reboot -no-shutdown
 
 # There should only be one boot sector file. Dependencies can be called on within it.
 BOOTSECT_SOURCES = src/boot/boot.asm
+BOOTSECT_DEPS 	 = src/entry32/gdt.asm
 
 SOURCEDIR = src
 
 KERNEL_SOURCES_C := $(shell find $(SOURCEDIR) -name '*.c')
-KERNEL_SOURCES_ASM := $(filter-out $(BOOTSECT_SOURCES), $(shell find $(SOURCEDIR) -name '*.asm'))
+KERNEL_SOURCES_ASM := $(filter-out $(BOOTSECT_SOURCES) $(BOOTSECT_DEPS), $(shell find $(SOURCEDIR) -name '*.asm'))
 KERNEL_OBJECTS = $(patsubst %.c, build/%.o, $(KERNEL_SOURCES_C)) $(patsubst %.asm, build/%.o, $(KERNEL_SOURCES_ASM))
 
 BUILD_DIRS = $(sort $(dir $(KERNEL_OBJECTS)))
@@ -54,7 +55,7 @@ $(BUILD_DIRS):
 build: $(BUILD_DIRS) $(ISO)
 	@echo "\033[32;6mBuild complete. ISO is in product/NetworkOS.iso\033[0m"
 
-run: $(ISO)
+run: build
 	$(QEMU) -drive file=$(FINISHEDISO),format=raw ${QEMUFLAGS}
 
 clean:
