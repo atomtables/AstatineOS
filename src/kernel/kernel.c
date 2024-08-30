@@ -13,12 +13,12 @@
 int main() {
     idt_init();
     isr_init();
-    irq_init();
+    PIC_init();
 
     init_mem();
     clear_screen();
 
-    int eax = 0;
+    volatile int eax = 0;
     while(true) {
         printf("Welcome to NetworkOS... Data: %d\n", eax);
         eax += 1;
