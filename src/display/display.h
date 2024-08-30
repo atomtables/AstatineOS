@@ -19,7 +19,7 @@
 #define VGA_TEXT_PAGING_HEIGHT 48
 #define VGA_TEXT_PAGING_SIZE   VGA_TEXT_PAGING_WIDTH * VGA_TEXT_PAGING_HEIGHT * 2
 
-#include "modules/modules.h"
+#include <modules/modules.h>
 
 void disable_vga_cursor();
 
