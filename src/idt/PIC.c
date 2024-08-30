@@ -2,7 +2,7 @@
 // Created by Adithiya Venkatakrishnan on 27/07/2024.
 //
 
-#include "irq.h"
+#include "pic.h"
 
 #include <idt/idt.h>
 #include <idt/isr.h>
@@ -42,7 +42,7 @@ static void stub(struct registers *regs) {
     outportb(PIC1, PIC_EOI);
 }
 
-static void irq_remap() {
+static void PIC_remap() {
     u8 mask1 = inportb(PIC1_DATA), mask2 = inportb(PIC2_DATA);
 
     outportb(PIC1, ICW1_INIT | ICW1_ICW4); // complicated way of saying 0x11
@@ -69,29 +69,29 @@ static void irq_remap() {
     outportb(PIC2_DATA, mask2);
 }
 
-static void irq_set_mask(u32 i) {
+static void PIC_set_mask(u32 i) {
     u16 port = i < 8 ? PIC1_DATA : PIC2_DATA;
     u8 value = inportb(port) | (1 << i);
     outportb(port, value);
 }
 
-static void irq_clear_mask(u32 i) {
+static void PIC_clear_mask(u32 i) {
     u16 port = i < 8 ? PIC1_DATA : PIC2_DATA;
     u8 value = inportb(port) & ~(1 << i);
     outportb(port, value);
 }
 
-void irq_install(size_t i, void (*handler)(struct registers *)) {
+void PIC_install(u32 i, void (*handler)(struct registers *)) {
     CLI();
     handlers[i] = handler;
-    irq_clear_mask(i);
+    PIC_clear_mask(i);
     STI();
 }
 
-void irq_init() {
-    irq_remap();
+void PIC_init() {
+    PIC_remap();
 
-    for (size_t i = 0; i < 16; i++) {
+    for (u32 i = 0; i < 16; i++) {
         isr_install(32 + i, stub);
     }
 }

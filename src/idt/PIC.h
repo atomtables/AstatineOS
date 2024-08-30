@@ -8,7 +8,7 @@
 #include <idt/isr.h>
 #include <modules/modules.h>
 
-void irq_install(u32 i, void (*handler)(struct registers*));
-void irq_init();
+void PIC_install(u32 i, void (*handler)(struct registers*));
+void PIC_init();
 
 #endif //IRQ_H

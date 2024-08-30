@@ -6,9 +6,9 @@
 #define INTERRUPT_H
 
 #include <idt/idt.h>
-#include <idt/irq.h>
+#include <idt/PIC.h>
 #include <idt/isr.h>
 
-#define INIT_INTERRUPTS() idt_init(); isr_init(); irq_init();
+#define INIT_INTERRUPTS() idt_init(); isr_init(); PIC_init();
 
 #endif //INTERRUPT_H
