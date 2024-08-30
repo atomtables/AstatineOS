@@ -203,7 +203,7 @@ void* memmove(void* dst, const void* src, u32 n) {
     u8 *d = dst;
     const u8 *s = src;
 
-    for (size_t i = n; i > 0; i--) {
+    for (u32 i = n; i > 0; i--) {
         d[i - 1] = s[i - 1];
     }
 

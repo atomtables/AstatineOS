@@ -2,7 +2,7 @@
 // Created by Adithiya Venkatakrishnan on 23/07/2024.
 //
 
-#include "modules/modules.h"
+#include <modules/modules.h>
 #include "memory.h"
 
 #include <display/display.h>

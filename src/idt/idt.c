@@ -16,7 +16,7 @@ struct IDTEntry {
 
 struct IDTPointer {
     u16 limit;
-    uintptr_t base;
+    u32 base;
 } PACKED;
 
 static struct {
