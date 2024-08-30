@@ -2,31 +2,7 @@
 // Created by Adithiya Venkatakrishnan on 18/07/2024.
 //
 
-#include <memory/memory.h>
 #include <modules/modules.h>
-
-const u8 char_to_int_conversions[10][2] = {
-    {0, '0'},
-    {1, '1'},
-    {2, '2'},
-    {3, '3'},
-    {4, '4'},
-    {5, '5'},
-    {6, '6'},
-    {7, '7'},
-    {8, '8'},
-    {9, '9'},
-};
-
-u8 find_char_for_int(u8 item) {
-    for (int i = 0; i < 10; i++) {
-        if (char_to_int_conversions[i][0] == item) {
-            return char_to_int_conversions[i][1];
-        }
-    }
-    return null;
-    // hello world
-}
 
 const u8 char_to_hex_conversions[16][2] = {
     {0, '0'},
@@ -77,7 +53,7 @@ string itoa(u32 number, const string str) {
             }
             else continue;
         }
-        str[j] = (i8)find_char_for_int(digits[i]);
+        str[j] = (i8)find_char_for_hex(digits[i]);
         j++;
     }
     str[j] = 0;
@@ -183,7 +159,7 @@ void memset_step(void* dst, u8 value, u32 n, u32 step) {
     }
 }
 
-void* memcpy(void* dst, const void* src, u32 n) {
+void* memcpy(void* dst, void* src, u32 n) {
     u8 *d = dst;
     const u8 *s = src;
 
@@ -194,7 +170,7 @@ void* memcpy(void* dst, const void* src, u32 n) {
     return d;
 }
 
-void* memmove(void* dst, const void* src, u32 n) {
+void* memmove(void* dst, void* src, const u32 n) {
     // OK since we know that memcpy copies forwards
     if (dst < src) {
         return memcpy(dst, src, n);
