@@ -66,7 +66,7 @@ void interrupt_panic(const int code, char* reason, const struct registers* regis
     printf("       INTNO %d: %s", code, reason);
     print("\n\n       Press ENTER to restart. The system will restart in 10 seconds.\n\n");
     print("       Developer/Technical Information:\n\n");
-    printf("       EIP: %p, EFL: %p, USERESP: %p, ERRNO: %d\n", (void*)registers->eip, (void*)registers->efl, (void*)registers->useresp, registers->err_no);
+    printf("       EIP:%p, EFL:%p, USERESP:%p, ERRNO:%d\n", (void*)registers->eip, (void*)registers->efl, (void*)registers->useresp, registers->err_no);
     printf("       EAX:%p, EBX:%p, ECX:%p, EDX:%p\n", (void*)registers->eax, (void*)registers->ebx, (void*)registers->ecx, (void*)registers->edx);
     printf("       ESI:%p, EDI:%p, EBP:%p, ESP:%p\n\n", (void*)registers->esi, (void*)registers->edi, (void*)registers->ebp, (void*)registers->esp);
     printf("       Memory Dump around EIP:\n");
