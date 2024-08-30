@@ -24,7 +24,7 @@ mov     sp, bp
 call    switch_to_32bit ; disable interrupts, load GDT,  etc. Finally jumps to 'BEGIN_PM'
 jmp     $               ; Never executed
 
-%include "src/entry32/gdt.asm"
+%include "gdt.asm"
 
 [bits 16]
 switch_to_32bit:

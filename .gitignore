@@ -5,5 +5,7 @@
 *.iso
 *.log
 *.map
-build
-product
+build/
+product/
+objects/
+cmake-build-main
