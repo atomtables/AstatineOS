@@ -51,7 +51,7 @@ set(CCFLAGS
     -I/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include
     -I/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include-fixed
 )
-set(QEMUFLAGS   "-monitor stdio -d guest_errors -D qemu.log -no-reboot -no-shutdown")
+set(QEMUFLAGS   -monitor stdio -d guest_errors -D qemu.log -no-reboot -no-shutdown)
 
 # for CMake and CLion
 include_directories("${SOURCE_DIR}" "/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include" "/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include-fixed")
@@ -140,7 +140,7 @@ add_custom_command(
 )
 
 add_custom_command(
-        OUTPUT ${ISO}
+        OUTPUT ${FISO}
         COMMAND ${MKDIR} -p product
         COMMAND ${DD} if=/dev/zero of=${ISO} bs=512 count=2880
         COMMAND ${DD} if=${BOOTSECT} of=${ISO} conv=notrunc bs=512 seek=0 count=1
@@ -152,17 +152,16 @@ add_custom_command(
 
 add_custom_target(
         build
-        DEPENDS ${ISO}
+        DEPENDS ${FISO}
 )
 
 add_custom_target(
-        run
-        COMMAND ${QEMU} -drive file=${FISO},format=raw
-
-        DEPENDS build
+        run ALL
+        COMMAND ${QEMU} ${QEMUFLAGS} -drive file=${FISO},format=raw
+        DEPENDS ${FISO}
 )
 
 # for the discovery of files that I can apply for CLion
 # the actual execution of this will fail because i686-elf-gcc is a cross-compiler for x86
 # and im on an apple silicon mac. might work for prince though
-add_executable(NetworkOS ${KERNEL_SOURCES_C} ${KERNEL_SOURCES_ASM} ${BOOTSECT_SOURCES} ${BOOTSECT_DEPS})
+add_executable(FailStub ${KERNEL_SOURCES_C} ${KERNEL_SOURCES_ASM} ${BOOTSECT_SOURCES} ${BOOTSECT_DEPS})
