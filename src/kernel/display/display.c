@@ -81,7 +81,7 @@ void __inc_displaydata__() {
         display_data.x = 0;
     }
     if (display_data.y >= VGA_TEXT_HEIGHT)
-        display_data.y = 0;
+        display_data.y = VGA_TEXT_HEIGHT - 1;
 }
 
 /**
@@ -135,10 +135,10 @@ void __set_vga_cursor_pos__(const int x, const int y) {
  */
 void enable_cursor(const u8 width, const u8 height) {
     outportb(0x3D4, 0x0A);
-    outportb(0x3D5, inportb(0x3D5) & 0xC0 | width);
+    outportb(0x3D5, (inportb(0x3D5) & 0xC0) | width);
 
     outportb(0x3D4, 0x0B);
-    outportb(0x3D5, inportb(0x3D5) & 0xE0 | height);
+    outportb(0x3D5, (inportb(0x3D5) & 0xE0) | height);
 }
 
 /**
@@ -173,6 +173,7 @@ void __write_char__(const int x, int y, const char character) {
         for (int i = 0; i < VGA_TEXT_HEIGHT - 1; i++) {
             memcpy((void*)0xb8000 + i * VGA_TEXT_WIDTH * 2, (void*)0xb8000 + (i + 1) * VGA_TEXT_WIDTH * 2, VGA_TEXT_WIDTH * 2);
         }
+        memset_step((void*)0xb8000 + (VGA_TEXT_HEIGHT - 1) * VGA_TEXT_WIDTH * 2, 0, VGA_TEXT_WIDTH, 2);
     }
 
     volatile char* vga = (char*)0xb8000;
@@ -202,6 +203,7 @@ void __write_char_color__(const int x, int y, const char character, const u8 col
         for (int i = 0; i < VGA_TEXT_HEIGHT - 1; i++) {
             memcpy((void*)0xb8000 + i * VGA_TEXT_WIDTH * 2, (void*)0xb8000 + (i + 1) * VGA_TEXT_WIDTH * 2, VGA_TEXT_WIDTH * 2);
         }
+        memset_step((void*)0xb8000 + (VGA_TEXT_HEIGHT - 1) * VGA_TEXT_WIDTH * 2, 0, VGA_TEXT_WIDTH, 2);
     }
 
     volatile char* vga = (char*)0xb8000;
@@ -232,6 +234,7 @@ void __write_color__(const int x, int y, const u8 color) {
         for (int i = 0; i < VGA_TEXT_HEIGHT - 1; i++) {
             memcpy((void*)0xb8000 + i * VGA_TEXT_WIDTH * 2, (void*)0xb8000 + (i + 1) * VGA_TEXT_WIDTH * 2, VGA_TEXT_WIDTH * 2);
         }
+        memset_step((void*)0xb8000 + (VGA_TEXT_HEIGHT - 1) * VGA_TEXT_WIDTH * 2, 0, VGA_TEXT_WIDTH, 2);
     }
 
     volatile char* vga = (char*)0xb8000;
@@ -335,7 +338,14 @@ void __append_string_color__(const string str, const u8 color) {
  */
 void __append_newline__() {
     display_data.y++;
-    if (display_data.y > VGA_TEXT_HEIGHT) { display_data.y = 0; }
+    if (display_data.y > VGA_TEXT_HEIGHT) {
+        display_data.y = VGA_TEXT_HEIGHT - 1;
+        for (int i = 0; i < VGA_TEXT_HEIGHT - 1; i++) {
+            memcpy((void*)0xb8000 + i * VGA_TEXT_WIDTH * 2, (void*)0xb8000 + (i + 1) * VGA_TEXT_WIDTH * 2, VGA_TEXT_WIDTH * 2);
+        }
+        // clear the last line
+        memset_step((void*)0xb8000 + (VGA_TEXT_HEIGHT - 1) * VGA_TEXT_WIDTH * 2, 0, VGA_TEXT_WIDTH, 2);
+    }
     display_data.x = 0;
 
     __set_vga_cursor_pos__(display_data.x, display_data.y);

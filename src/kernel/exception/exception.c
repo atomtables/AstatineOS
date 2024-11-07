@@ -6,11 +6,22 @@
 
 #include <display/display.h>
 #include <idt/isr.h>
+#include <timer/PIT.h>
+
+void reboot() {
+    u8 good = 0x02;
+    while (good & 0x02)
+        good = inportb(0x64);
+    outportb(0x64, 0xFE);
+    asm ("hlt");
+}
 
 // works with 32-bit
+// is now legacy, just do `asm ("int3")`
 void fatal_error(const int code, char* reason, void* function, u32** registers) {
     int* eip = __builtin_return_address(0) - 5;
-    int* early_call = __builtin_return_address(1) - 5;
+    // int* early_call = __builtin_return_address(1) - 5;
+    int* early_call = 0; // legacy
 
     clear_screen();
 
@@ -27,7 +38,7 @@ void fatal_error(const int code, char* reason, void* function, u32** registers) 
     printf("       An exception at %p (caller %p) has resulted in\n", eip, function);
     print("       a fatal error. This error was caused by:\n\n");
     printf("       ERRNO %d: %s", code, reason);
-    print("\n\n       Press ENTER to restart. The system will restart in 10 seconds.\n\n");
+    print("\n\n       Press ENTER to restart. The system will restart in 5 seconds.\n\n");
     print("       Developer/Technical Information:\n\n");
     printf("       EIP: %p -> Caller: %p -> Parent: %p\n", eip, function, early_call);
     printf("       EAX:%p, EBX:%p, ECX:%p, EDX:%p\n", registers[0], registers[1], registers[2], registers[3]);
@@ -43,8 +54,11 @@ void fatal_error(const int code, char* reason, void* function, u32** registers) 
     eipS += 4;
     printf("       %p:   %p   %p   %p   %p\n", eipS, *eipS, *(eipS + 1), *(eipS + 2), *(eipS + 3));
 
-    while (1);
+    sleep(5);
+    reboot();
 }
+
+
 
 void interrupt_panic(const int code, char* reason, const struct registers* registers) {
     int* eip = (int*)registers->eip;
@@ -64,8 +78,8 @@ void interrupt_panic(const int code, char* reason, const struct registers* regis
     printf("       be recovered from. NetworkOS has shut down to prevent further \n");
     printf("       damage to the system. The exception was:\n\n");
     printf("       INTNO %d: %s", code, reason);
-    print("\n\n       Press ENTER to restart. The system will restart in 10 seconds.\n\n");
-    print("       Developer/Technical Information:\n\n");
+    print("\n\n       Press ENTER to restart. The system will restart in 2 seconds.\n\n");
+    print ("       Developer/Technical Information:\n\n");
     printf("       EIP:%p, EFL:%p, USERESP:%p, ERRNO:%d\n", (void*)registers->eip, (void*)registers->efl, (void*)registers->useresp, registers->err_no);
     printf("       EAX:%p, EBX:%p, ECX:%p, EDX:%p\n", (void*)registers->eax, (void*)registers->ebx, (void*)registers->ecx, (void*)registers->edx);
     printf("       ESI:%p, EDI:%p, EBP:%p, ESP:%p\n\n", (void*)registers->esi, (void*)registers->edi, (void*)registers->ebp, (void*)registers->esp);
@@ -80,5 +94,5 @@ void interrupt_panic(const int code, char* reason, const struct registers* regis
     eipS += 4;
     printf("       %p:   %p   %p   %p   %p\n", eipS, *eipS, *(eipS + 1), *(eipS + 2), *(eipS + 3));
 
-    while (1);
+    while(1);
 }

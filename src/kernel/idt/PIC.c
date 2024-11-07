@@ -69,11 +69,11 @@ static void PIC_remap() {
     outportb(PIC2_DATA, mask2);
 }
 
-static void PIC_set_mask(u32 i) {
-    u16 port = i < 8 ? PIC1_DATA : PIC2_DATA;
-    u8 value = inportb(port) | (1 << i);
-    outportb(port, value);
-}
+// static void PIC_set_mask(u32 i) {
+//     u16 port = i < 8 ? PIC1_DATA : PIC2_DATA;
+//     u8 value = inportb(port) | (1 << i);
+//     outportb(port, value);
+// }
 
 static void PIC_clear_mask(u32 i) {
     u16 port = i < 8 ? PIC1_DATA : PIC2_DATA;

@@ -58,6 +58,8 @@ void    memset_step (void* dst,  u8 value,  u32 n, u32 step);
 void*   memcpy      (void* dst,  void* src, u32 n);
 void*   memmove     (void* dst,  void* src, u32 n);
 
+void*   strcpy      (void* dst, const char* src);
+
 u8      inportb     (u16 port);
 void    outportb    (u16 port,   u8 data);
 

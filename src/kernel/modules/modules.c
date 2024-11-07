@@ -186,6 +186,17 @@ void* memmove(void* dst, void* src, const u32 n) {
     return dst;
 }
 
+void* strcpy(void* dst, const char* src) {
+    u8 *d = dst;
+    const u8 *s = (u8*)src;
+
+    while (*s) {
+        *d++ = *s++;
+    }
+
+    return d;
+}
+
 u8 inportb(u16 port) {
     u8 r;
     asm ("inb %1, %0" : "=a" (r) : "dN" (port));
