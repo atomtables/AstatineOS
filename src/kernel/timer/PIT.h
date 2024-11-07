@@ -33,5 +33,6 @@ u64 timer_get();
 void timer_init();
 
 void sleep(int ms);
+void wait_and_do(const u64 ms, void(* ret)());
 
 #endif //PIT_H
