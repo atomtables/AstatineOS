@@ -16,7 +16,7 @@ void pcs_init() {
 static void play_sound(u32 nFrequence) {
     //Set the PIT to the desired frequency
     const u32 Div = PIT_HZ / nFrequence;
-    outportb(PIT_CONTROL, 0xb6);
+    outportb(PIT_CONTROL, 0b10110110);
     outportb(PIT_C, Div );
     outportb(PIT_C, Div >> 8);
  

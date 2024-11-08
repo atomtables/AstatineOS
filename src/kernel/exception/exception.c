@@ -54,7 +54,7 @@ void fatal_error(const int code, char* reason, void* function, u32** registers) 
     eipS += 4;
     printf("       %p:   %p   %p   %p   %p\n", eipS, *eipS, *(eipS + 1), *(eipS + 2), *(eipS + 3));
 
-    sleep(5);
+    sleep(5000);
     reboot();
 }
 
@@ -94,5 +94,7 @@ void interrupt_panic(const int code, char* reason, const struct registers* regis
     eipS += 4;
     printf("       %p:   %p   %p   %p   %p\n", eipS, *eipS, *(eipS + 1), *(eipS + 2), *(eipS + 3));
 
-    while(1);
+    STI();
+    sleep(2000);
+    reboot();
 }

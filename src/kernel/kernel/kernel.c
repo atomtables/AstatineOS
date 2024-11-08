@@ -12,18 +12,31 @@
 */
 
 // YO THIS GUY ONLINE WAS ACT LEGIT :skull:
+
+u32 get_conventional_memory_kb() {
+    u32* mem = (u32*) 0x413;
+    return *mem;
+}
+
+u64 get_extended_memory_kb() {
+    u32* mem = (u32*) 0x15;
+    return *mem * 64;
+}
+
 int main() {
+    clear_screen();
+
+    printf("NetworkOS Kernel v0.1\n");
+    printf("booting with %u KB of conventional memory\n", get_extended_memory_kb());
+
     idt_init();
     isr_init();
     PIC_init();
 
     init_mem();
-    clear_screen();
 
     timer_init();
     pcs_init();
-
-    sleep(500);
 
     beep();
 
