@@ -209,7 +209,7 @@ void __write_char_color__(const int x, int y, const char character, const u8 col
     volatile char* vga = (char*)0xb8000;
     vga += y * VGA_TEXT_WIDTH * 2 + x * 2;
     *vga = character;
-    *(vga + 1) = color;
+    *(vga + 1) = (char)color;
 
     __set_displaydata__(x, y);
     __set_vga_cursor_pos__(x, y);
@@ -239,7 +239,7 @@ void __write_color__(const int x, int y, const u8 color) {
 
     volatile char* vga = (char*)0xb8000;
     vga += y * VGA_TEXT_WIDTH * 2 + x * 2;
-    *(vga + 1) = color;
+    *(vga + 1) = (char)color;
 }
 
 /**
@@ -292,7 +292,7 @@ void __append_newline__();
  * like print/printf are just better.
  * @param str The string to append.
  */
-void __append_string__(const string str) {
+void __append_string__(string str) {
     for (int i = 0; str[i] != '\0'; i++) {
         if (str[i] == '\n') {
             __append_newline__();
@@ -315,7 +315,7 @@ void __append_string__(const string str) {
  * @param str The string to append.
  * @param color The color to print it in.
  */
-void __append_string_color__(const string str, const u8 color) {
+void __append_string_color__(string str, const u8 color) {
     for (int i = 0; str[i] != '\0'; i++) {
         if (str[i] == '\n') {
             __append_newline__();
@@ -380,7 +380,7 @@ void change_screen_color(const u8 color) {
  * Print a string to the screen.
  * @param str The string to print.
  */
-void print(const string str) { __append_string__(str); }
+void print(string str) { __append_string__(str); }
 
 /**
  * Print a string to the screen with
@@ -388,7 +388,7 @@ void print(const string str) { __append_string__(str); }
  * @param str The string to print.
  * @param color The color to print in.
  */
-void print_color(const string str, const u8 color) {
+void print_color(string str, const u8 color) {
     for (int i = 0; str[i] != '\0'; i++) { __append_char_color__(str[i], color); }
 }
 
@@ -397,7 +397,7 @@ void print_color(const string str, const u8 color) {
  * extra line after.
  * @param str The string to print.
  */
-void println(const string str) {
+void println(string str) {
     __append_string__(str);
     __append_newline__();
 }
@@ -408,7 +408,7 @@ void println(const string str) {
  * @param str The string to print.
  * @param color The color to print it in.
  */
-void println_color(const string str, const u8 color) {
+void println_color(string str, const u8 color) {
     __append_string_color__(str, color);
     __append_newline__();
 }
@@ -419,7 +419,7 @@ void println_color(const string str, const u8 color) {
  * @param fmt The format string to print.
  * @param ... The variadic arguments to print.
  */
-void printf(const string fmt, ...) {
+void printf(string fmt, ...) {
     va_list args;
     va_start(args, 0);
 
@@ -428,18 +428,18 @@ void printf(const string fmt, ...) {
             i++;
             switch (fmt[i]) {
             case 'd': {
-                const string digits = itoa_signed(va_arg(args, i32), &buf[0]);
+                string digits = itoa_signed(va_arg(args, i32), &buf[0]);
                 __append_string__(digits);
                 break;
             }
             case 'x': {
-                const string digits = xtoa(va_arg(args, u32), &buf[0]);
+                string digits = xtoa(va_arg(args, u32), &buf[0]);
                 __append_string__(digits);
                 break;
             }
             case 'p': {
                 __append_string__("0x");
-                const string digits = xtoa_padded(va_arg(args, u32), &buf[0]);
+                string digits = xtoa_padded(va_arg(args, u32), &buf[0]);
                 __append_string__(digits);
                 break;
             }
@@ -452,7 +452,7 @@ void printf(const string fmt, ...) {
                 break;
             }
             case 'u': {
-                const string digits = itoa(va_arg(args, u32), &buf[0]);
+                string digits = itoa(va_arg(args, u32), &buf[0]);
                 __append_string__(digits);
                 break;
             }

@@ -27,7 +27,7 @@ int main() {
     clear_screen();
 
     printf("NetworkOS Kernel v0.1\n");
-    printf("booting with %u KB of conventional memory\n", get_extended_memory_kb());
+    printf("booting with %u bytes of memory\n", get_extended_memory_kb());
 
     idt_init();
     isr_init();
@@ -39,6 +39,7 @@ int main() {
     pcs_init();
 
     beep();
+    sleep(500);
 
     printf("Welcome to NetworkOS...\n\n");
     printf("NetworkOS is a basic operating system written in C and Assembly.\n");
@@ -57,7 +58,7 @@ int main() {
     printf("Allocated 32 bytes at %p\n\n", ptr3);
     sleep(500);
 
-    printf("Dividing by zero in 1000 milliseconds...", ptr3);
+    printf("Dividing by zero in 1000 milliseconds...");
 
     sleep(1000);
 
