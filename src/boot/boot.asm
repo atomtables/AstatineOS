@@ -43,11 +43,13 @@ switch_to_32bit:
     mov     eax, cr0
     or      eax, 0x1            ; 3. set 32-bit mode bit in cr0
     mov     cr0, eax
-    jmp     CODE_SEG:init_32bit+0x7c00 ; 4. far jump by using a different segment
+                                ; 4. far jump by using a different segment
+    jmp     CODE_SEG:init_32bit+0x7c00
 
 [bits 32]
 init_32bit:                 ; we are now using 32-bit instructions
-    mov     word ax, DATA_SEG    ; 5. update the segment registers
+                            ; 5. update the segment registers
+    mov     word ax, DATA_SEG
     mov     ds, ax
     mov     ss, ax
     mov     es, ax
