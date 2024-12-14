@@ -1,5 +1,5 @@
 ; credit for this goes to the really really heplful people of osdev.org
-
+[bits 16]
 ;	out:
 ;		ax - state (0 - disabled, 1 - enabled)
 get_a20_state:

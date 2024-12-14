@@ -13,9 +13,9 @@ KERNEL_OFFSET equ 0x10000 ; The same one we used when linking the kernel
 
 mov     bx, 0x1000 ; Read from disk and store in 0x1000
 mov     es, bx
-mov     bx, 0x0000;es:bx = 0x1000:0x0000 = 0x10000
+mov     bx, 0x0000 ; es:bx = 0x1000:0x0000 = 0x10000
 mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
-mov     al, 32   ; al <- number of sectors to read (0x01 .. 0x80)
+mov     al, 0x80   ; al <- number of sectors to read (0x01 .. 0x80)
 mov     cl, 0x02 ; cl <- sector (0x01 .. 0x11)
 mov     ch, 0x00 ; ch <- cylinder (0x0 .. 0x3FF, upper 2 bits in 'cl')
 mov     dh, 0x00 ; dh <- head number (0x0 .. 0xF)
@@ -35,7 +35,6 @@ jmp     $               ; Never executed
 
 [bits 16]
 switch_to_32bit:
-    call    print               ; last interrupt before switching to 32-bit mode
     call    enable_a20          ; 0. enable A20 line
     cli                         ; 1. disable interrupts
     nop                         ; 1.1. some CPUs require a delay after cli
@@ -65,15 +64,6 @@ init_32bit:                 ; we are now using 32-bit instructions
 BEGIN_32BIT:
     call    CODE_SEG:0x10000         ; Give control to the kernel
     jmp     $               ; Stay here when the kernel returns control to us (if ever)
-
-[bits 16]
-print:
-    pusha
-    mov     ah, 0x0e
-    mov     al, 'a'
-    int     0x10
-    popa
-    ret
 
 %include "gdt.asm"
 %include "a20.asm"
