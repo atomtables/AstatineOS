@@ -101,7 +101,7 @@ string xtoa(u32 number, const string str) {
     int count = 7;
 
     while (number) {
-        const int digit = number % 16;
+        const u32 digit = number % 16;
         number = number / 16;
         digits[count] = digit;
         count--;
@@ -121,6 +121,10 @@ string xtoa(u32 number, const string str) {
         j++;
     }
     str[j] = 0;
+    if (j == 0) {
+        str[j] = '0';
+        str[j + 1] = 0;
+    }
     return str;
 }
 
@@ -205,4 +209,25 @@ u8 inportb(u16 port) {
 
 void outportb(u16 port, u8 data) {
     asm ("outb %1, %0" : : "dN" (port), "a" (data));
+}
+
+static u32 rseed = 1;
+
+void seed(u32 s) {
+    rseed = s;
+}
+
+u32 rand() {
+    static u32 x = 123456789;
+    static u32 y = 362436069;
+    static u32 z = 521288629;
+    static u32 w = 88675123;
+
+    x *= 23786259 - rseed;
+
+    u32 t;
+
+    t = x ^ (x << 11);
+    x = y; y = z; z = w;
+    return w = w ^ (w >> 19) ^ t ^ (t >> 8);
 }
