@@ -62,7 +62,6 @@ static void timer_handler(struct registers* regs) {
     }
     for (int i = 0; i < 256; i++) {
         if (process_wait_states[i].start != (u64)-1 && state.ticks >= process_wait_states[i].end) {
-            printf("running now... %d, %d, %p\n", process_wait_states[i].start, process_wait_states[i].end, process_wait_states[i].ret);
             process_wait_states[i].ret();
             process_wait_states[i].start = -1;
             process_wait_states[i].end = -1;

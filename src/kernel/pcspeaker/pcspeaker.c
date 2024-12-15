@@ -7,11 +7,6 @@
 #include <modules/modules.h>
 #include <timer/PIT.h>
 
-void pcs_init() {
-    // connect the pc speaker to the PIT
-    outportb(0x61, inportb(0x61) | 3);
-}
-
 //Play sound using built-in speaker
 static void play_sound(u32 nFrequence) {
     //Set the PIT to the desired frequency
@@ -38,4 +33,11 @@ void beep() {
     play_sound(587);
     wait_and_do(500, nosound);
     //set_PIT_2(old_frequency);
+}
+
+void pcs_init() {
+    // connect the pc speaker to the PIT
+    outportb(0x61, inportb(0x61) | 3);
+    play_sound(440);
+    wait_and_do(1, nosound);
 }
