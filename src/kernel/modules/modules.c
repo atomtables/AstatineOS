@@ -211,6 +211,16 @@ void outportb(u16 port, u8 data) {
     asm ("outb %1, %0" : : "dN" (port), "a" (data));
 }
 
+u16 inportw(u16 port) {
+    u16 r;
+    asm ("inw %1, %0" : "=a" (r) : "dN" (port));
+    return r;
+}
+
+void outportw(u16 port, u16 data) {
+    asm ("outw %1, %0" : : "dN" (port), "a" (data));
+}
+
 static u32 rseed = 1;
 
 void seed(u32 s) {
