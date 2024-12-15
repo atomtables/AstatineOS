@@ -448,7 +448,9 @@ void printf(string fmt, ...) {
                 break;
             }
             case 'c': {
-                __append_char__(va_arg(args, i32));
+                char arg = va_arg(args, i32);
+                if (arg == '\n') __append_newline__();
+                else __append_char__(arg);
                 break;
             }
             case 'u': {
