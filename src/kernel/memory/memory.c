@@ -58,26 +58,27 @@ void* malloc(const int bytes) {
     }
 
     // find the first block of memory that is free
-    int block = 0; bool free = false; int length = 0;
+    int block = 0; int other_block = 0; int length = 0;
     while (block < 8192) {
         if (is_block_free(block)) {
             length++;
             if (length == blocks) {
                 // we have enough blocks to allocate, now we can reserve blocks
-                for (int i = block - blocks + 1; i <= block; i++) {
+                for (int i = block; i < block + length; i++) {
                     printf("reserving block %u, block var: %u, blocks var: %u\n", i, block, blocks);
                     reserve_block(i);
                 }
                 return (void*)(block * MEM_BLOCK_BYTE_SIZE + MEM_BLOCK_START);
             }
         } else {
+            block = other_block;
             length = 0;
         }
-        block++;
+        other_block++;
     }
 
     // at this point, we have no memory to allocate
-    FATALERROR();
+    // FATALERROR();
 }
 
 void* calloc(const int bytes) {
