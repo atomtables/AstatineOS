@@ -7,7 +7,6 @@
 
 #include <modules/modules.h>
 
-// TODO: some of this it 100% wrong lmao
 #define KEY_NULL    0x00
 #define KEY_ESC     0x1B
 #define KEY_BS      0x08
@@ -41,6 +40,10 @@
 #define KEY_F10     (KEY_F1 + 9)
 #define KEY_F11     (KEY_F1 + 10)
 #define KEY_F12     (KEY_F1 + 11)
+#define KEY_F13     (KEY_F1 + 12)
+#define KEY_F14     (KEY_F1 + 13)
+#define KEY_F15     (KEY_F1 + 14)
+#define KEY_F16     (KEY_F1 + 15)
 
 #define KEY_LCTRL   0x1D
 #define KEY_RCTRL   0x1D
@@ -64,22 +67,22 @@
 #define KEY_MOD_NUM_LOCK    0x2000
 #define KEY_MOD_SCROLL_LOCK 0x4000
 
+#define KEYBOARD_PORT       0x60
+#define KEYBOARD_DATA_PORT  0x64
 #define KEYBOARD_RELEASE    0x80
 #define KEYBOARD_EXTENDED   0xE0
 
 #define KEY_PRESSED(_s) (!((_s) & KEYBOARD_RELEASE))
 #define KEY_RELEASED(_s) (!!((_s) & KEYBOARD_RELEASE))
 #define KEY_SCANCODE(_s) ((_s) & 0x7F)
-#define KEY_MOD(_s, _m) (!!((_s) & (_m)))
-#define KEY_CHAR(_s) __extension__({ \
-        __typeof__(_s) __s = (_s); \
-        KEY_SCANCODE(__s) < 128 ? \
-            keyboard_layout_us[KEY_MOD(__s, KEY_MOD_SHIFT) ? 1 : 0][KEY_SCANCODE(__s)] : \
-            0;  \
-    })
 
-void keyboard_init();
+#define CHAR_PRINTABLE(_c) ((_c) >= 0x20 && (_c) <= 0x7E)
+#define CHAR_NONPRINTABLE(_c) ((_c) < 0x20 || (_c) == 0x7F)
+#define CHAR_SPECIAL(_c) ((_c) > 0x7F)
 
-u8 wait_for_keypress();
+void    keyboard_init();
+
+u8      wait_for_keypress();
+string  input(string buffer, u32 size);
 
 #endif //KEYBOARD_H

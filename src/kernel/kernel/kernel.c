@@ -41,36 +41,14 @@ int main() {
 
     keyboard_init();
 
-    // beep();
-    // sleep(500);
-
-    // printf("Welcome to NetworkOS...\n\n");
-    // printf("NetworkOS is a basic operating system written in C and Assembly.\n");
-    // printf("It is intended to be used with user-space programs, but mainly for\n");
-    // printf("network utilities. (Under Development)\n\n");
-    //
-    // sleep(1000);
-    //
-    // void* ptr = malloc(32);
-    // printf("Allocated 32 bytes at %p\n", ptr);
-    // sleep(500);
-    // void* ptr2 = malloc(64);
-    // printf("Allocated 64 bytes at %p\n", ptr2);
-    // sleep(500);
-    // void* ptr3 = malloc(32);
-    // printf("Allocated 32 bytes at %p\n\n", ptr3);
-    // sleep(500);
-    //
-    // printf("Dividing by zero in 1000 milliseconds...");
-    //
-    // sleep(1000);
-    //
-    // DIV_BY_ZERO()
+    beep();
+    sleep(500);
 
     printf("creating a simple prompt:\n");
     while(1) {
-        // this is a very gamemode way of getting input, most programs get input
-        u8 c = wait_for_keypress();
-        printf("%c", c);
+        string prompt = malloc(64);
+        printf("NetworkOS> ");
+        prompt = input(prompt, 64);
+        free(prompt, 64);
     }
 }

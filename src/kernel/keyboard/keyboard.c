@@ -9,6 +9,8 @@
 #include <idt/interrupt.h>
 #include <timer/PIT.h>
 
+const bool DEBUG = false;
+
 u8 keyboard_layout_us[2][128] = {
     {
         KEY_NULL,
@@ -57,19 +59,28 @@ string input(string buffer, u32 size) {
     u32 i = 0;
     while (i < size) {
         buffer[i] = (char)wait_for_keypress();
-        if (buffer[i] == KEY_CR) {
+        if (buffer[i] == KEY_LF) {
             buffer[i] = 0;
             break;
         }
+        if (buffer[i] == KEY_BS) {
+            printf("%c", buffer[i]);
+            buffer[i] = 0;
+            if (i > 0) i--;
+            buffer[i] = 0;
+            continue;
+        }
+        printf("%c", buffer[i]);
         i++;
     }
+    printf("\n");
     return buffer;
 }
 
 void keyboard_handler(struct registers* regs) {
     // get the character from the keyboard
     // first 8 bits are the scancode, last 8 bits is the pressed/released bit
-    u16 scancode = inportw(0x60);
+    u16 scancode = inportw(KEYBOARD_PORT);
 
     if (scancode == KEYBOARD_EXTENDED) {
         // I don't wanna deal with this right now
@@ -80,28 +91,28 @@ void keyboard_handler(struct registers* regs) {
         switch (KEY_SCANCODE(scancode)) {
         case KEY_LCTRL:
             state.ctrl = true;
-            printf("ctrl was pressed\n");
+            if (DEBUG) printf("ctrl was pressed\n");
             break;
         case KEY_LSHIFT:
         case KEY_RSHIFT:
             state.shift = true;
-            printf("shift was pressed\n");
+            if (DEBUG) printf("shift was pressed\n");
             break;
         case KEY_LALT:
             state.alt = true;
-            printf("alt was pressed\n");
+            if (DEBUG) printf("alt was pressed\n");
             break;
         case KEY_CAPS_LOCK:
             state.caps_lock = !state.caps_lock;
-            printf("caps lock was pressed\n");
+            if (DEBUG) printf("caps lock was pressed\n");
             break;
         case KEY_SCROLL_LOCK:
             state.scroll_lock = !state.scroll_lock;
-            printf("scroll lock was pressed\n");
+            if (DEBUG) printf("scroll lock was pressed\n");
             break;
         case KEY_NUM_LOCK:
             state.num_lock = !state.num_lock;
-            printf("num lock was pressed\n");
+            if (DEBUG) printf("num lock was pressed\n");
             break;
         default:
             // get the character from the keyboard
@@ -123,25 +134,42 @@ void keyboard_handler(struct registers* regs) {
         switch (KEY_SCANCODE(scancode)) {
         case KEY_LCTRL:
             state.ctrl = false;
-            printf("ctrl was released\n");
+            if (DEBUG) printf("ctrl was released\n");
             break;
         case KEY_LSHIFT:
         case KEY_RSHIFT:
             state.shift = false;
-            printf("shift was released\n");
+            if (DEBUG) printf("shift was released\n");
             break;
         case KEY_LALT:
             state.alt = false;
-            printf("alt was released\n");
+            if (DEBUG) printf("alt was released\n");
             break;
+        default:
+            state.current_char = 0;
+            state.current_key = 0;
+            state.pressed = false;
         }
-        state.current_char = 0;
-        state.current_key = 0;
-        state.pressed = false;
+
         // this doesn't matter as much unless we're making a game where its important to know if a key is held down
     }
 
     // printf("Scancode: %x, Pressed: \n", scancode);
 }
 
-void keyboard_init() { PIC_install(1, keyboard_handler); }
+void keyboard_init() {
+    u8 bytein, retries = 0;
+    do {
+        outportb(KEYBOARD_PORT, 0xF0);
+        outportb(KEYBOARD_DATA_PORT, 0x01);
+        bytein = inportb(KEYBOARD_PORT);
+        retries++;
+    } while (bytein == 0xFE || retries < 3);
+    if (bytein != 0xFA) {
+        printf("Keyboard setup failed...\n");
+        sleep(500);
+        FATALERROR();
+    }
+
+    PIC_install(1, keyboard_handler);
+}

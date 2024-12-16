@@ -25,10 +25,12 @@ typedef char*  string;
 #define asm             __asm__ volatile
 #define PACKED          __attribute__((packed))
 
-#define CLI()           asm ("cli")
-#define STI()           asm ("sti")
+#define CLI()           asm ( "cli" )
+#define STI()           asm ( "sti" )
+
 #define BREAKPOINT()    asm ( "int3" )
 #define FATALERROR()    asm ( "ud2" )
+
 #define NOP()           asm ( "nop" )
 
 #define _assert_0()         __error_illegal_macro__
@@ -74,10 +76,18 @@ typedef char*  string;
 __extension__({ __typeof__(_x) __x = (_x); HIBIT(__x & -__x); })
 
 // returns _v with _n-th bit = _x
-#define BIT_SET(_v, _n, _x) __extension__({\
-__typeof__(_v) __v = (_v);\
-(__v ^ ((-(_x) ^ __v) & (1 << (_n))));\
-})
+#define BIT_SET(_v, _n, _x) \
+    __extension__({ \
+        __typeof__(_v) __v = (_v); \
+        (__v ^ ((-(_x) ^ __v) & (1 << (_n)))); \
+    })
+
+#define BIT_GET(_v, _n) \
+    __extension__({ \
+        __typeof__(_v) __v = (_v); \
+        ((__v >> (_n)) & 1); \
+    })
+
 
 #define DIV_BY_ZERO() \
     asm ( \
@@ -116,7 +126,6 @@ void    outportb    (u16 port,   u8 data);
 u16     inportw     (u16 port);
 void    outportw    (u16 port,  u16 data);
 
-void panic(const char *err);
 u32 rand();
 void seed(u32 s);
 
