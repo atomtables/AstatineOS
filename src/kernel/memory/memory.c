@@ -31,8 +31,6 @@ bool is_block_free(const int block) {
     // since the one bit is stored in a byte, we need to divide by 8
     const int byte = block / 8;
     const int bit = block % 8;
-    mem.memfree[byte] = BIT_SET(mem.memfree[byte], bit, 1);
-    printf("%x", BIT_GET(mem.memfree[byte], bit));
     return !BIT_GET(mem.memfree[byte], bit);
 }
 
