@@ -57,6 +57,10 @@ string itoa(u32 number, const string str) {
         j++;
     }
     str[j] = 0;
+    if (j == 0) {
+        str[j] = '0';
+        str[j + 1] = 0;
+    }
     return str;
 }
 
