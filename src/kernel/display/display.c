@@ -279,6 +279,7 @@ void __append_char_color__(const char character, const u8 color) {
 }
 
 void __append_newline__();
+void __append_backspace__();
 
 /**
  * @brief Appends a string to the screen. Internal only.
@@ -296,6 +297,10 @@ void __append_string__(string str) {
     for (int i = 0; str[i] != '\0'; i++) {
         if (str[i] == '\n') {
             __append_newline__();
+            continue;
+        }
+        if (str[i] == 0x08) {
+            __append_backspace__();
             continue;
         }
         __append_char__(str[i]);
@@ -349,6 +354,20 @@ void __append_newline__() {
     display_data.x = 0;
 
     __set_vga_cursor_pos__(display_data.x, display_data.y);
+}
+
+void __append_backspace__() {
+    display_data.x--;
+    if (display_data.x < 0) {
+        display_data.y--;
+        display_data.x = VGA_TEXT_WIDTH - 1;
+    }
+    if (display_data.y < 0) {
+        display_data.y = 0;
+        display_data.x = 0;
+    }
+
+    __write_char__(display_data.x, display_data.y, 0);
 }
 
 /**
@@ -450,6 +469,7 @@ void printf(string fmt, ...) {
             case 'c': {
                 char arg = va_arg(args, i32);
                 if (arg == '\n') __append_newline__();
+                if (arg == 0x08) __append_backspace__();
                 else __append_char__(arg);
                 break;
             }
@@ -466,6 +486,7 @@ void printf(string fmt, ...) {
             }
         }
         else if (fmt[i] == '\n') { __append_newline__(); }
+        else if (fmt[i] == 0x08) { __append_backspace__(); }
         else { __append_char__(fmt[i]); }
     }
 
