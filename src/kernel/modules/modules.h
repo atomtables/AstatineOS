@@ -15,7 +15,6 @@ typedef long long i64;
 typedef float  f32;
 typedef double f64;
 typedef u8     bool;
-typedef char*  string;
 
 #define null   0
 #define true   1
@@ -108,17 +107,15 @@ __extension__({ __typeof__(_x) __x = (_x); HIBIT(__x & -__x); })
     __asm__ volatile ("movl %%esp, %0": "=r"(registers[7]));
 
 
-string  itoa        (u32 number, string str);
-string  itoa_signed (i32 number, string str);
-string  xtoa        (u32 number, string str);
-string  xtoa_padded (u32 number, string str);
+char*   itoa        (u32 number, char* str);
+char*   itoa_signed (i32 number, char* str);
+char*   xtoa        (u32 number, char* str);
+char*   xtoa_padded (u32 number, char* str);
 
 void    memset      (void* dst,  u8 value,  u32 n);
 void    memset_step (void* dst,  u8 value,  u32 n, u32 step);
 void*   memcpy      (void* dst,  void* src, u32 n);
 void*   memmove     (void* dst,  void* src, u32 n);
-
-void*   strcpy      (void* dst, const char* src);
 
 u8      inportb     (u16 port);
 void    outportb    (u16 port,   u8 data);

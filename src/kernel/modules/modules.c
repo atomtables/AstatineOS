@@ -32,7 +32,7 @@ u8 find_char_for_hex(const u8 item) {
     return null;
 }
 
-string itoa(u32 number, const string str) {
+char* itoa(u32 number, char* str) {
     u8 digits[10] = {0};
     int count = 9;
 
@@ -64,7 +64,7 @@ string itoa(u32 number, const string str) {
     return str;
 }
 
-string itoa_signed(i32 number, const string str) {
+char* itoa_signed(i32 number, char* str) {
     // took this code from geeks4geeks cuz i didnt feel like writing it myself
     int i = 0;
     // Save the sign of the number
@@ -91,7 +91,7 @@ string itoa_signed(i32 number, const string str) {
     // Null-terminate the string
     str[i] = '\0';
 
-    // Reverse the string to get the correct order
+    // Reverse the char* to get the correct order
     for (int j = 0, k = i - 1; j < k; j++, k--) {
         const char temp = str[j];
         str[j] = str[k];
@@ -100,7 +100,7 @@ string itoa_signed(i32 number, const string str) {
     return str;
 }
 
-string xtoa(u32 number, const string str) {
+char* xtoa(u32 number, char* str) {
     u8 digits[8] = {0};
     int count = 7;
 
@@ -132,7 +132,7 @@ string xtoa(u32 number, const string str) {
     return str;
 }
 
-string xtoa_padded(u32 number, const string str) {
+char* xtoa_padded(u32 number, char* str) {
     u8 digits[8] = {0};
     int count = 7;
 
@@ -192,17 +192,6 @@ void* memmove(void* dst, void* src, const u32 n) {
     }
 
     return dst;
-}
-
-void* strcpy(void* dst, const char* src) {
-    u8 *d = dst;
-    const u8 *s = (u8*)src;
-
-    while (*s) {
-        *d++ = *s++;
-    }
-
-    return d;
 }
 
 u8 inportb(u16 port) {

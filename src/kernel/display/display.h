@@ -27,12 +27,12 @@ void clear_screen();
 
 void change_screen_color(u8 color);
 
-void print(string str);
+void print(char* str);
 
-void print_color(string str, u8 color);
+void print_color(char* str, u8 color);
 
-void println(string str);
+void println(char* str);
 
-void printf(string fmt, ...);
+void printf(char* fmt, ...);
 
 #endif //DISPLAY_H

@@ -55,7 +55,7 @@ u8 wait_for_keypress() {
     return state.current_char;
 }
 
-string input(string buffer, u32 size) {
+char* input(char* buffer, u32 size) {
     u32 i = 0;
     while (i < size) {
         buffer[i] = (char)wait_for_keypress();
@@ -64,10 +64,12 @@ string input(string buffer, u32 size) {
             break;
         }
         if (buffer[i] == KEY_BS) {
-            printf("%c", buffer[i]);
-            buffer[i] = 0;
-            if (i > 0) i--;
-            buffer[i] = 0;
+            if (i > 0) {
+                printf("%c", buffer[i]);
+                buffer[i] = 0;
+                i--;
+                buffer[i] = 0;
+            }
             continue;
         }
         printf("%c", buffer[i]);

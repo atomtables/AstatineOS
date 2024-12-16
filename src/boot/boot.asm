@@ -79,7 +79,6 @@ BEGIN_32BIT:
     jmp     $               ; Stay here when the kernel returns control to us (if ever)
 
 %include "gdt.asm"
-%include "a20.asm"
 
 BOOT_DRIVE db 0             ; It is a good idea to store it in memory because 'dl' may get overwritten
 
@@ -97,3 +96,5 @@ times 16 db 0                ; Entry 3
 times 16 db 0                ; Entry 4
 
 dw 0xaa55
+
+%include "a20.asm"

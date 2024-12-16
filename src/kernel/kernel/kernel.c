@@ -46,9 +46,10 @@ int main() {
 
     printf("creating a simple prompt:\n");
     while(1) {
-        string prompt = malloc(64);
+        char* prompt = malloc(64);
         printf("NetworkOS> ");
         prompt = input(prompt, 64);
+        printf("%s\n", prompt);
         free(prompt, 64);
     }
 }

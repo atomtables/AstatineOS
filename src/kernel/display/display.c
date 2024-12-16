@@ -282,18 +282,18 @@ void __append_newline__();
 void __append_backspace__();
 
 /**
- * @brief Appends a string to the screen. Internal only.
+ * @brief Appends a char* to the screen. Internal only.
  *
- * Writes a string of ASCII characters after
+ * Writes a char* of ASCII characters after
  * the next character, determined by the values
  * of display_data. This will point to a char*,
  * which is looped over until the null byte is reached.
  * Color is not specified or written over.
  * Only for debug use, since other functions
  * like print/printf are just better.
- * @param str The string to append.
+ * @param str The char* to append.
  */
-void __append_string__(string str) {
+void __append_string__(char* str) {
     for (int i = 0; str[i] != '\0'; i++) {
         if (str[i] == '\n') {
             __append_newline__();
@@ -308,19 +308,19 @@ void __append_string__(string str) {
 }
 
 /**
- * @brief Appends a string to the screen with a specified color. Internal only.
+ * @brief Appends a char* to the screen with a specified color. Internal only.
  *
- * Writes a string of ASCII characters after
+ * Writes a char* of ASCII characters after
  * the next character, determined by the values
  * of display_data. This will point to a char*,
  * which is looped over until the null byte is reached.
  * It also prints with a specified color.
  * Only for debug use, since other functions
  * like print/printf are just better.
- * @param str The string to append.
+ * @param str The char* to append.
  * @param color The color to print it in.
  */
-void __append_string_color__(string str, const u8 color) {
+void __append_string_color__(char* str, const u8 color) {
     for (int i = 0; str[i] != '\0'; i++) {
         if (str[i] == '\n') {
             __append_newline__();
@@ -396,49 +396,49 @@ void change_screen_color(const u8 color) {
 }
 
 /**
- * Print a string to the screen.
- * @param str The string to print.
+ * Print a char* to the screen.
+ * @param str The char* to print.
  */
-void print(string str) { __append_string__(str); }
+void print(char* str) { __append_string__(str); }
 
 /**
- * Print a string to the screen with
+ * Print a char* to the screen with
  * a specified color.
- * @param str The string to print.
+ * @param str The char* to print.
  * @param color The color to print in.
  */
-void print_color(string str, const u8 color) {
+void print_color(char* str, const u8 color) {
     for (int i = 0; str[i] != '\0'; i++) { __append_char_color__(str[i], color); }
 }
 
 /**
- * Print a string to the screen with an
+ * Print a char* to the screen with an
  * extra line after.
- * @param str The string to print.
+ * @param str The char* to print.
  */
-void println(string str) {
+void println(char* str) {
     __append_string__(str);
     __append_newline__();
 }
 
 /**
- * Print a string to the screen with a
+ * Print a char* to the screen with a
  * specified color and an extra line after.
- * @param str The string to print.
+ * @param str The char* to print.
  * @param color The color to print it in.
  */
-void println_color(string str, const u8 color) {
+void println_color(char* str, const u8 color) {
     __append_string_color__(str, color);
     __append_newline__();
 }
 
 /**
- * Prints a string to the screen with
+ * Prints a char* to the screen with
  * fmt-str data like numbers, strings, pointers.
- * @param fmt The format string to print.
+ * @param fmt The format char* to print.
  * @param ... The variadic arguments to print.
  */
-void printf(string fmt, ...) {
+void printf(char* fmt, ...) {
     va_list args;
     va_start(args, 0);
 
@@ -447,23 +447,23 @@ void printf(string fmt, ...) {
             i++;
             switch (fmt[i]) {
             case 'd': {
-                string digits = itoa_signed(va_arg(args, i32), &buf[0]);
+                char* digits = itoa_signed(va_arg(args, i32), &buf[0]);
                 __append_string__(digits);
                 break;
             }
             case 'x': {
-                string digits = xtoa(va_arg(args, u32), &buf[0]);
+                char* digits = xtoa(va_arg(args, u32), &buf[0]);
                 __append_string__(digits);
                 break;
             }
             case 'p': {
                 __append_string__("0x");
-                string digits = xtoa_padded(va_arg(args, u32), &buf[0]);
+                char* digits = xtoa_padded(va_arg(args, u32), &buf[0]);
                 __append_string__(digits);
                 break;
             }
             case 's': {
-                __append_string__(va_arg(args, string));
+                __append_string__(va_arg(args, char*));
                 break;
             }
             case 'c': {
@@ -474,7 +474,7 @@ void printf(string fmt, ...) {
                 break;
             }
             case 'u': {
-                string digits = itoa(va_arg(args, u32), &buf[0]);
+                char* digits = itoa(va_arg(args, u32), &buf[0]);
                 __append_string__(digits);
                 break;
             }

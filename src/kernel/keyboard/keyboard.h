@@ -83,6 +83,6 @@
 void    keyboard_init();
 
 u8      wait_for_keypress();
-string  input(string buffer, u32 size);
+char*  input(char* buffer, u32 size);
 
 #endif //KEYBOARD_H
