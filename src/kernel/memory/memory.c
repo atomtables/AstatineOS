@@ -44,7 +44,6 @@ void reserve_block(const int block) {
     const int byte = block / 8;
     const int bit = block % 8;
     mem.memfree[byte] = BIT_SET(mem.memfree[byte], bit, 1);
-    printf("reserved block: byte: %u, bit: %u\n", byte, bit);
 }
 
 /// FUNCTION: malloc
@@ -65,7 +64,6 @@ void* malloc(const int bytes) {
             if (length == blocks) {
                 // we have enough blocks to allocate, now we can reserve blocks
                 for (int i = block; i < block + length; i++) {
-                    printf("reserving block %u, block var: %u, blocks var: %u\n", i, block, blocks);
                     reserve_block(i);
                 }
                 return (void*)(block * MEM_BLOCK_BYTE_SIZE + MEM_BLOCK_START);
