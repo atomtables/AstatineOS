@@ -11,6 +11,9 @@
 
 extern void init_mem();
 
-extern void* malloc(int bytes);
+extern void*    malloc(int bytes);
+extern void*    calloc(int bytes);
+
+extern void     free(void* ptr);
 
 #endif //MEMORY_H
