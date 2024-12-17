@@ -76,13 +76,21 @@ void* malloc(const int bytes) {
     }
 
     // at this point, we have no memory to allocate
-    // FATALERROR();
+    // TODO: handle heap full
+    FATALERROR();
 }
 
 void* calloc(const int bytes) {
     void* ptr = malloc(bytes);
     memset(ptr, 0, bytes);
     return ptr;
+}
+
+void* realloc(void* addr, u32 size) {
+    void* new_addr = malloc(size);
+    memcpy(new_addr, addr, size);
+    free(addr, size);
+    return new_addr;
 }
 
 /// FUNCTION: free

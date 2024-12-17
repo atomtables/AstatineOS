@@ -13,6 +13,7 @@ extern void init_mem();
 
 extern void*    malloc(int bytes);
 extern void*    calloc(int bytes);
+extern void*    realloc(void* ptr, u32 bytes);
 
 extern void     free(void* ptr, const int bytes);
 
