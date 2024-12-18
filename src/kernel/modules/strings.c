@@ -25,27 +25,28 @@ void* strcpy(void* dst, const char* src) {
     return d;
 }
 
-int strcmp(u8* s1, u8* s2) {
-    int i = 0;
-    while (s1[i] != 0x00) {
-        if (s1[i] == s2[i]) continue;
-        if (s1[i] < s2[i]) return -1;
-        if (s1[i] > s2[i]) return 1;
-        i++;
-    }
-    if (s1[i] == 0x00 && s2[i] == 0x00) return 0;
-    return -1;
+int strcmp(char* s1, char* s2) {
+    u32 t = max(strlen(s1), strlen(s2)) + 1;
+
+    return strncmp(s1, s2, t);
 }
 
-int strncmp(u8* s1, u8* s2, u32 t) {
+int strncmp(char* s1, char* s2, u32 t) {
+    u8* c1 = (u8*)s1;
+    u8* c2 = (u8*)s2;
     int i = 0;
-    while (s1[i] != 0x00 && i < t) {
-        if (s1[i] == s2[i]) continue;
-        if (s1[i] < s2[i]) return -1;
-        if (s1[i] > s2[i]) return 1;
+    while (c1[i] != 0x00 && c2[i] != 0x00 && i < t) {
+        if (c1[i] == c2[i]) {
+            i++;
+            continue;
+        };
+        if (c1[i] < c2[i]) return -1;
+        if (c1[i] > c2[i]) return 1;
         i++;
     }
-    if (s1[i] == 0x00 && s2[i] == 0x00) return 0;
+    if (c1[i] == 0x00 && c2[i] == 0x00) return 0;
+    if (c1[i] == 0x00) return -1;
+    if (c2[i] == 0x00) return 1;
     return -1;
 }
 
@@ -113,13 +114,15 @@ char* strtok_r(char* s, const char* delim, char** last) {
     /* NOTREACHED */
 }
 
-char** strtok_a(char* s, const char* delim) {
+StrtokA strtok_a(char* s, const char* delim) {
     static char* last; // last is static so it can be used in multiple calls
 
     int size = 2, count = 0;
     char** ret = malloc(sizeof(char*) * 2);
 
-    for (char* word = strtok_r(s, delim, &last);
+    char* str = strdup(s);
+
+    for (char* word = strtok_r(str, delim, &last);
          word;
          word = strtok_r(null, delim, &last)) {
         ret[count] = word;
@@ -130,5 +133,7 @@ char** strtok_a(char* s, const char* delim) {
         }
     }
 
-    return ret;
+    free(str, strlen(str)+1);
+
+    return (StrtokA){ret, count};
 }
