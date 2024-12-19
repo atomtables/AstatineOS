@@ -27,7 +27,7 @@ mov     bx, 0x1000 ; Read from disk and store in 0x1000
 mov     es, bx
 mov     bx, 0x0000 ; es:bx = 0x1000:0x0000 = 0x10000
 mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
-mov     al, 0x80   ; al <- number of sectors to read (0x01 .. 0x80)
+mov     al, 0x20   ; al <- number of sectors to read (0x01 .. 0x80)
 mov     cl, 0x05 ; cl <- sector (0x01 .. 0x11)
 mov     ch, 0x00 ; ch <- cylinder (0x0 .. 0x3FF, upper 2 bits in 'cl')
 mov     dh, 0x00 ; dh <- head number (0x0 .. 0xF)
@@ -74,7 +74,6 @@ init_32bit:                 ; we are now using 32-bit instructions
 
 [bits 32]
 BEGIN_32BIT:
-    xchg    bx, bx          ; Clear the high bits of ebx
     call    CODE_SEG:0x10000         ; Give control to the kernel
     jmp     $               ; Stay here when the kernel returns control to us (if ever)
 

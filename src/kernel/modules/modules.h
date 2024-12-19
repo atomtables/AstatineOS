@@ -2,19 +2,19 @@
 #define MODULES_H
 
 // JDH
-typedef unsigned char      u8;
-typedef unsigned short     u16;
-typedef unsigned int       u32;
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned int u32;
 typedef unsigned long long u64;
 
-typedef char      i8;
-typedef short     i16;
-typedef int       i32;
+typedef char i8;
+typedef short i16;
+typedef int i32;
 typedef long long i64;
 
-typedef float  f32;
+typedef float f32;
 typedef double f64;
-typedef u8     bool;
+typedef u8 bool;
 
 #define null   0
 #define true   1
@@ -106,22 +106,31 @@ __extension__({ __typeof__(_x) __x = (_x); HIBIT(__x & -__x); })
     __asm__ volatile ("movl %%ebp, %0": "=r"(registers[6])); \
     __asm__ volatile ("movl %%esp, %0": "=r"(registers[7]));
 
+#define max(a, b) \
+    ({ __typeof__ (a) _a = (a); \
+        __typeof__ (b) _b = (b); \
+        _a > _b ? _a : _b; })
 
-char*   itoa        (u32 number, char* str);
-char*   itoa_signed (i32 number, char* str);
-char*   xtoa        (u32 number, char* str);
-char*   xtoa_padded (u32 number, char* str);
+#define min(a, b) \
+    __extension__({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+       _a < _b ? _a : _b; })
 
-void    memset      (void* dst,  u8 value,  u32 n);
-void    memset_step (void* dst,  u8 value,  u32 n, u32 step);
-void*   memcpy      (void* dst,  void* src, u32 n);
-void*   memmove     (void* dst,  void* src, u32 n);
+char* itoa(u32 number, char* str);
+char* itoa_signed(i32 number, char* str);
+char* xtoa(u32 number, char* str);
+char* xtoa_padded(u32 number, char* str);
 
-u8      inportb     (u16 port);
-void    outportb    (u16 port,   u8 data);
+void memset(void* dst, u8 value, u32 n);
+void memset_step(void* dst, u8 value, u32 n, u32 step);
+void* memcpy(void* dst, void* src, u32 n);
+void* memmove(void* dst, void* src, u32 n);
 
-u16     inportw     (u16 port);
-void    outportw    (u16 port,  u16 data);
+u8 inportb(u16 port);
+void outportb(u16 port, u8 data);
+
+u16 inportw(u16 port);
+void outportw(u16 port, u16 data);
 
 u32 rand();
 void seed(u32 s);
