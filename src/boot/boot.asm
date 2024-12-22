@@ -11,24 +11,12 @@ cld
 
 KERNEL_OFFSET equ 0x10000 ; The same one we used when linking the kernel
 
-mov     bx, 0x0000
+mov     bx, 0x1000
 mov     es, bx
-mov     bx, 0x7E00 ; es:bx = 0x7E00
+mov     bx, 0x0000 ; es:bx = 0x7E00
 mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
-mov     al, 0x01 ; al <- number of sectors to read (0x01 .. 0x80)
+mov     al, 0x40 ; al <- number of sectors to read (0x01 .. 0x80)
 mov     cl, 0x02 ; cl <- sector (0x01 .. 0x11)
-mov     ch, 0x00 ; ch <- cylinder (0x0 .. 0x3FF, upper 2 bits in 'cl')
-mov     dh, 0x00 ; dh <- head number (0x0 .. 0xF)
-
-int     0x13     ; BIOS interrupt
-jc      .disk_error
-
-mov     bx, 0x1000 ; Read from disk and store in 0x1000
-mov     es, bx
-mov     bx, 0x0000 ; es:bx = 0x1000:0x0000 = 0x10000
-mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
-mov     al, 0x20   ; al <- number of sectors to read (0x01 .. 0x80)
-mov     cl, 0x05 ; cl <- sector (0x01 .. 0x11)
 mov     ch, 0x00 ; ch <- cylinder (0x0 .. 0x3FF, upper 2 bits in 'cl')
 mov     dh, 0x00 ; dh <- head number (0x0 .. 0xF)
 
@@ -43,6 +31,17 @@ call    switch_to_32bit ; disable interrupts, load GDT,  etc. Finally jumps to '
 jmp     $               ; Never executed
 
 .disk_error:
+    mov     si, disk_error_msg
+    ; Print the error message by moving it to the video memory
+    mov     ah, 0x0E
+.repeat:
+    mov     al, [si]
+    inc     si
+    cmp     al, 0
+    je      done
+    int     0x10
+    jmp     .repeat
+done:
     jmp     $
 
 [bits 16]
@@ -78,6 +77,7 @@ BEGIN_32BIT:
     jmp     $               ; Stay here when the kernel returns control to us (if ever)
 
 %include "gdt.asm"
+%include "a20.asm"
 
 BOOT_DRIVE db 0             ; It is a good idea to store it in memory because 'dl' may get overwritten
 
@@ -96,4 +96,4 @@ times 16 db 0                ; Entry 4
 
 dw 0xaa55
 
-%include "a20.asm"
+disk_error_msg db "Disk error", 0
