@@ -4,7 +4,7 @@
 
 #include "PIT.h"
 
-#include <display/display.h>
+#include <display/simple/display.h>
 #include <exception/exception.h>
 #include <idt/interrupt.h>
 
@@ -26,6 +26,8 @@ static struct sleep_state {
 
 process_wait_state process_wait_states[256];
 
+void(* every_second_handlers[256])() = {null};
+
 void add_process_wait_state(u64 start, u64 end, void(* ret)()) {
     for (int i = 0; i < 256; i++) {
         if (process_wait_states[i].start == (u64)-1) {
@@ -35,6 +37,20 @@ void add_process_wait_state(u64 start, u64 end, void(* ret)()) {
             return;
         }
     }
+}
+
+int run_every_second(void(* ret)()) {
+    for (int i = 0; i < 256; i++) {
+        if (every_second_handlers[i] == null) {
+            every_second_handlers[i] = ret;
+            return i;
+        }
+    }
+    return -1;
+}
+
+void stop_run_every_second(int i) {
+    every_second_handlers[i] = null;
 }
 
 void wait_and_do(const u64 ms, void(* ret)()) {
@@ -63,11 +79,13 @@ static void timer_handler(struct registers* regs) {
     for (int i = 0; i < 256; i++) {
         if (process_wait_states[i].start != (u64)-1 && state.ticks >= process_wait_states[i].end) {
             process_wait_states[i].ret();
-            process_wait_states[i].start = -1;
-            process_wait_states[i].end = -1;
+            process_wait_states[i].start = (u64)-1;
+            process_wait_states[i].end = (u64)-1;
             process_wait_states[i].ret = null;
         }
-        i++;
+        if (((u32)state.ticks) % 1000 == 0 && every_second_handlers[i] != null) {
+            every_second_handlers[i]();
+        }
     }
 }
 

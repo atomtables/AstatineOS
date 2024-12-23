@@ -4,7 +4,7 @@
 
 #include "exception.h"
 
-#include <display/display.h>
+#include <display/simple/display.h>
 #include <idt/isr.h>
 #include <timer/PIT.h>
 

@@ -32,6 +32,9 @@ typedef struct {
 u64 timer_get();
 void timer_init();
 
+int run_every_second(void(* ret)());
+void stop_run_every_second(int i);
+
 void sleep(int ms);
 void wait_and_do(const u64 ms, void(* ret)());
 

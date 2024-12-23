@@ -4,9 +4,11 @@
 
 #include "controller.h"
 
-#include <display/display.h>
+#include <display/simple/display.h>
 #include <exception/exception.h>
 #include <modules/modules.h>
+
+#include "keyboard.h"
 
 #define wait_for(_cond) while (!(_cond)) { NOP(); }
 
@@ -52,7 +54,15 @@ void write_configuration_byte(u8 config) {
 }
 
 void ps2_controller_init() {
-    printf("initialising");
+    sendcommandb(CONTROLCMD_DISABLE_P1);
+
     u8 config = read_configuration_byte();
-    printf("%x", config);
+    config |= 0x01; // Enable first PS/2 port
+    config |= 0x40; // Enable first PS/2 translation
+    write_configuration_byte(config);
+
+    keyboard_irq_enabled = true;
+    keyboard_translation_enabled = true;
+
+    sendcommandb(CONTROLCMD_ENABLE_P1);
 }

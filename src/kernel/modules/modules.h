@@ -44,23 +44,15 @@ typedef u8 bool;
     _assert_1(__VA_ARGS__),\
     _assert_0(__VA_ARGS__))
 
-#define __MIN_IMPL(_x, _y, _xn, _yn) \
-    __extension__({\
-        __typeof__(_x) _xn = (_x);\
-        __typeof__(_y) _yn = (_y);\
-        (_xn < _yn ? _xn : _yn);\
-    })
-#define MIN(_x, _y) \
-    __MIN_IMPL(_x, _y, CONCAT(__x, __COUNTER__), CONCAT(__y, __COUNTER__))
+#define MIN(a,b) \
+    ({ __typeof__ (a) _a = (a); \
+        __typeof__ (b) _b = (b); \
+        _a < _b ? _a : _b; })
 
-#define __MAX_IMPL(_x, _y, _xn, _yn) \
-    __extension__({\
-        __typeof__(_x) _xn = (_x);\
-        __typeof__(_y) _yn = (_y);\
-        (_xn > _yn ? _xn : _yn);\
-    })
-#define MAX(_x, _y) \
-    __MAX_IMPL(_x, _y, CONCAT(__x, __COUNTER__), CONCAT(__y, __COUNTER__))
+#define MAX(a,b) \
+    ({ __typeof__ (a) _a = (a); \
+        __typeof__ (b) _b = (b); \
+        _a > _b ? _a : _b; })
 
 #define CLAMP(_x, _mi, _ma) \
     (MAX(_mi, MIN(_x, _ma)))

@@ -8,6 +8,7 @@ _start:
 
 section .text
 
+; Loading the Interrupt Descriptor Table from C
 global idt_load
 idt_load:
     mov eax, [esp + 4]

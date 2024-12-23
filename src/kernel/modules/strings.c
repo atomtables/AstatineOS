@@ -129,11 +129,11 @@ StrtokA strtok_a(char* s, const char* delim) {
         count++;
         if (count == size) {
             size += 2;
-            ret = realloc(ret, sizeof(char*) * size);
+            ret = realloc(ret, size-2, sizeof(char*) * size);
         }
     }
 
     free(str, strlen(str)+1);
 
-    return (StrtokA){ret, count};
+    return (StrtokA){ret, count, size};
 }

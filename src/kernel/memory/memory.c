@@ -5,11 +5,14 @@
 #include <modules/modules.h>
 #include "memory.h"
 
-#include <display/display.h>
+#include <display/simple/display.h>
+#include <exception/exception.h>
 
 // Memory is between 0x100000 and 0x1fffff
 // we will absolutely reduce this "heap" size later
 // but for now this is enough
+
+//
 
 struct mem_bounds {
     u32 start;
@@ -77,6 +80,7 @@ void* malloc(const int bytes) {
 
     // at this point, we have no memory to allocate
     // TODO: handle heap full
+    panic("no more mem");
     FATALERROR();
 }
 
@@ -86,10 +90,10 @@ void* calloc(const int bytes) {
     return ptr;
 }
 
-void* realloc(void* addr, u32 size) {
+void* realloc(void* addr, u32 oldsize, u32 size) {
     void* new_addr = malloc(size);
     memcpy(new_addr, addr, size);
-    free(addr, size);
+    free(addr, oldsize);
     return new_addr;
 }
 

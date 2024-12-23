@@ -133,13 +133,13 @@ void __set_vga_cursor_pos__(const int x, const int y) {
  * @param width The width of where the cursor can go.
  * @param height The height of where the cursor can go.
  */
-void enable_cursor(const u8 width, const u8 height) {
-    outportb(0x3D4, 0x0A);
-    outportb(0x3D5, (inportb(0x3D5) & 0xC0) | width);
-
-    outportb(0x3D4, 0x0B);
-    outportb(0x3D5, (inportb(0x3D5) & 0xE0) | height);
-}
+// void enable_cursor(const u8 width, const u8 height) {
+//     outportb(0x3D4, 0x0A);
+//     outportb(0x3D5, (inportb(0x3D5) & 0xC0) | width);
+//
+//     outportb(0x3D4, 0x0B);
+//     outportb(0x3D5, (inportb(0x3D5) & 0xE0) | height);
+// }
 
 /**
  * @brief Disables the VGA cursor.
@@ -149,10 +149,10 @@ void enable_cursor(const u8 width, const u8 height) {
  * the case of a blue-screen, non-interactive
  * display, or a jump into a graphical mode.
  */
-void disable_vga_cursor() {
-    outportb(0x3D4, 0x0A);
-    outportb(0x3D5, 0x20);
-}
+// void disable_vga_cursor() {
+//     outportb(0x3D4, 0x0A);
+//     outportb(0x3D5, 0x20);
+// }
 
 /**
  * @brief Writes a character to a position on the screen. Internal only.
@@ -438,7 +438,7 @@ void println_color(char* str, const u8 color) {
  * @param fmt The format char* to print.
  * @param ... The variadic arguments to print.
  */
-void printf(char* fmt, ...) {
+void printf(const char* fmt, ...) {
     va_list args;
     va_start(args, 0);
 

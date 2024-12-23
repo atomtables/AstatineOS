@@ -4,7 +4,7 @@
 
 #include "isr.h"
 
-#include <display/display.h>
+#include <display/simple/display.h>
 #include <exception/exception.h>
 #include <idt/idt.h>
 

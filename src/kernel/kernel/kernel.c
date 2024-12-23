@@ -1,4 +1,5 @@
 #include <exception/exception.h>
+#include <fungame/fungame.h>
 #include <idt/interrupt.h>
 #include <ps2/keyboard.h>
 #include <memory/memory.h>
@@ -7,7 +8,7 @@
 #include <ps2/controller.h>
 #include <timer/PIT.h>
 
-#include "display/display.h"
+#include "display/simple/display.h"
 
 /* In our kernel, we can reserve memory
  * 0x100000-0x1FFFFF for the storage of heap data (like variables)
@@ -41,6 +42,7 @@ void echo(int argc, char** argv) {
 static Command commands[] = {
     {"echo", echo},
     {"beep", beep},
+    {"fungame", fungame},
     {"clear", clear_screen},
     {"reboot", reboot},
 };
@@ -59,12 +61,12 @@ int main() {
     init_mem();
 
     timer_init();
-    pcs_init();
+    // pcs_init();
 
     ps2_controller_init();
     keyboard_init();
 
-    beep();
+    // beep();
     // sleep(500);
 
     printf("creating a simple prompt:\n");
@@ -84,6 +86,7 @@ int main() {
         }
         printf("%s\n", "Command not found...");
     complete:
+        free(prompt_s.ret, prompt_s.size);
         free(prompt, 64);
     }
 }

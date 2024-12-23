@@ -22,7 +22,7 @@
 #define KEY_PG_UP   0x94
 #define KEY_PG_DN   0x95
 
-//
+// these are actual scancodes, not keys
 #define KEY_UP      0x48
 #define KEY_LEFT    0x4B
 #define KEY_RIGHT   0x4D
@@ -76,13 +76,28 @@
 #define KEY_RELEASED(_s) (!!((_s) & KEYBOARD_RELEASE))
 #define KEY_SCANCODE(_s) ((_s) & 0x7F)
 
+// black magic by my goat jdh + some bad idea juice from me
+#define KEY_CHAR(_s) __extension__({\
+        __typeof__(_s) __s = (_s);\
+        KEY_SCANCODE(__s) < 128 ?\
+            keyboard_layout_us[keyboard.caps_lock ^ keyboard.shift ? 1 : 0][KEY_SCANCODE(__s)] :\
+            0;\
+    })
+
 #define CHAR_PRINTABLE(_c) ((_c) >= 0x20 && (_c) <= 0x7E)
 #define CHAR_NONPRINTABLE(_c) ((_c) < 0x20 || (_c) == 0x7F)
 #define CHAR_SPECIAL(_c) ((_c) > 0x7F)
 
-void    keyboard_init();
+#define KEYCMD_DISABLE    0xF5
+#define KEYCMD_ENABLE     0xF4
 
-u8      wait_for_keypress();
-char*  input(char* buffer, u32 size);
+extern bool keyboard_irq_enabled;
+extern u8 keyboard_current_scancode;
+extern bool keyboard_translation_enabled;
+
+void keyboard_init();
+
+u8 wait_for_keypress();
+char* input(char* buffer, u32 size);
 
 #endif //KEYBOARD_H

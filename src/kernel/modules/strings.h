@@ -10,6 +10,7 @@
 typedef struct StrtokA {
     char** ret;
     int count;
+    int size;
 } StrtokA;
 
 int     strlen      (const char* str);

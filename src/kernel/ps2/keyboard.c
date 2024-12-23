@@ -3,12 +3,18 @@
 //
 
 #include "keyboard.h"
+#include "manualkeyboard.h"
 
-#include <display/display.h>
+#include <display/simple/display.h>
 #include <exception/exception.h>
 #include <modules/modules.h>
 #include <idt/interrupt.h>
 #include <timer/PIT.h>
+
+
+bool    keyboard_irq_enabled = false;
+u8      keyboard_current_scancode = 0x00;
+bool    keyboard_translation_enabled = false;
 
 #define wait_for(_cond) while (!(_cond)) { NOP(); }
 #define delay() \
@@ -67,12 +73,14 @@ struct keyboard_state {
     u8 current_char;
     bool pressed : 4;
     bool tick : 4; // on every keypress, this will be toggled to indicate a new keypress
-} state;
+} simple_state;
+
+volatile struct keyboard_advanced_state keyboard;
 
 u8 wait_for_keypress() {
-    bool tick = state.tick;
-    while (state.tick == tick) { NOP(); }
-    return state.current_char;
+    bool tick = simple_state.tick;
+    while (simple_state.tick == tick) { NOP(); }
+    return simple_state.current_char;
 }
 
 char* input(char* buffer, u32 size) {
@@ -103,79 +111,95 @@ void keyboard_handler(struct registers* regs) {
     // get the character from the keyboard
     // first 8 bits are the scancode, last 8 bits is the pressed/released bit
     wait_for(verify_keyboard_ready_read());
-    u16 scancode = inportb(KEYBOARD_DATA_PORT);
-    u8 hscancode = (u8)(scancode & 0xFF);
-    u8 lscancode = scancode; // (u8)(scancode >> 8);
+    u8 scancode = inportb(KEYBOARD_DATA_PORT);
 
     // printf("Key was detected: %x", scancode);
 
-    if (hscancode == KEYBOARD_EXTENDED) {
+    if (scancode == KEYBOARD_EXTENDED) {
         // I don't wanna deal with this right now
         return;
     }
 
-    if (KEY_PRESSED(lscancode)) {
-        switch (KEY_SCANCODE(lscancode)) {
+    keyboard.keys[KEY_SCANCODE(scancode)] = KEY_PRESSED(scancode);
+    keyboard.chars[KEY_CHAR(scancode)] = KEY_PRESSED(scancode);
+    if (DEBUG) printf("scancode: %x\n", scancode);
+
+    if (KEY_PRESSED(scancode)) {
+        switch (KEY_SCANCODE(scancode)) {
         case KEY_LCTRL:
-            state.ctrl = true;
+            simple_state.ctrl = true;
+            keyboard.ctrl = true;
             if (DEBUG) printf("ctrl was pressed\n");
             break;
         case KEY_LSHIFT:
         case KEY_RSHIFT:
-            state.shift = true;
+            simple_state.shift = true;
+            keyboard.shift = true;
             if (DEBUG) printf("shift was pressed\n");
             break;
         case KEY_LALT:
-            state.alt = true;
+            simple_state.alt = true;
+            keyboard.alt = true;
             if (DEBUG) printf("alt was pressed\n");
             break;
         case KEY_CAPS_LOCK:
-            state.caps_lock = !state.caps_lock;
+            simple_state.caps_lock = !simple_state.caps_lock;
+            keyboard.caps_lock = !keyboard.caps_lock;
             if (DEBUG) printf("caps lock was pressed\n");
             break;
         case KEY_SCROLL_LOCK:
-            state.scroll_lock = !state.scroll_lock;
+            simple_state.scroll_lock = !simple_state.scroll_lock;
+            keyboard.scroll_lock = !keyboard.scroll_lock;
             if (DEBUG) printf("scroll lock was pressed\n");
             break;
         case KEY_NUM_LOCK:
-            state.num_lock = !state.num_lock;
+            simple_state.num_lock = !simple_state.num_lock;
+            keyboard.num_lock = !keyboard.num_lock;
             if (DEBUG) printf("num lock was pressed\n");
+            break;
+        case KEY_UP:
+        case KEY_DOWN:
+        case KEY_LEFT:
+        case KEY_RIGHT:
             break;
         default:
             // get the character from the keyboard
-            u8 character = keyboard_layout_us[
-                state.caps_lock ^ state.shift ? 1 : 0
-            ][KEY_SCANCODE(lscancode)];
+            char character = keyboard_layout_us[
+                simple_state.caps_lock ^ simple_state.shift ? 1 : 0
+            ][KEY_SCANCODE(scancode)];
             if (character != 0) {
                 // print the character
                 // printf("character %c was pressed\n", character);
-                state.current_char = character;
-                state.current_key = KEY_SCANCODE(lscancode);
-                state.pressed = true;
+                simple_state.current_char = character;
+                simple_state.current_key = KEY_SCANCODE(scancode);
+                simple_state.pressed = true;
 
-                state.tick = !state.tick;
+                simple_state.tick = !simple_state.tick;
             }
         }
     }
     else {
-        switch (KEY_SCANCODE(lscancode)) {
+        switch (KEY_SCANCODE(scancode)) {
         case KEY_LCTRL:
-            state.ctrl = false;
+            simple_state.ctrl = false;
+            keyboard.ctrl = false;
             if (DEBUG) printf("ctrl was released\n");
             break;
         case KEY_LSHIFT:
         case KEY_RSHIFT:
-            state.shift = false;
+            simple_state.shift = false;
+            keyboard.shift = false;
             if (DEBUG) printf("shift was released\n");
             break;
         case KEY_LALT:
-            state.alt = false;
+            simple_state.alt = false;
+            keyboard.alt = false;
             if (DEBUG) printf("alt was released\n");
             break;
         default:
-            state.current_char = 0;
-            state.current_key = 0;
-            state.pressed = false;
+            simple_state.current_char = 0;
+            simple_state.current_key = 0;
+            simple_state.pressed = false;
         }
 
         // this doesn't matter as much unless we're making a game where its important to know if a key is held down
@@ -184,12 +208,15 @@ void keyboard_handler(struct registers* regs) {
     // printf("Scancode: %x, Pressed: \n", scancode);
 }
 
+
 u8 send_keyboard_command(u8 byte) {
+    u8 input;
     do {
         wait_for(verify_keyboard_ready_write());
         outportb(KEYBOARD_DATA_PORT, byte);
         delay();
-    } while (inportb(KEYBOARD_DATA_PORT) == 0xFE);
+        input = inportb(KEYBOARD_DATA_PORT);
+    } while (input != 0xFA && input == 0xFE);
     if (!verify_keyboard_response(inportb(KEYBOARD_DATA_PORT))) panic("keyboard sucks (send_keyboard_command failed)");
     return inportb(KEYBOARD_DATA_PORT);
 }
@@ -201,140 +228,12 @@ u8 send_keyboard_command_word(u8 byte, u8 sub) {
     return ret;
 }
 
-void disable_keyboard() {
-    send_keyboard_command(0xF5);
-}
-
-void enable_keyboard() {
-    send_keyboard_command(0xF4);
-}
-
 void keyboard_init() {
-    disable_keyboard();
+    send_keyboard_command(KEYCMD_DISABLE); // has the side effect of possibly resetting the keyboard anyway so that's good
 
+    send_keyboard_command_word(0xF0, 0x02); // since 0x02 is guaranteed to be supported on all keyboards
+    keyboard_current_scancode = 0x02;
 
-    // u8 bytein = 0, retries = 0;
-    //
-    // // Disable ps/2 port 1
-    // do {
-    //     wait_for(verify_keyboard_ready_write());
-    //     outportb(KEYBOARD_CMD_PORT, 0xAD);
-    //     bytein = inportb(KEYBOARD_DATA_PORT);
-    // } while (bytein == 0xFE && retries++ < 3);
-    // if (!verify_keyboard_response(bytein)) {
-    //     panic("keyboard failed to respond to reset command");
-    // }
-    // printf("disabled: %x\n", bytein);
-    // retries = 0;
-    //
-    // // Disable ps/2 port 2 (superfluous but just in case)
-    // do {
-    //     wait_for(verify_keyboard_ready_write());
-    //     outportb(KEYBOARD_CMD_PORT, 0xA7);
-    //     bytein = inportb(KEYBOARD_DATA_PORT);
-    // } while (bytein == 0xFE && retries++ < 3);
-    // if (!verify_keyboard_response(bytein)) {
-    //     panic("keyboard failed to respond to reset command");
-    // }
-    // retries = 0;
-    //
-    // // flush the output buffer
-    // while (verify_keyboard_ready_read()) {
-    //     inportb(KEYBOARD_DATA_PORT);
-    // }
-    //
-    // // read configuration byte
-    // u8 config = read_configuration_byte();
-    // printf("keyboard configuration: 0x%x\n", config);
-    //
-    // // set specific bits
-    // config = BIT_SET(config, 0, 0); // disable keyboard irq
-    // config = BIT_SET(config, 6, 0); // disable keyboard translation
-    //
-    // // write configuration byte
-    // write_configuration_byte(config);
-    // printf("written configuration byte: 0x%x\n", read_configuration_byte());
-    //
-    // // perform controller self-test
-    // do {
-    //     wait_for(verify_keyboard_ready_write());
-    //     outportb(KEYBOARD_CMD_PORT, 0xAA);
-    //     wait_for(verify_keyboard_ready_read());
-    //     bytein = inportb(KEYBOARD_DATA_PORT);
-    // } while (bytein == 0xFE && retries++ < 3);
-    // if (!verify_keyboard_response(bytein)) {
-    //     panic("keyboard failed self-test");
-    // }
-    // if (bytein != 0x55) {
-    //     panic("keyboard failed self-test");
-    // }
-    //
-    // printf("passed self-test\n");
-    //
-    // // restore controller configuration byte
-    // // write configuration byte
-    // do {
-    //     wait_for(verify_keyboard_ready_write());
-    //     outportb(KEYBOARD_CMD_PORT, 0x60);
-    //     bytein = inportb(KEYBOARD_DATA_PORT);
-    // } while (bytein == 0xFE && retries++ < 3);
-    // if (!verify_keyboard_response(bytein)) {
-    //     panic("keyboard failed to set configuration byte");
-    // }
-    // retries = 0;
-    // do {
-    //     wait_for(verify_keyboard_ready_write());
-    //     outportb(KEYBOARD_DATA_PORT, config);
-    //     bytein = inportb(KEYBOARD_DATA_PORT);
-    // } while (bytein == 0xFE && retries++ < 3);
-    // if (!verify_keyboard_response(bytein)) {
-    //     panic("keyboard failed to set configuration byte");
-    // }
-    //
-    // // enable ps/2 port 1
-    // do {
-    //     wait_for(verify_keyboard_ready_write());
-    //     outportb(KEYBOARD_CMD_PORT, 0xAE);
-    //     bytein = inportb(KEYBOARD_DATA_PORT);
-    // } while (bytein == 0xFE && retries++ < 3);
-    // if (!verify_keyboard_response(bytein)) {
-    //     panic("keyboard failed to respond to reset command");
-    // }
-    //
-    // // set scan code set to 2
-    // do {
-    //     wait_for(verify_keyboard_ready_write());
-    //     outportb(KEYBOARD_DATA_PORT, 0xF0);
-    //     bytein = inportb(KEYBOARD_DATA_PORT);
-    // } while (bytein == 0xFE && retries++ < 3);
-    // if (!verify_keyboard_response(bytein)) {
-    //     panic("keyboard failed to respond to reset command");
-    // }
-    // retries = 0;
-    //
-    // do {
-    //     wait_for(verify_keyboard_ready_write());
-    //     outportb(KEYBOARD_DATA_PORT, 0x01);
-    //     bytein = inportb(KEYBOARD_DATA_PORT);
-    // } while (bytein == 0xFE && retries++ < 3);
-    // if (!verify_keyboard_response(bytein)) {
-    //     panic("keyboard failed to respond to reset command");
-    // }
-    // retries = 0;
-    //
-    // // read configuration byte
-    // config = read_configuration_byte();
-    // printf("keyboard configuration: 0x%x\n", config);
-    //
-    // // set specific bits
-    // config = BIT_SET(config, 0, 1); // enable keyboard irq
-    //
-    // // write configuration byte
-    // write_configuration_byte(config);
-    // printf("written configuration byte: 0x%x\n", read_configuration_byte());
-
-    send_keyboard_command_word(0xF0, 0x02);
-
-    enable_keyboard();
+    send_keyboard_command(KEYCMD_ENABLE);
     PIC_install(1, keyboard_handler);
 }
