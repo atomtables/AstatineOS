@@ -32,7 +32,7 @@ void panic(char* reason) {
     printf("       %s", reason);
     printf("\n\n       Press ENTER to restart. The system will restart in 5 seconds.\n\n");
 
-    sleep(5000);
+    // sleep(5000);
     reboot();
 }
 
@@ -73,6 +73,6 @@ void interrupt_panic(const int code, char* reason, const struct registers* regis
     printf("       %p:   %p   %p   %p   %p\n", eipS, *eipS, *(eipS + 1), *(eipS + 2), *(eipS + 3));
 
     STI();
-    sleep(2000);
+    // sleep(2000);
     reboot();
 }

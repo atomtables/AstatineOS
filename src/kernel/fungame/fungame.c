@@ -9,18 +9,12 @@
 #include <display/simple/display.h>
 #include <modules/modules.h>
 #include <modules/strings.h>
+#include <pcspeaker/pcspeaker.h>
 #include <ps2/keyboard.h>
 #include <ps2/manualkeyboard.h>
 #include <timer/PIT.h>
 
 #include "fg_sprites.h"
-
-typedef enum current_screen {
-    INSTRUCTIONS,
-    GAME,
-    GAMEOVER,
-    WIN
-} current_screen; // whole lotta yap from gpt4
 
 struct {
     u32 starting_frame;
@@ -29,7 +23,13 @@ struct {
     u32 fps;
     u32 fis; // frames in second
     int handler;
-    current_screen screen;
+    enum {
+        START,
+        INSTRUCTIONS,
+        GAME,
+        GAMEOVER,
+        WIN
+    } screen;
     bool paused;
 } state;
 
@@ -50,18 +50,38 @@ void draw_frame() {
 
 void setfps() {
     state.fps = state.frame - state.second_frame;
-    state.second_frame = state.frame - 1;
+    state.second_frame = state.frame;
 }
 
 void setup() {
+    enable_double_buffering();
+
     state.handler = run_every_second(setfps);
-    state.screen = GAME;
+    state.screen = START;
 }
 
 struct maincharacter {
     u8 x;
     u8 y;
 };
+
+void render_start() {
+    u8 index = (state.frame / 10) % 7;
+
+    u8 colors[] = {
+        VGA_TEXT_COLOR(COLOR_RED, COLOR_BLUE),
+        VGA_TEXT_COLOR(COLOR_CYAN, COLOR_BLUE),
+        VGA_TEXT_COLOR(COLOR_GREEN, COLOR_BLUE),
+        VGA_TEXT_COLOR(COLOR_YELLOW, COLOR_BLUE),
+        VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE),
+        VGA_TEXT_COLOR(COLOR_DARK_GREY, COLOR_BLUE),
+        VGA_TEXT_COLOR(COLOR_BLACK, COLOR_BLUE)
+    };
+    draw_sprite_with_color(FUNGAME_WORD, 5, 4, colors[index], colors[(index+1)%7], colors[(index+2)%7], colors[(index+3)%7], colors[(index+4)%7], colors[(index+5)%7], colors[(index+6)%7]);
+
+    draw_string(X_MIDDLE - 10, Y_MIDDLE + 5, "Press ENTER to start");
+    draw_string(X_MIDDLE - 14, Y_MIDDLE + 6, "Press ESC to exit at any time");
+}
 
 void render_instructions() {
     // typewriter effect
@@ -93,47 +113,47 @@ void render_game() {
 
 void render_paused() {
     for (int i = 0; i < 51; i++) {
-        draw_char(X_MIDDLE - 25 + i, Y_MIDDLE - 5, '\xB0');
+        draw_char_with_color(X_MIDDLE - 25 + i, Y_MIDDLE - 5, '\xB0', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
     for (int i = 0; i < 51; i++) {
-        draw_char(X_MIDDLE - 25 + i, Y_MIDDLE + 5, '\xB0');
+        draw_char_with_color(X_MIDDLE - 25 + i, Y_MIDDLE + 5, '\xB0', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
     for (int i = 0; i < 11; i++) {
-        draw_char(X_MIDDLE - 25, Y_MIDDLE - 5 + i, '\xB0');
+        draw_char_with_color(X_MIDDLE - 25, Y_MIDDLE - 5 + i, '\xB0', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
     for (int i = 0; i < 11; i++) {
-        draw_char(X_MIDDLE + 25, Y_MIDDLE - 5 + i, '\xB0');
+        draw_char_with_color(X_MIDDLE + 25, Y_MIDDLE - 5 + i, '\xB0', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
 
     for (int i = 0; i < 49; i++) {
-        draw_char(X_MIDDLE - 24 + i, Y_MIDDLE - 4, '\xB1');
+        draw_char_with_color(X_MIDDLE - 24 + i, Y_MIDDLE - 4, '\xB1', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
     for (int i = 0; i < 49; i++) {
-        draw_char(X_MIDDLE - 24 + i, Y_MIDDLE + 4, '\xB1');
+        draw_char_with_color(X_MIDDLE - 24 + i, Y_MIDDLE + 4, '\xB1', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
     for (int i = 0; i < 9; i++) {
-        draw_char(X_MIDDLE - 24, Y_MIDDLE - 4 + i, '\xB1');
+        draw_char_with_color(X_MIDDLE - 24, Y_MIDDLE - 4 + i, '\xB1', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
     for (int i = 0; i < 9; i++) {
-        draw_char(X_MIDDLE + 24, Y_MIDDLE - 4 + i, '\xB1');
+        draw_char_with_color(X_MIDDLE + 24, Y_MIDDLE - 4 + i, '\xB1', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
 
     for (int i = 0; i < 47; i++) {
-        draw_char(X_MIDDLE - 23 + i, Y_MIDDLE - 3, '\xB2');
+        draw_char_with_color(X_MIDDLE - 23 + i, Y_MIDDLE - 3, '\xB2', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
     for (int i = 0; i < 47; i++) {
-        draw_char(X_MIDDLE - 23 + i, Y_MIDDLE + 3, '\xB2');
+        draw_char_with_color(X_MIDDLE - 23 + i, Y_MIDDLE + 3, '\xB2', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
     for (int i = 0; i < 7; i++) {
-        draw_char(X_MIDDLE - 23, Y_MIDDLE - 3 + i, '\xB2');
+        draw_char_with_color(X_MIDDLE - 23, Y_MIDDLE - 3 + i, '\xB2', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
     for (int i = 0; i < 7; i++) {
-        draw_char(X_MIDDLE + 23, Y_MIDDLE - 3 + i, '\xB2');
+        draw_char_with_color(X_MIDDLE + 23, Y_MIDDLE - 3 + i, '\xB2', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
 
     for (int i = 0; i < 5; i++) {
         for (int j = 0; j < 45; j++) {
-            draw_color(X_MIDDLE - 22 + j, Y_MIDDLE - 2 + i, VGA_TEXT_COLOR(COLOR_BLUE, COLOR_WHITE));
+            draw_char_with_color(X_MIDDLE - 22 + j, Y_MIDDLE - 2 + i, '\x00', VGA_TEXT_COLOR(COLOR_BLUE, COLOR_WHITE));
         }
     }
 
@@ -143,7 +163,9 @@ void render_paused() {
 
 void render() {
     draw_frame();
-    if (state.screen == INSTRUCTIONS) {
+    if (state.screen == START) {
+        render_start();
+    } else if (state.screen == INSTRUCTIONS) {
         render_instructions();
     } else if (state.screen == GAME) {
         render_game();
@@ -154,7 +176,13 @@ void render() {
 }
 
 void keysin() {
-    if (state.screen == INSTRUCTIONS) {
+    if (state.screen == START) {
+        if (keyboard_char('\n')) {
+            wait_for_key_release('\n');
+            state.screen = INSTRUCTIONS;
+            state.starting_frame = state.frame;
+        }
+    } else if (state.screen == INSTRUCTIONS) {
         if (keyboard_char('\n')) {
             state.screen = GAME;
             state.starting_frame = state.frame;
@@ -185,8 +213,20 @@ void stats() {
 
 void quit() {
     stop_run_every_second(state.handler);
+    nosound();
     clear_screen();
     printf("Thank you for playing...\n");
+}
+
+u32 max = 32, current = 0;
+
+void music() {
+    u32 current_music_tick = state.frame % 16;
+
+    if (current_music_tick == 0) {
+        play_sound(intro_music[current]);
+        current = (current+1) % max;
+    }
 }
 
 void fungame() {
@@ -205,11 +245,12 @@ void fungame() {
 
         u64 current_tick = timer_get();
 
-        if ((current_tick - last_frame) > (TIMER_TPS / FPS)) {
+        if ((current_tick - last_frame) > (16)) {
             last_frame = current_tick;
 
             clear_and_set_screen_color(VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
 
+            music();
             render();
             keysin();
 
@@ -218,6 +259,8 @@ void fungame() {
             if (!state.paused) {
                 state.frame++;
                 state.fis = state.frame - state.second_frame + 1;
+            } else {
+                nosound();
             }
             swap_graphics_buffer();
         }

@@ -7,5 +7,6 @@
 #include <display/advanced/graphics.h>
 
 extern sprite customer;
+extern sprite FUNGAME_WORD;
 
 #endif //FG_SPRITES_H

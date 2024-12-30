@@ -16,9 +16,19 @@
 u8 _sbuffers[VGA_TEXT_BSIZE][2];
 u8 _sback = 0;
 
+bool double_buffering = false;
+
 // i don't get jdh's implementation but hes smart soooo
-#define CURRENT (_sbuffers[_sback])
+#define CURRENT (double_buffering ? _sbuffers[_sback] : (u8*)0xb8000)
 #define SWAP() (_sback = 1 - _sback)
+
+void enable_double_buffering() {
+    double_buffering = true;
+}
+
+void disable_double_buffering() {
+    double_buffering = false;
+}
 
 /**
  * @brief Enables the VGA cursor.
@@ -163,19 +173,18 @@ void draw_sprite(sprite s, int x, int y) {
 }
 
 void draw_sprite_with_color(sprite s, int x, int y, ...) {
-    u8* colormap = malloc(s.colors);
+    u8* colormap = malloc(s.colors + 1);
 
     va_list args;
     va_start(args, y);
     for (int i = 0; i < s.colors; i++) {
         colormap[i] = (u8)va_arg(args, int);
-        draw_string(0, 0, xtoa((u32)colormap, "          "));
     }
 
     for (int i = 0; i < s.height; i++) {
         for (int j = 0; j < s.width; j++) {
             if (s.sprite[i][j] != null) {
-                draw_char_with_color(x + j, y + i, s.sprite[i][j], colormap[s.colormap[i][j]]);
+                draw_char_with_color(x + j, y + i, s.sprite[i][j], colormap[s.colormap[i][j] - 1]);
             }
         }
     }

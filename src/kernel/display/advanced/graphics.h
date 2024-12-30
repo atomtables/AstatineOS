@@ -41,6 +41,9 @@ typedef struct sprite {
     char** colormap;
 } sprite;
 
+void enable_double_buffering();
+void disable_double_buffering();
+
 void enable_vga_cursor(const u8 width, const u8 height);
 void disable_vga_cursor();
 u16 get_vga_cursor();

@@ -21,6 +21,7 @@ void* strcpy(void* dst, const char* src) {
     while (*s) {
         *d++ = *s++;
     }
+    *d = 0;
 
     return d;
 }
@@ -31,23 +32,18 @@ int strcmp(char* s1, char* s2) {
     return strncmp(s1, s2, t);
 }
 
+/// All credit goes to the Berkeley Software Distribution (BSD) for this function
+/// "the regents of the university of california"
 int strncmp(char* s1, char* s2, u32 t) {
-    u8* c1 = (u8*)s1;
-    u8* c2 = (u8*)s2;
-    int i = 0;
-    while (c1[i] != 0x00 && c2[i] != 0x00 && i < t) {
-        if (c1[i] == c2[i]) {
-            i++;
-            continue;
-        };
-        if (c1[i] < c2[i]) return -1;
-        if (c1[i] > c2[i]) return 1;
-        i++;
-    }
-    if (c1[i] == 0x00 && c2[i] == 0x00) return 0;
-    if (c1[i] == 0x00) return -1;
-    if (c2[i] == 0x00) return 1;
-    return -1;
+    if (t == 0)
+        return (0);
+    do {
+        if (*s1 != *s2++)
+            return (*(unsigned char *)s1 - *(unsigned char *)--s2);
+        if (*s1++ == 0)
+            break;
+    } while (--t != 0);
+    return (0);
 }
 
 char* strdup(const char* str) {

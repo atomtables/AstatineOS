@@ -70,7 +70,7 @@ static void timer_set(int hz) {
 u64 timer_get() { return state.ticks; }
 
 static void timer_handler(struct registers* regs) {
-    state.ticks++;
+    state.ticks += 2;
     if (sleep_state.active) {
         if (state.ticks >= sleep_state.end) {
             sleep_state.active = false;

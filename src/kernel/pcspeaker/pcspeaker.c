@@ -1,33 +1,35 @@
-//
-// Created by Adithiya Venkatakrishnan on 6/11/2024.
-//
+// src/kernel/pcspeaker/pcspeaker.c
 
 #include "pcspeaker.h"
-
 #include <modules/modules.h>
 #include <timer/PIT.h>
 
+extern u8 musictrack[]; // Assuming musictrack is defined elsewhere
+
+static volatile u16 offset = 0;
+static volatile bool done = false;
+
 // Play sound using built-in speaker
-static void play_sound(u32 nFrequence) {
+void play_sound(u32 nFrequence) {
     // Set the PIT to the desired frequency
     const u32 Div = PIT_HZ / nFrequence;
     outportb(PIT_CONTROL, 0b10110110);
-    outportb(PIT_C, Div );
+    outportb(PIT_C, Div);
     outportb(PIT_C, Div >> 8);
- 
+
     // And play the sound using the PC speaker
     const u8 tmp = inportb(PCSPEAKER);
     if (tmp != (tmp | 3)) {
         outportb(PCSPEAKER, tmp | 3);
     }
 }
- 
+
 // make it shut up
-static void nosound() {
+void nosound() {
     u8 tmp = inportb(PCSPEAKER) & 0xFC;
     outportb(PCSPEAKER, tmp);
 }
- 
+
 // Make a beep
 void beep() {
     play_sound(587);

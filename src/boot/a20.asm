@@ -119,7 +119,7 @@ enable_a20:
 	mov bh, 0							;	clear bh
 
 	call get_a20_state
-	jc .fast_gate
+	;jc .fast_gate
 
 	test ax, ax
 	jnz .done
@@ -130,7 +130,7 @@ enable_a20:
 	jnz .keybord_controller
 
 	test bl, 2							;	enable A20 using fast A20 gate
-	jnz .fast_gate
+	;jnz .fast_gate
 .bios_int:
 	mov ax, 0x2401
 	int 0x15
@@ -164,7 +164,7 @@ enable_a20:
 	mov bh, 1							;	flag enable attempt with keyboard controller
 
 	test bl, 2
-	jnz .fast_gate
+	;jnz .fast_gate
 	jmp .failed
 .failed:
 	stc

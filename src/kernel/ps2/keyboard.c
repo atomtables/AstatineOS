@@ -103,8 +103,13 @@ char* input(char* buffer, u32 size) {
         printf("%c", buffer[i]);
         i++;
     }
+    buffer[i] = 0;
     printf("\n");
     return buffer;
+}
+
+void wait_for_key_release(char c) {
+    while (keyboard.chars[c]) { NOP(); }
 }
 
 void keyboard_handler(struct registers* regs) {

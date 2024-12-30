@@ -23,4 +23,6 @@ extern volatile struct keyboard_advanced_state keyboard;
 #define keyboard_key(_s) (keyboard.keys[(_s)])
 #define keyboard_char(_c) (keyboard.chars[(_c)])
 
+void wait_for_key_release(char c);
+
 #endif //MANUALKEYBOARD_H

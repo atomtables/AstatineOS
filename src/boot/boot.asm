@@ -2,6 +2,8 @@
 
 jmp     0x7c0:$+2    ; Jump to add CS 0x7c00
 
+mov     [BOOT_DRIVE], dl
+
 xor     ax, ax
 mov     bx, 0x8000
 mov     ss, bx
@@ -15,10 +17,28 @@ mov     bx, 0x1000
 mov     es, bx
 mov     bx, 0x0000 ; es:bx = 0x7E00
 mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
-mov     al, 0x40 ; al <- number of sectors to read (0x01 .. 0x80)
+mov     al, 0x3F ; al <- number of sectors to read (0x01 .. 0x80)
 mov     cl, 0x02 ; cl <- sector (0x01 .. 0x11)
-mov     ch, 0x00 ; ch <- cylinder (0x0 .. 0x3FF, upper 2 bits in 'cl')
-mov     dh, 0x00 ; dh <- head number (0x0 .. 0xF)
+xor     ch, ch   ; ch <- cylinder number (0x0 .. 0xFF)
+xor     dh, dh   ; dh <- head number (0x0 .. 0xF)
+
+int     0x13     ; BIOS interrupt
+jc      .disk_error
+
+mov     bx, 0x7E00 ; es:bx = 0x7E00
+mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
+mov     al, 0x40 ; al <- number of sectors to read (0x01 .. 0x80)
+dec     cl
+inc     dh
+
+int     0x13     ; BIOS interrupt
+jc      .disk_error
+
+mov     bx, 0xFE00 ; es:bx = 0x7E00
+mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
+mov     al, 0x01 ; al <- number of sectors to read (0x01 .. 0x80)
+mov     cl, 0x01 ; the first sector
+mov     dh, 0x02 ; dh <- head number (0x0 .. 0xF)
 
 int     0x13     ; BIOS interrupt
 jc      .disk_error
@@ -31,16 +51,16 @@ call    switch_to_32bit ; disable interrupts, load GDT,  etc. Finally jumps to '
 jmp     $               ; Never executed
 
 .disk_error:
-    mov     si, disk_error_msg
+    ; mov     si, disk_error_msg
     ; Print the error message by moving it to the video memory
     mov     ah, 0x0E
 .repeat:
-    mov     al, [si]
-    inc     si
-    cmp     al, 0
-    je      done
-    int     0x10
-    jmp     .repeat
+    ; mov     al, 'E'
+    ;inc     si
+    ;cmp     al, 0
+    ;je      done
+    ; int     0x10
+    ;jmp     .repeat
 done:
     jmp     $
 
@@ -80,6 +100,9 @@ BEGIN_32BIT:
 %include "a20.asm"
 
 BOOT_DRIVE db 0             ; It is a good idea to store it in memory because 'dl' may get overwritten
+;NOH db 0
+;SPT db 0
+;disk_error_msg db "Disk error", 0
 
 times 446 - ($-$$) db 0
 partition_1:
@@ -95,5 +118,3 @@ times 16 db 0                ; Entry 3
 times 16 db 0                ; Entry 4
 
 dw 0xaa55
-
-disk_error_msg db "Disk error", 0
