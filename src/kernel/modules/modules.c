@@ -3,6 +3,7 @@
 //
 
 #include <modules/modules.h>
+#include <timer/PIT.h>
 
 const u8 char_to_hex_conversions[16][2] = {
     {0, '0'},
@@ -150,6 +151,23 @@ char* xtoa_padded(u32 number, char* str) {
     return str;
 }
 
+bool validate_number(const char* str) {
+    for (int i = 0; str[i] != 0; i++) {
+        if (str[i] < '0' || str[i] > '9') {
+            return false;
+        }
+    }
+    return true;
+}
+
+u32 atoi(const char* str) {
+    u32 result = 0;
+    for (int i = 0; str[i] != 0; i++) {
+        result = result * 10 + str[i] - '0';
+    }
+    return result;
+}
+
 void memset(void* dst, u8 value, u32 n) {
     u8 *d = dst;
 
@@ -221,6 +239,8 @@ void seed(u32 s) {
 }
 
 u32 rand() {
+    seed(timer_get());
+
     static u32 x = 123456789;
     static u32 y = 362436069;
     static u32 z = 521288629;
@@ -233,4 +253,12 @@ u32 rand() {
     t = x ^ (x << 11);
     x = y; y = z; z = w;
     return w = w ^ (w >> 19) ^ t ^ (t >> 8);
+}
+
+char* num_to_bin(u8 num, char* buf) {
+    for (int i = 7; i >= 0; i--) {
+        buf[8 - i - 1] = (num & (1 << i)) ? '1' : '0';
+    }
+    buf[8] = 0;
+    return buf;
 }

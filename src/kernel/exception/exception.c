@@ -5,7 +5,7 @@
 #include "exception.h"
 
 #include <display/simple/display.h>
-#include <idt/isr.h>
+#include <interrupt/isr.h>
 #include <timer/PIT.h>
 
 void reboot() {

@@ -36,6 +36,6 @@ int run_every_second(void(* ret)());
 void stop_run_every_second(int i);
 
 void sleep(int ms);
-void wait_and_do(const u64 ms, void(* ret)());
+int wait_and_do(const u64 ms, void(* ret)()); // legacy version ig?
 
 #endif //PIT_H

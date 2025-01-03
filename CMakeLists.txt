@@ -48,7 +48,7 @@ set(CCFLAGS_KERNEL
         -I/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include
         -I/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include-fixed
 )
-set(QEMUFLAGS -monitor stdio -d int -audiodev coreaudio,id=audio0 -machine pcspk-audiodev=audio0) #-no-reboot -no-shutdown)
+set(QEMUFLAGS -monitor stdio -d int -audiodev coreaudio,id=audio0 -machine pcspk-audiodev=audio0 -no-reboot -no-shutdown)
 
 # for CMake and CLion
 include_directories("${SOURCE_DIR}/${KERNEL_DIR}" "/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include" "/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include-fixed")
@@ -132,7 +132,7 @@ add_custom_command(
 add_custom_command(
         OUTPUT ${KERNEL}
         COMMAND ${LD} -o ${KERNEL} ${KERNEL_OBJECTS} ${LDFLAGS}
-        DEPENDS ${KERNEL_OBJECTS}
+        DEPENDS ${KERNEL_OBJECTS} ${KERNEL_HEADERS}
         COMMENT "Linking kernel ${KERNEL}"
 )
 
@@ -161,4 +161,4 @@ add_custom_target(
 # for the discovery of files that I can apply for CLion
 # the actual execution of this will fail because i686-elf-gcc is a cross-compiler for x86
 # and im on an apple silicon mac. might work for prince though
-add_executable(FailStub ${KERNEL_SOURCES_C} ${KERNEL_SOURCES_ASM} ${BOOTSECT_SOURCES} ${BOOTSECT_DEPS})
+add_executable(FailStub ${KERNEL_HEADERS} ${KERNEL_SOURCES_C} ${KERNEL_SOURCES_ASM} ${BOOTSECT_SOURCES} ${BOOTSECT_DEPS})

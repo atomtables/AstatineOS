@@ -24,8 +24,8 @@ static struct {
     struct IDTPointer pointer;
 } idt;
 
-// in start.S
-extern void idt_load();
+// in entry32.asm
+extern void idt_load(u32);
 
 void idt_set(u8 index, void(* base)(struct registers*), u16 selector, u8 flags) {
     idt.entries[index] = (struct IDTEntry) {

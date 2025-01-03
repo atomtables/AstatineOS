@@ -6,7 +6,7 @@
 #define EXCEPTION_H
 
 #include <modules/modules.h>
-#include <idt/isr.h>
+#include <interrupt/isr.h>
 
 void reboot();
 

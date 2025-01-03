@@ -4,8 +4,8 @@
 
 #include "pic.h"
 
-#include <idt/idt.h>
-#include <idt/isr.h>
+#include <interrupt/idt.h>
+#include <interrupt/isr.h>
 
 // PIC constants
 #define PIC1 0x20
@@ -22,9 +22,9 @@
 #define ICW1_INIT 0x10
 
 #define PIC_WAIT() do {         \
-    asm ("jmp 1f\n"             \
-    "1:\n"                      \
-    "    jmp 2f\n"              \
+    asm ("jmp 1f \n"             \
+    "1: \n"                      \
+    "    jmp 2f \n"              \
     "2:");                      \
 } while (0)
 
@@ -43,28 +43,30 @@ static void stub(struct registers *regs) {
 }
 
 static void PIC_remap() {
+    // save masks
     u8 mask1 = inportb(PIC1_DATA), mask2 = inportb(PIC2_DATA);
 
-    outportb(PIC1, ICW1_INIT | ICW1_ICW4); // complicated way of saying 0x11
+    outportb(PIC1, 0x11); // initialise and expect control word 4
     PIC_WAIT();
-    outportb(PIC2, ICW1_INIT | ICW1_ICW4);
-    PIC_WAIT();
-
-    outportb(PIC1_DATA, PIC1_OFFSET);
-    PIC_WAIT();
-    outportb(PIC2_DATA, PIC2_OFFSET);
+    outportb(PIC2, 0x11);
     PIC_WAIT();
 
-    outportb(PIC1_DATA, 0x04); // PIC2 at IRQ2
+    outportb(PIC1_DATA, 0x20); // int 32-39
     PIC_WAIT();
-    outportb(PIC2_DATA, 0x02); // Cascade indentity
-    PIC_WAIT();
-
-    outportb(PIC1_DATA, PIC_MODE_8086);
-    PIC_WAIT();
-    outportb(PIC1_DATA, PIC_MODE_8086);
+    outportb(PIC2_DATA, 0x28); // int 40-47
     PIC_WAIT();
 
+    outportb(PIC1_DATA, 0x04); // PIC2 is connected at IRQ2
+    PIC_WAIT();
+    outportb(PIC2_DATA, 0x02); // PIC2's cascade identity is 0x02 (IRQ2)
+    PIC_WAIT();
+
+    outportb(PIC1_DATA, 0x01); // Make PIC operate in 8086 mode
+    PIC_WAIT();
+    outportb(PIC1_DATA, 0x01);
+    PIC_WAIT();
+
+    // restore masks
     outportb(PIC1_DATA, mask1);
     outportb(PIC2_DATA, mask2);
 }

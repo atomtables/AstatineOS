@@ -8,7 +8,7 @@
 #include <display/simple/display.h>
 #include <exception/exception.h>
 #include <modules/modules.h>
-#include <idt/interrupt.h>
+#include <interrupt/interrupt.h>
 #include <timer/PIT.h>
 
 

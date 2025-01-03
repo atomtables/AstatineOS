@@ -6,7 +6,7 @@
 
 #include <display/simple/display.h>
 #include <exception/exception.h>
-#include <idt/interrupt.h>
+#include <interrupt/interrupt.h>
 
 static struct state {
     u64 frequency;
@@ -28,15 +28,16 @@ process_wait_state process_wait_states[256];
 
 void(* every_second_handlers[256])() = {null};
 
-void add_process_wait_state(u64 start, u64 end, void(* ret)()) {
+int add_process_wait_state(u64 start, u64 end, void(* ret)()) {
     for (int i = 0; i < 256; i++) {
         if (process_wait_states[i].start == (u64)-1) {
             process_wait_states[i].start = start;
             process_wait_states[i].end = end;
             process_wait_states[i].ret = ret;
-            return;
+            return i;
         }
     }
+    return -1;
 }
 
 int run_every_second(void(* ret)()) {
@@ -53,10 +54,10 @@ void stop_run_every_second(int i) {
     every_second_handlers[i] = null;
 }
 
-void wait_and_do(const u64 ms, void(* ret)()) {
+int wait_and_do(const u64 ms, void(* ret)()) {
     const u64 start = timer_get();
     const u64 end = start + ms;
-    add_process_wait_state(start, end, ret);
+    return add_process_wait_state(start, end, ret);
 }
 
 static void timer_set(int hz) {

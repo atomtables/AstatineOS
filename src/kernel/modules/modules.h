@@ -32,6 +32,8 @@ typedef u8 bool;
 
 #define NOP()           asm ( "nop" )
 
+#define INT(_n)         asm ( "int %0" :: "i" (_n) )
+
 #define _assert_0()         __error_illegal_macro__
 #define _assert_1(_e)       do { if (!(_e)) panic(NULL); } while (0)
 #define _assert_2(_e, _m)   do { if (!(_e)) panic((_m)); } while (0)
@@ -113,6 +115,9 @@ char* itoa_signed(i32 number, char* str);
 char* xtoa(u32 number, char* str);
 char* xtoa_padded(u32 number, char* str);
 
+bool validate_number(const char* str);
+u32 atoi(const char* str);
+
 void memset(void* dst, u8 value, u32 n);
 void memset_step(void* dst, u8 value, u32 n, u32 step);
 void* memcpy(void* dst, void* src, u32 n);
@@ -126,5 +131,7 @@ void outportw(u16 port, u16 data);
 
 u32 rand();
 void seed(u32 s);
+
+char* num_to_bin(u8 num, char* str);
 
 #endif

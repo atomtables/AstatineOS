@@ -5,7 +5,7 @@
 #ifndef IRQ_H
 #define IRQ_H
 
-#include <idt/isr.h>
+#include <interrupt/isr.h>
 #include <modules/modules.h>
 
 void PIC_install(u32 i, void (*handler)(struct registers*));

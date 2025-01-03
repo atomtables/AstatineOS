@@ -5,9 +5,9 @@
 #ifndef INTERRUPT_H
 #define INTERRUPT_H
 
-#include <idt/idt.h>
-#include <idt/PIC.h>
-#include <idt/isr.h>
+#include <interrupt/idt.h>
+#include <interrupt/PIC.h>
+#include <interrupt/isr.h>
 
 #define INIT_INTERRUPTS() idt_init(); isr_init(); PIC_init();
 

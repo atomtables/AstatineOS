@@ -6,9 +6,9 @@
 
 #include <display/simple/display.h>
 #include <exception/exception.h>
-#include <idt/idt.h>
+#include <interrupt/idt.h>
 
-#define NUM_ISRS 48
+#define NUM_ISRS 49
 
 extern void _isr0(struct registers*);
 extern void _isr1(struct registers*);
@@ -58,6 +58,7 @@ extern void _isr44(struct registers*);
 extern void _isr45(struct registers*);
 extern void _isr46(struct registers*);
 extern void _isr47(struct registers*);
+extern void _isr48(struct registers*);
 
 static void (*stubs[NUM_ISRS])(struct registers*) = {
     _isr0,
@@ -108,6 +109,7 @@ static void (*stubs[NUM_ISRS])(struct registers*) = {
     _isr45,
     _isr46,
     _isr47,
+    _isr48,
 };
 
 static const char *exceptions[32] = {
@@ -154,7 +156,7 @@ void isr_install(u32 i, void (*handler)(struct registers*)) {
     handlers[i] = handler;
 }
 
-// referenced from start.S
+// referenced from entry32.asm
 void isr_handler(struct registers *regs) {
     if (handlers[regs->int_no]) {
         handlers[regs->int_no](regs);

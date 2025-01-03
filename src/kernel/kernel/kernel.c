@@ -1,7 +1,8 @@
 #include <display/advanced/graphics.h>
 #include <exception/exception.h>
+#include <fpu/fpu.h>
 #include <fungame/fungame.h>
-#include <idt/interrupt.h>
+#include <interrupt/interrupt.h>
 #include <ps2/keyboard.h>
 #include <memory/memory.h>
 #include <modules/strings.h>
@@ -26,30 +27,13 @@ u64 get_extended_memory_kb() {
     return *(u32*)0x15 * 64;
 }
 
-typedef struct Command {
-    char* name;
-    void (*function)(int, char**);
-} Command;
-
-void echo(int argc, char** argv) {
-    for (int i = 0; i < argc; i++) { printf("%s ", argv[i]); }
-    printf("\n");
+void handler(struct registers* regs) {
+    printf("int48\n");
 }
 
-void onesecond() {
-    // sleep(1000);
-    printf("1 second has passed\n");
-}
+extern void ahsh();
 
-Command commands[] = {
-    {"echo", echo},
-    {"beep", beep},
-    {"sleep", onesecond},
-    {"fungame", fungame},
-    {"clear", clear_screen},
-    {"reboot", reboot},
-};
-
+// only blocking thread.
 int main() {
     // about the only thing set up here is the GDT and the text-mode interface. we can use printf before init everything else.
     clear_screen();
@@ -64,6 +48,7 @@ int main() {
 
     init_mem();
 
+    fpu_init();
     timer_init();
     pcs_init();
 
@@ -75,25 +60,10 @@ int main() {
 
     printf("NetworkOS Kernel v0.1\n");
     printf("booting with %u bytes of memory\n", get_extended_memory_kb());
-    printf("creating a simple prompt:\n");
 
-    // code doesn't have to be good, just functional
+    asm ("xchg %bx, %bx");
 
-    while (1) {
-        char* prompt = malloc(64);
-        printf("NetworkOS %p> ", &prompt);
-        prompt = input(prompt, 64);
-        StrtokA prompt_s = strtok_a(prompt, " ");
-        for (u32 i = 0; i < 6; i++) {
-            if (strcmp(commands[i].name, prompt_s.ret[0]) == 0) {
-                commands[i].function(prompt_s.count - 1, &prompt_s.ret[1]);
-                goto complete;
-            }
-        }
-        printf("%s\n", "Command not found...");
+    ahsh();
 
-    complete:
-        free(prompt_s.ret, prompt_s.size);
-        free(prompt, 64);
-    }
+    while(1);
 }

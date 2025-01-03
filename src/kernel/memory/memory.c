@@ -81,7 +81,7 @@ void* malloc(const int bytes) {
     // at this point, we have no memory to allocate
     // TODO: handle heap full
     panic("no more mem");
-    FATALERROR();
+    return null;
 }
 
 void* calloc(const int bytes) {

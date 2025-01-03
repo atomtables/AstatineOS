@@ -16,5 +16,6 @@
 #include <modules/modules.h>
 
 extern u32 intro_music[];
+extern u32 intructions_music[];
 
 #endif //FG_INTERNAL_H
