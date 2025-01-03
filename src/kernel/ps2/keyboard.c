@@ -108,10 +108,6 @@ char* input(char* buffer, u32 size) {
     return buffer;
 }
 
-void wait_for_key_release(char c) {
-    while (keyboard.chars[c]) { NOP(); }
-}
-
 void keyboard_handler(struct registers* regs) {
     // get the character from the keyboard
     // first 8 bits are the scancode, last 8 bits is the pressed/released bit

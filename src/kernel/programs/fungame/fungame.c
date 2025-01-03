@@ -29,7 +29,7 @@ typedef struct operation {
     u32 end_frame;
 } operation;
 
-struct {
+static struct {
     // graphics state
     u32 starting_frame;
     u32 frame;
@@ -83,7 +83,7 @@ struct {
 } state;
 
 // the actual frame of the frame
-void draw_frame() {
+static void draw_frame() {
     draw_string(
         0, 0,
         "\xC9\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBB");
@@ -93,18 +93,18 @@ void draw_frame() {
         draw_char(0, i, '\xBA');
         draw_char(VGA_TEXT_WIDTH - 1, i, '\xBA');
     }
-    draw_string_with_color((VGA_TEXT_WIDTH / 2 - 1) - 9 / 2, 0, " fungame ",
+    draw_string_with_color((VGA_TEXT_WIDTH / 2 - 1) - 4, 0, " fungame ",
                            VGA_TEXT_COLOR(COLOR_BLUE, COLOR_LIGHT_GREY));
 }
 
-void setfps() {
+static void setfps() {
     state.fps = state.frame - state.second_frame;
     state.second_frame = state.frame;
 }
 
-void generateop();
+static void generateop();
 
-void setup() {
+static void setup() {
     enable_double_buffering();
     disable_vga_cursor();
 
@@ -130,12 +130,7 @@ void setup() {
     state.screen = START;
 }
 
-struct maincharacter {
-    u8 x;
-    u8 y;
-};
-
-void render_start() {
+static void render_start() {
     u8 index = (state.frame / 10) % 7;
 
     u8 colors[] = {
@@ -155,7 +150,7 @@ void render_start() {
     draw_string(X_MIDDLE - 14, Y_MIDDLE + 6, "Press ESC to exit at any time");
 }
 
-void render_instructions() {
+static void render_instructions() {
     // typewriter effect
     char* instructions = "Welcome to fungame, a game of mystery, excitement, and other\n"
         "varieties of fun. In this game, you will be simulating an ALU\n"
@@ -179,9 +174,9 @@ void render_instructions() {
     }
 }
 
-char* currentop = "No operations outgoing...";
+static char* currentop = "No operations outgoing...";
 
-void up_the_difficulty() {
+static void up_the_difficulty() {
     // at level 1, they are being introduced, so 1-8 seconds is good with a default max.
     // level 2 is faster, level 3 includes multiplication, level 4 probably start increasing speed and numbers.
     state.level++;
@@ -228,13 +223,13 @@ void up_the_difficulty() {
     state.starting_frame = state.frame;
 }
 
-void RNG();
+static void RNG();
 
-void setup_game() {
+static void setup_game() {
     // wait_and_do(20000, has_been_quiet);
 }
 
-void render_game() {
+static void render_game() {
     // Show current score
     draw_string(13, 0, "Score: ");
     draw_string(20, 0, itoa(state.score, "         "));
@@ -305,7 +300,7 @@ void render_game() {
     set_vga_cursor(67 + state.input_length, 23);
 }
 
-char* timed_out() {
+static char* timed_out() {
     char* phrases[] = {
         "Out of time! An 8086 could have done better...",
         "Out of time! Should have taken Kumon classes...",
@@ -318,7 +313,7 @@ char* timed_out() {
     return phrases[rand() % 7];
 }
 
-void game_logic() {
+static void game_logic() {
     // if (state.frame - state.new_ops_frame >= 600) {
     //     state.new_ops_frame = state.frame;
     //     RNG();
@@ -398,15 +393,15 @@ void game_logic() {
     }
 }
 
-u8 current_key_press() {
+static u8 current_key_press() {
     // return any char that is currently being pressed, otherwise return 0
     for (u8 i = 0; i < 128; i++) { if (keyboard_char(i)) { return i; } }
     return 0;
 }
 
-u8 c;
+static u8 c;
 
-char* incorrect_phrase() {
+static char* incorrect_phrase() {
     char* phrases[] = {
         "Incorrect! Javascript floating point error...",
         "Incorrect! You're not a real programmer...",
@@ -421,7 +416,7 @@ char* incorrect_phrase() {
     return phrases[rand() % 9];
 }
 
-void keysin_game_process() {
+static void keysin_game_process() {
     state.input[state.input_length] = 0;
 
     // check if the input is correct
@@ -470,7 +465,7 @@ void keysin_game_process() {
     }
 }
 
-void keysin_game() {
+static void keysin_game() {
     if (keyboard_char(c)) return; // wait for key release
 
     // all key presses are input
@@ -496,11 +491,11 @@ void keysin_game() {
 }
 
 // gives a random time to generate the next operation
-void RNG() {
+static void RNG() {
     wait_and_do(((rand() % state.ms_max) + state.ms_min), generateop);
 }
 
-void generateop() {
+static void generateop() {
     if (state.paused) {
         wait_and_do(5000, generateop);
         return;
@@ -570,7 +565,7 @@ void generateop() {
     RNG();
 }
 
-void render_paused() {
+static void render_paused() {
     for (int i = 0; i < 51; i++) {
         draw_char_with_color(X_MIDDLE - 25 + i, Y_MIDDLE - 5, '\xB0', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
@@ -620,16 +615,16 @@ void render_paused() {
     draw_string(X_MIDDLE - (21 / 2), Y_MIDDLE + 1, "Press ENTER to resume");
 }
 
-void render_gameover() {
+static void render_gameover() {
     draw_string(X_MIDDLE - 7, Y_MIDDLE - 2, "G A M E O V E R");
     draw_string(X_MIDDLE - 11, Y_MIDDLE + 0, "Press ENTER to restart");
     draw_string(X_MIDDLE - 16, Y_MIDDLE + 1, "Press TAB to return to main menu");
     draw_string(X_MIDDLE - 8, Y_MIDDLE + 2, "Press ESC to quit");
 }
 
-u32 current = 0;
+static u32 current = 0;
 
-void render() {
+static void render() {
     draw_frame();
     if (state.screen == START) { render_start(); }
     else if (state.screen == INSTRUCTIONS) { render_instructions(); }
@@ -645,9 +640,9 @@ void render() {
     }
 }
 
-void quit();
+static void quit();
 
-void keysin() {
+static void keysin() {
     if (state.screen == START) {
         if (keyboard_char('\n')) {
             nosound();
@@ -697,13 +692,13 @@ void keysin() {
     }
 }
 
-void logic() {
+static void logic() {
     if (state.screen == GAME) {
         game_logic();
     }
 }
 
-void stats() {
+static void stats() {
     draw_string(55, 0, "FPS: ");
     draw_string(60, 0, itoa(state.fps, "         "));
 
@@ -711,7 +706,7 @@ void stats() {
     draw_string(72, 0, itoa(state.fis, "         "));
 }
 
-void quit() {
+static void quit() {
     stop_run_every_second(state.handler);
     nosound();
     clear_screen();
@@ -721,7 +716,7 @@ void quit() {
     printf("Thank you for playing...\n");
 }
 
-void music() {
+static void music() {
     u32 current_music_tick = state.frame % 15;
 
     if (current_music_tick == 0) {

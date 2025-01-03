@@ -1,7 +1,6 @@
 #include <display/advanced/graphics.h>
 #include <exception/exception.h>
 #include <fpu/fpu.h>
-#include <fungame/fungame.h>
 #include <interrupt/interrupt.h>
 #include <ps2/keyboard.h>
 #include <memory/memory.h>
