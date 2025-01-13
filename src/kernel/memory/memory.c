@@ -90,10 +90,10 @@ void* calloc(const int bytes) {
     return ptr;
 }
 
-void* realloc(void* addr, u32 oldsize, u32 bytes) {
+void* realloc(void* ptr, u32 oldsize, u32 bytes) {
     void* new_addr = malloc(bytes);
-    memcpy(new_addr, addr, oldsize);
-    free(addr, oldsize);
+    memcpy(new_addr, ptr, oldsize);
+    free(ptr, oldsize);
     return new_addr;
 }
 

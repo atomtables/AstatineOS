@@ -38,6 +38,7 @@ static struct {
 
     note* notes;
     u32 size_notes;
+    u32 count_notes;
 
     note* current_note;
 
@@ -68,16 +69,19 @@ static void debug(char*);
 static void create_note(void) {
     data.showPrompt = false;
 
-    data.size_notes++;
-    data.notes = realloc(data.notes, sizeof(note) * (data.size_notes - 1), data.size_notes * sizeof(note));
+    data.count_notes++;
+    if (data.count_notes > data.size_notes) {
+        data.notes = realloc(data.notes, sizeof(note) * data.size_notes, sizeof(note) * data.size_notes * 2);
+        data.size_notes *= 2;
+    }
 
-    note* n = &(data.notes[data.size_notes - 1]);
+    note* n = &(data.notes[data.count_notes - 1]);
     init_note(n);
     strcpy(n->title, data.pbuffer);
 
-    data.notes[data.size_notes - 1] = *n;
+    data.notes[data.count_notes - 1] = *n;
 
-    data.selected = data.size_notes - 1;
+    data.selected = data.count_notes - 1;
 }
 
 static void create_sample_notes() {
@@ -91,10 +95,9 @@ static void create_sample_notes() {
         },
         (char*[]){"I'm confused", "computer science is too hard idk what im doing."},
         (char*[]){"What's the point", "\n\n\n\n\n            insert sample mental breakdown here"},
-        (char*[]){"What's the douchebag", "\n\n\n\n\n            insert sample schaudenfreude here"}
     };
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         note* n = &data.notes[i];
         init_note(n);
         strcpy(n->title, selections[i][0]);
@@ -123,6 +126,8 @@ static void create_sample_notes() {
         n->content[1444] = 0;
         n->id = i;
         data.notes[i] = *n;
+
+        data.count_notes++;
     }
 }
 
@@ -132,8 +137,8 @@ static void setup() {
     data.shouldQuit = false;
 
     if (!data.firstRun) {
-        data.notes = malloc(sizeof(note) * 5);
-        data.size_notes = 5;
+        data.notes = malloc(sizeof(note) * 10);
+        data.size_notes = 10;
         create_sample_notes();
     }
 
@@ -230,7 +235,7 @@ static void render_menu() {
 }
 
 static void render_selection() {
-    for (int i = 0, y = 2; i < data.size_notes; i++, y++) {
+    for (int i = 0, y = 2; i < data.count_notes; i++, y++) {
         if (i == data.selected) {
             for (int x = 2; x < VGA_TEXT_WIDTH - 2; x++) {
                 draw_color(x, y, VGA_TEXT_COLOR(COLOR_BLACK, COLOR_LIGHT_GREY));
@@ -270,8 +275,8 @@ static void render() {
     draw_outline();
 
     render_menu();
-    if (data.showPrompt) render_prompt(data.pquestion, data.pbuffer);
     if (data.page == SELECTION) render_selection();
+    if (data.showPrompt) render_prompt(data.pquestion, data.pbuffer);
     if (data.page == NOTE) render_note();
 }
 
@@ -372,7 +377,7 @@ static void keysin() {
         if (keyboard_key(KEY_DOWN)) {
             c = KEY_DOWN;
             data.selected++;
-            if (data.selected > data.size_notes - 1) data.selected = data.size_notes - 1;
+            if (data.selected > data.count_notes - 1) data.selected = data.count_notes - 1;
             return;
         }
         if (data.showPrompt) keysin_prompt();
