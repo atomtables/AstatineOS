@@ -48,7 +48,7 @@ set(CCFLAGS_KERNEL
         -I/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include
         -I/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include-fixed
 )
-set(QEMUFLAGS -monitor stdio -d int -audiodev coreaudio,id=audio0 -machine pcspk-audiodev=audio0 -no-reboot -no-shutdown)
+set(QEMUFLAGS -monitor stdio -d int -D qemu.log -audiodev coreaudio,id=audio0 -machine pcspk-audiodev=audio0 -debugcon file:qemu.log -no-reboot -no-shutdown)
 
 # for CMake and CLion
 include_directories("${SOURCE_DIR}/${KERNEL_DIR}" "/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include" "/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include-fixed")

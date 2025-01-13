@@ -28,6 +28,7 @@
 #define KEY_RIGHT   0x4D
 #define KEY_DOWN    0x50
 
+// 0x80-0x8F
 #define KEY_F1      0x80
 #define KEY_F2      (KEY_F1 + 1)
 #define KEY_F3      (KEY_F1 + 2)
@@ -90,6 +91,20 @@
 
 #define KEYCMD_DISABLE    0xF5
 #define KEYCMD_ENABLE     0xF4
+
+extern struct keyboard_state {
+    bool caps_lock : 1;
+    bool num_lock : 1;
+    bool scroll_lock : 1;
+    bool shift : 1;
+    bool ctrl : 1;
+    bool alt : 1;
+    bool meta : 1;
+    u8 current_key;
+    u8 current_char;
+    bool pressed : 4;
+    bool tick : 4; // on every keypress, this will be toggled to indicate a new keypress
+} simple_state;
 
 extern bool keyboard_irq_enabled;
 extern u8 keyboard_current_scancode;

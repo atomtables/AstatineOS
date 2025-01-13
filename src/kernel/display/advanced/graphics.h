@@ -44,8 +44,10 @@ typedef struct sprite {
 void enable_double_buffering();
 void disable_double_buffering();
 
-void enable_vga_cursor(const u8 width, const u8 height);
+void enable_vga_cursor(void);
 void disable_vga_cursor();
+void enable_vga_blink();
+void disable_vga_blink();
 u16 get_vga_cursor();
 void set_vga_cursor(const int x, const int y);
 void swap_graphics_buffer();

@@ -22,7 +22,7 @@ typedef struct operation {
     u8 num1;
     u8 num2;
 
-    enum: u8 { ADD, SUB, MUL, DIV } op;
+    enum { ADD, SUB, MUL, DIV } op;
 
     u16 ans;
 
@@ -296,7 +296,7 @@ static void render_game() {
     // input
     draw_string(60, 23, "Input: ");
     draw_string(67, 23, state.input);
-    enable_vga_cursor(79, 23);
+    enable_vga_cursor();
     set_vga_cursor(67 + state.input_length, 23);
 }
 
@@ -709,11 +709,11 @@ static void stats() {
 static void quit() {
     stop_run_every_second(state.handler);
     nosound();
-    clear_screen();
+    display.clear_screen();
     disable_double_buffering();
     free(state.input, 9);
-    enable_vga_cursor(79, 23);
-    printf("Thank you for playing...\n");
+    enable_vga_cursor();
+    display.printf("Thank you for playing...\n");
 }
 
 static void music() {
@@ -732,7 +732,7 @@ static void music() {
 }
 
 void fungame() {
-    printf("Loading...");
+    display.printf("Loading...");
     setup();
     sleep(500);
     u64 last_frame = 0;

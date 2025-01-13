@@ -33,6 +33,8 @@ typedef u8 bool;
 #define NOP()           asm ( "nop" )
 
 #define INT(_n)         asm ( "int %0" :: "i" (_n) )
+#define wait_for(_cond) while (!(_cond)) { NOP(); }
+#define ret_if(_cond)   if (_cond) return
 
 #define _assert_0()         __error_illegal_macro__
 #define _assert_1(_e)       do { if (!(_e)) panic(NULL); } while (0)

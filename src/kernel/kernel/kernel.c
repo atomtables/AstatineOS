@@ -23,11 +23,11 @@ u32 get_conventional_memory_kb() {
 }
 
 u64 get_extended_memory_kb() {
-    return *(u32*)0x15 * 64;
+    return *(int*)0x15 * 64;
 }
 
 void handler(struct registers* regs) {
-    printf("int48\n");
+    display.printf("int48\n");
 }
 
 extern void ahsh();
@@ -35,7 +35,7 @@ extern void ahsh();
 // only blocking thread.
 int main() {
     // about the only thing set up here is the GDT and the text-mode interface. we can use printf before init everything else.
-    clear_screen();
+    display.clear_screen();
 
     draw_string(35, 10, "NetworkOS");
     draw_string(34, 11, "Booting...");
@@ -54,13 +54,12 @@ int main() {
     ps2_controller_init();
     keyboard_init();
 
-    beep();
+    play_sound(NOTE_D5);
     sleep(500);
+    nosound();
 
-    printf("NetworkOS Kernel v0.1\n");
-    printf("booting with %u bytes of memory\n", get_extended_memory_kb());
-
-    asm ("xchg %bx, %bx");
+    display.printf("NetworkOS Kernel v0.1\n");
+    display.printf("booting with %u bytes of memory\n", get_extended_memory_kb());
 
     ahsh();
 

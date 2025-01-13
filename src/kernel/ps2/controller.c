@@ -49,8 +49,8 @@ u8 read_configuration_byte() {
 
 void write_configuration_byte(u8 config) {
     sendcommandw(0x60, config);
-    printf("0x%x\n", readdatab());
-    printf("0x%x\n", read_configuration_byte());
+    display.printf("0x%x\n", readdatab());
+    display.printf("0x%x\n", read_configuration_byte());
 }
 
 void ps2_controller_init() {

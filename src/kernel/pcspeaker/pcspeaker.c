@@ -33,7 +33,7 @@ void nosound() {
 // Make a beep
 void beep() {
     play_sound(587);
-    wait_and_do(500, nosound);
+    wait_and_do(50, nosound);
     // set_PIT_2(old_frequency);
 }
 

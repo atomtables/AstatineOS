@@ -37,15 +37,13 @@ void disable_double_buffering() {
  * the cursor from blinking. Only relevant in
  * the case of a recovery from a blue-screen,
  * interactive display, or a jump into a text mode.
- * @param width The width of where the cursor can go.
- * @param height The height of where the cursor can go.
  */
-void enable_vga_cursor(const u8 width, const u8 height) {
+void enable_vga_cursor() {
     outportb(0x3D4, 0x0A);
-    outportb(0x3D5, (inportb(0x3D5) & 0xC0) | width);
+    outportb(0x3D5, (inportb(0x3D5) & 0xC0) | 79);
 
     outportb(0x3D4, 0x0B);
-    outportb(0x3D5, (inportb(0x3D5) & 0xE0) | height);
+    outportb(0x3D5, (inportb(0x3D5) & 0xE0) | 24);
 }
 
 /**
@@ -98,6 +96,22 @@ void set_vga_cursor(const int x, const int y) {
 
     outportb(0x3D4, 0x0E);
     outportb(0x3D5, (u8)((pos >> 8) & 0xFF));
+}
+
+void enable_vga_blink() {
+    inportb(0x3DA);
+    outportb(0x3C0, 0x30);
+
+    u8 x = inportb(0x3C1);
+    outportb(0x3C0, x | 0x08);
+}
+
+void disable_vga_blink() {
+    inportb(0x3DA);
+    outportb(0x3C0, 0x30);
+
+    u8 x = inportb(0x3C1);
+    outportb(0x3C0, x & 0xF7);
 }
 
 void swap_graphics_buffer() {

@@ -40,18 +40,14 @@
 
 #include <modules/modules.h>
 
-void disable_vga_cursor();
-
-void clear_screen();
-
-void change_screen_color(u8 color);
-
-void print(char* str);
-
-void print_color(char* str, u8 color);
-
-void println(char* str);
-
-void printf(const char* fmt, ...);
+extern struct display_prototype_functions {
+    void(* clear_screen)(void);
+    void(* change_screen_color)(u8 color);
+    void(* print)(char* str);
+    void(* print_color)(char* str, u8 color);
+    void(* println)(char* str);
+    void(* println_color)(char* str, u8 color);
+    void(* printf)(const char* fmt, ...);
+} display;
 
 #endif //DISPLAY_H
