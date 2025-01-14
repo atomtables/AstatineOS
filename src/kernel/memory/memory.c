@@ -61,8 +61,8 @@ void* malloc(const int bytes) {
 
     // find the first block of memory that is free
     int block = 0; int other_block = 0; int length = 0;
-    while (block < 8192) {
-        if (is_block_free(block)) {
+    while (block < 65536) {
+        if (is_block_free(other_block)) {
             length++;
             if (length == blocks) {
                 // we have enough blocks to allocate, now we can reserve blocks
@@ -72,7 +72,7 @@ void* malloc(const int bytes) {
                 return (void*)(block * MEM_BLOCK_BYTE_SIZE + MEM_BLOCK_START);
             }
         } else {
-            block = other_block;
+            block = other_block + 1; // start from the next block
             length = 0;
         }
         other_block++;
@@ -92,8 +92,10 @@ void* calloc(const int bytes) {
 
 void* realloc(void* ptr, u32 oldsize, u32 bytes) {
     void* new_addr = malloc(bytes);
-    memcpy(new_addr, ptr, oldsize);
+
+    memcpy(new_addr, ptr, bytes);
     free(ptr, oldsize);
+
     return new_addr;
 }
 

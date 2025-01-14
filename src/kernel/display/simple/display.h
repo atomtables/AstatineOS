@@ -40,7 +40,7 @@
 
 #include <modules/modules.h>
 
-extern struct display_prototype_functions {
+typedef struct {
     void(* clear_screen)(void);
     void(* change_screen_color)(u8 color);
     void(* print)(char* str);
@@ -48,6 +48,8 @@ extern struct display_prototype_functions {
     void(* println)(char* str);
     void(* println_color)(char* str, u8 color);
     void(* printf)(const char* fmt, ...);
-} display;
+} PDisplay;
+
+extern PDisplay display;
 
 #endif //DISPLAY_H

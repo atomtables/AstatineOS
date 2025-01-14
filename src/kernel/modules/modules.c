@@ -185,15 +185,13 @@ void memset_step(void* dst, u8 value, u32 n, u32 step) {
     }
 }
 
-void* memcpy(void* dst, void* src, u32 n) {
-    u8 *d = dst;
-    const u8 *s = src;
+void* memcpy(void* dst, const void* src, u32 n) {
+    register const char* f = src;
+    register char* t = dst;
 
-    while (n-- > 0) {
-        *d++ = *s++;
-    }
+    while (n-- != 0) *t++ = *f++;
 
-    return d;
+    return dst;
 }
 
 void* memmove(void* dst, void* src, const u32 n) {

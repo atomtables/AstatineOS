@@ -18,8 +18,11 @@ typedef struct Command {
 } Command;
 
 void echo(int argc, char** argv) {
-    for (int i = 0; i < argc; i++) { display.printf("%s ", argv[i]); }
+    for (int i = 0; i < argc; i++) {
+        display.printf("%s %p\n", argv[i], &argv[i]);
+    }
     display.printf("\n");
+    while(1);
 }
 
 void onesecond() {
@@ -31,7 +34,7 @@ void clear(int argc, char** argv) {
     display.clear_screen();
 }
 
-Command commands[] = {
+static Command commands[] = {
     {"echo", echo},
     {"beep", beep},
     {"sleep", onesecond},
@@ -48,7 +51,7 @@ void ahsh() {
 
     while (1) {
         char* prompt = malloc(64);
-        display.printf("NetworkOS %p> ", &prompt);
+        display.printf("NetworkOS %p> ", prompt);
         prompt = input(prompt, 64);
         StrtokA prompt_s = strtok_a(prompt, " ");
         for (u32 i = 0; i < sizeof(commands) / sizeof(Command); i++) {
@@ -59,7 +62,7 @@ void ahsh() {
                 goto complete;
             }
         }
-        display.printf("%s\n", "Command not found...");
+        display.printf("%p %s Command not found...\n", prompt_s.ret, prompt_s.ret[0]);
 
         complete:
             free(prompt_s.ret, prompt_s.size);

@@ -497,7 +497,7 @@ static void printf(const char* fmt, ...) {
 }
 
 // module.exports
-struct display_prototype_functions display = {
+PDisplay display = {
     .clear_screen = clear_screen,
     .change_screen_color = change_screen_color,
     .print = print,

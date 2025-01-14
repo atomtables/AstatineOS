@@ -118,15 +118,15 @@ StrtokA strtok_a(char* s, const char* delim) {
 
     char* str = strdup(s);
 
-    for (char* word = strtok_r(str, delim, &last);
-         word;
-         word = strtok_r(null, delim, &last)) {
+    for (char* word = strtok_r(str, delim, &last); word; word = strtok_r(null, delim, &last)) {
+
         ret[count] = word;
         count++;
         if (count == size) {
             size += 2;
-            ret = realloc(ret, size-2, sizeof(char*) * size);
+            ret = realloc(ret, sizeof(char*) + (size-2), sizeof(char*) * size);
         }
+
     }
 
     free(str, strlen(str)+1);
