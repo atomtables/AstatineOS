@@ -1,7 +1,18 @@
 [bits   16]
 
-jmp     0x7c0:$+2    ; Jump to add CS 0x7c00
+jmp     0x7c0:next    ; Jump to add CS 0x7c00
 
+lba:
+    lbasize: db 0x10
+    lbaresv: db 0x00
+    lbamaxs: dw 0x007F
+    lbaoffs: dw 0x0000
+    lbasegs: dw 0x1000
+    lbalow4: dd 0x00000001
+    lbahigh: dd 0x00000000
+
+
+next:
 mov     [BOOT_DRIVE], dl
 
 xor     ax, ax
@@ -13,39 +24,68 @@ cld
 
 KERNEL_OFFSET equ 0x10000 ; The same one we used when linking the kernel
 
-mov     bx, 0x1000
-mov     es, bx
-mov     bx, 0x0000 ; es:bx = 0x7E00
-mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
-mov     al, 0x3F ; al <- number of sectors to read (0x01 .. 0x80)
-mov     cl, 0x02 ; cl <- sector (0x01 .. 0x11)
-xor     ch, ch   ; ch <- cylinder number (0x0 .. 0xFF)
-xor     dh, dh   ; dh <- head number (0x0 .. 0xF)
+;mov     bx, 0x1000
+;mov     es, bx
+;mov     bx, 0x0000 ; es:bx = 0x7E00
+;mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
+;mov     al, 0x3F ; al <- number of sectors to read (0x01 .. 0x80)
+;mov     cl, 0x02 ; cl <- sector (0x01 .. 0x11)
+;xor     ch, ch   ; ch <- cylinder number (0x0 .. 0xFF)
+;xor     dh, dh   ; dh <- head number (0x0 .. 0xF)
+;
+;int     0x13     ; BIOS interrupt
+;jc      .disk_error
+;
+;;       es -> 0x1000
+;;mov     bx, 0x7E00 ; es:bx = 0x7E00
+;;mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
+;;mov     al, 0x40 ; al <- number of sectors to read (0x01 .. 0x80)
+;;mov     cl, 0x01 ; cl <- sector (0x01 .. 0x11)
+;;inc     dh
+;;
+;;int     0x13     ; BIOS interrupt
+;;jc      .disk_error
+;mov     bx, 0x1000
+;mov     es, bx
+;mov     bx, 0x7E00 ; es:bx = 0x7E00
+;mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
+;mov     al, 0x40 ; al <- number of sectors to read (0x01 .. 0x80)
+;mov     cl, 0x01 ; cl <- sector (0x01 .. 0x11)
+;xor     ch, ch   ; ch <- cylinder number (0x0 .. 0xFF)
+;mov     dh, 0x02 ; dh <- head number (0x0 .. 0xF)
+;
+;int     0x13     ; BIOS interrupt
+;jc      .disk_error
+;jmp $
 
-int     0x13     ; BIOS interrupt
-jc      .disk_error
-
-mov     bx, 0x7E00 ; es:bx = 0x7E00
-mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
-mov     al, 0x40 ; al <- number of sectors to read (0x01 .. 0x80)
-dec     cl
-inc     dh
-
-int     0x13     ; BIOS interrupt
-jc      .disk_error
-
-mov     bx, 0xFE00 ; es:bx = 0x7E00
-mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
-mov     al, 0x01 ; al <- number of sectors to read (0x01 .. 0x80)
-mov     cl, 0x01 ; the first sector
-mov     dh, 0x02 ; dh <- head number (0x0 .. 0xF)
-
-int     0x13     ; BIOS interrupt
-jc      .disk_error
+;mov     bx, 0xFE00 ; es:bx = 0x7E00
+;mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
+;mov     al, 0x01 ; al <- number of sectors to read (0x01 .. 0x80)
+;; mov     cl, 0x01 ; the first sector
+;; mov     dh, 0x02 ; dh <- head number (0x0 .. 0xF)
+;
+;int     0x13     ; BIOS interrupt
+;jc      .disk_error
+;
+;mov     bx, 0x2000
+;mov     es, bx
+;xor     bx, bx
+;mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
+;mov     al, 0x3F ; al <- number of sectors to read (0x01 .. 0x80)
+;; mov     cl, 0x01 ; cl <- sector (0x01 .. 0x11)
+;inc     dh
+;
+;int     0x13     ; BIOS interrupt
+;jc      .disk_error
 
 mov     ax, 0x7c0
 mov     ds, ax
 mov     es, ax
+
+mov     si, lba
+mov     ah, 0x42
+int     0x13
+jc      .disk_error
 
 call    switch_to_32bit ; disable interrupts, load GDT,  etc. Finally jumps to 'BEGIN_PM'
 jmp     $               ; Never executed
@@ -53,13 +93,13 @@ jmp     $               ; Never executed
 .disk_error:
     ; mov     si, disk_error_msg
     ; Print the error message by moving it to the video memory
+    mov     dl, ah
     mov     ah, 0x0E
-.repeat:
-    ; mov     al, 'E'
+    mov     al, 'E'
     ;inc     si
     ;cmp     al, 0
     ;je      done
-    ; int     0x10
+    int     0x10
     ;jmp     .repeat
 done:
     jmp     $
