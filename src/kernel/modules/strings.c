@@ -14,16 +14,46 @@ int strlen(const char* str) {
     return i;
 }
 
-void* strcpy(void* dst, const char* src) {
-    u8 *d = dst;
-    const u8 *s = (u8*)src;
+// void* strcpy(void* dst, const char* src) {
+//     u8 *d = dst;
+//     const u8 *s = (u8*)src;
+//
+//     while (*s) {
+//         *d++ = *s++;
+//     }
+//     *d = 0;
+//
+//     return d;
+// }
 
-    while (*s) {
-        *d++ = *s++;
+// i think my strcpy code is wrong, now using the one from BSD
+char* strcpy(char* to, const char* from)
+{
+    char* save = to;
+
+    for (; (*to = *from) != '\0'; ++from, ++to) {};
+    return(save);
+}
+
+// credit to bsd again
+char* strcat(char* __restrict s, const char* __restrict append) {
+    char* save = s;
+
+    for (; *s; ++s) {};
+    while ((*s++ = *append++)) {};
+    return(save);
+}
+
+char tolower(char c) {
+  if (c >= 'A' && c <= 'Z') return c + 0x20;
+  return c;
+}
+
+char* strlwr(char* s) {
+    for (int i = 0; s[i] != 0; i++) {
+        s[i] = tolower(s[i]);
     }
-    *d = 0;
-
-    return d;
+    return s;
 }
 
 int strcmp(char* s1, char* s2) {

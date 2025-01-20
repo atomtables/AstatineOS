@@ -24,60 +24,6 @@ cld
 
 KERNEL_OFFSET equ 0x10000 ; The same one we used when linking the kernel
 
-;mov     bx, 0x1000
-;mov     es, bx
-;mov     bx, 0x0000 ; es:bx = 0x7E00
-;mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
-;mov     al, 0x3F ; al <- number of sectors to read (0x01 .. 0x80)
-;mov     cl, 0x02 ; cl <- sector (0x01 .. 0x11)
-;xor     ch, ch   ; ch <- cylinder number (0x0 .. 0xFF)
-;xor     dh, dh   ; dh <- head number (0x0 .. 0xF)
-;
-;int     0x13     ; BIOS interrupt
-;jc      .disk_error
-;
-;;       es -> 0x1000
-;;mov     bx, 0x7E00 ; es:bx = 0x7E00
-;;mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
-;;mov     al, 0x40 ; al <- number of sectors to read (0x01 .. 0x80)
-;;mov     cl, 0x01 ; cl <- sector (0x01 .. 0x11)
-;;inc     dh
-;;
-;;int     0x13     ; BIOS interrupt
-;;jc      .disk_error
-;mov     bx, 0x1000
-;mov     es, bx
-;mov     bx, 0x7E00 ; es:bx = 0x7E00
-;mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
-;mov     al, 0x40 ; al <- number of sectors to read (0x01 .. 0x80)
-;mov     cl, 0x01 ; cl <- sector (0x01 .. 0x11)
-;xor     ch, ch   ; ch <- cylinder number (0x0 .. 0xFF)
-;mov     dh, 0x02 ; dh <- head number (0x0 .. 0xF)
-;
-;int     0x13     ; BIOS interrupt
-;jc      .disk_error
-;jmp $
-
-;mov     bx, 0xFE00 ; es:bx = 0x7E00
-;mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
-;mov     al, 0x01 ; al <- number of sectors to read (0x01 .. 0x80)
-;; mov     cl, 0x01 ; the first sector
-;; mov     dh, 0x02 ; dh <- head number (0x0 .. 0xF)
-;
-;int     0x13     ; BIOS interrupt
-;jc      .disk_error
-;
-;mov     bx, 0x2000
-;mov     es, bx
-;xor     bx, bx
-;mov     ah, 0x02 ; ah <- int 0x13 function. 0x02 = 'read'
-;mov     al, 0x3F ; al <- number of sectors to read (0x01 .. 0x80)
-;; mov     cl, 0x01 ; cl <- sector (0x01 .. 0x11)
-;inc     dh
-;
-;int     0x13     ; BIOS interrupt
-;jc      .disk_error
-
 mov     ax, 0x7c0
 mov     ds, ax
 mov     es, ax
@@ -85,27 +31,41 @@ mov     es, ax
 mov     si, lba
 mov     ah, 0x42
 int     0x13
-jc      .disk_error
+jc      disk_error
 
 call    switch_to_32bit ; disable interrupts, load GDT,  etc. Finally jumps to 'BEGIN_PM'
 jmp     $               ; Never executed
 
-.disk_error:
+disk_error:
     ; mov     si, disk_error_msg
     ; Print the error message by moving it to the video memory
     mov     dl, ah
     mov     ah, 0x0E
     mov     al, 'E'
-    ;inc     si
-    ;cmp     al, 0
-    ;je      done
     int     0x10
-    ;jmp     .repeat
 done:
     jmp     $
 
 [bits 16]
 switch_to_32bit:
+    ; before all that, get memory
+    XOR CX, CX
+    XOR DX, DX
+    MOV AX, 0xE801
+    INT 0x15		; request upper memory size
+    JC disk_error
+    JCXZ .USEAX		; was the CX result invalid?
+
+    MOV AX, CX
+    MOV BX, DX
+    .USEAX:
+    ; AX = number of contiguous Kb, 1M to 16M
+    ; BX = contiguous 64Kb pages above 16M
+    mov     cx, ax
+    xor     ax, ax
+    mov     fs, ax
+    mov     word [fs:0x500], cx
+    mov     word [fs:0x502], bx
     call    enable_a20          ; 0. enable A20 line
     cli                         ; 1. disable interrupts
     nop                         ; 1.1. some CPUs require a delay after cli
@@ -140,9 +100,6 @@ BEGIN_32BIT:
 %include "a20.asm"
 
 BOOT_DRIVE db 0             ; It is a good idea to store it in memory because 'dl' may get overwritten
-;NOH db 0
-;SPT db 0
-;disk_error_msg db "Disk error", 0
 
 times 446 - ($-$$) db 0
 partition_1:

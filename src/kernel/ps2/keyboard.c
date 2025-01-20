@@ -185,8 +185,8 @@ void keyboard_handler(struct registers* regs) {
             if (DEBUG) display.printf("alt was released\n");
             break;
         default:
-            simple_state.current_char = 0;
-            simple_state.current_key = 0;
+            // simple_state.current_char = 0;
+            // simple_state.current_key = 0;
             simple_state.pressed = false;
         }
 

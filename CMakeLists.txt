@@ -139,9 +139,9 @@ add_custom_command(
 add_custom_command(
         OUTPUT ${FISO}
         COMMAND ${MKDIR} -p product
-        COMMAND ${DD} if=/dev/zero of=${ISO} bs=512 count=10000
+        COMMAND ${DD} if=/dev/zero of=${ISO} bs=512 count=2880
         COMMAND ${DD} if=${BOOTSECT} of=${ISO} conv=notrunc bs=512 seek=0 count=1
-        COMMAND ${DD} if=${KERNEL} of=${ISO} conv=notrunc bs=512 seek=1 count=9999
+        COMMAND ${DD} if=${KERNEL} of=${ISO} conv=notrunc bs=512 seek=1 count=2879
         COMMAND ${MV} ${ISO} ${FISO}
         DEPENDS ${BOOTSECT} ${KERNEL}
         COMMENT "Creating bootable media ${ISO}"

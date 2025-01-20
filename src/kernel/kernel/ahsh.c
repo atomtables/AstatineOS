@@ -7,6 +7,7 @@
 #include <exception/exception.h>
 #include <memory/memory.h>
 #include <modules/strings.h>
+#include <programs/basicbasic/basicbasic.h>
 #include <programs/fungame/fungame.h>
 #include <programs/netnotes/netnotes.h>
 #include <ps2/keyboard.h>
@@ -19,10 +20,9 @@ typedef struct Command {
 
 void echo(int argc, char** argv) {
     for (int i = 0; i < argc; i++) {
-        display.printf("%s %p\n", argv[i], &argv[i]);
+        display.printf("%s", argv[i]);
     }
     display.printf("\n");
-    while(1);
 }
 
 void onesecond() {
@@ -40,18 +40,19 @@ static Command commands[] = {
     {"sleep", onesecond},
     {"fungame", fungame},
     {"netnotes", netnotes},
+    {"basicbasic", basicbasic},
     {"clear", clear},
     {"reboot", reboot},
 };
 
 void ahsh() {
-    display.printf("creating a simple prompt:\n");
+    display.printf("\n");
 
     // code doesn't have to be good, just functional
 
     while (1) {
         char* prompt = malloc(64);
-        display.printf("NetworkOS %p> ", prompt);
+        display.printf("-ahsh %p> ", prompt);
         prompt = input(prompt, 64);
         StrtokA prompt_s = strtok_a(prompt, " ");
         for (u32 i = 0; i < sizeof(commands) / sizeof(Command); i++) {

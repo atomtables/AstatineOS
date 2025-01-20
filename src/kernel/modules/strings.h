@@ -15,7 +15,11 @@ typedef struct StrtokA {
 
 int     strlen      (const char* str);
 
-void*   strcpy      (void* dst, const char* src);
+char*   strcpy      (char* dst, const char* src);
+char*   strcat      (char* s, const char* append);
+
+char    tolower     (char c);
+char*   strlwr      (char* s);
 
 int     strcmp      (char* s1, char* s2);
 int     strncmp     (char* s1, char* s2, u32 t);

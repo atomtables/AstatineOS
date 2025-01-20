@@ -18,14 +18,6 @@
 
 // YO THIS GUY ONLINE WAS ACT LEGIT :skull:
 
-u32 get_conventional_memory_kb() {
-    return *(u32*)0x413;
-}
-
-u64 get_extended_memory_kb() {
-    return *(int*)0x15 * 64;
-}
-
 void handler(struct registers* regs) {
     display.printf("int48\n");
 }
@@ -37,29 +29,53 @@ int main() {
     // about the only thing set up here is the GDT and the text-mode interface. we can use printf before init everything else.
     display.clear_screen();
 
-    draw_string(35, 10, "NetworkOS");
-    draw_string(34, 11, "Booting...");
+    u32 mem1 = *((u16*)0x500) * 1000;
+    u32 mem2 = *((u16*)0x502) * 64000;
+    u32 mem3 = mem1 + mem2;
+
+    draw_string(30, 10, "NetworkOS Kernel v0.1");
+    draw_string(33, 12, "Initialising...");
+    draw_string(30, 13, "     interrupts     ");
+
+    for (int i = 0; i < 1000000000; i++) {NOP();}
 
     idt_init();
     isr_init();
     PIC_init();
 
-
-    init_mem();
-
-    fpu_init();
+    draw_string(30, 13, "   internal clock   ");
     timer_init();
-    pcs_init();
+    sleep(500);
 
+    draw_string(30, 13, "       memory       ");
+    init_mem();
+    sleep(500);
+
+
+    draw_string(30, 13, "   floating point   ");
+    fpu_init();
+    sleep(500);
+
+    draw_string(30, 13, "        sound       ");
+    pcs_init();
+    sleep(500);
+
+    draw_string(30, 13, "   ps/2 controller  ");
     ps2_controller_init();
+    sleep(500);
+
+    draw_string(30, 13, "      keyboard      ");
     keyboard_init();
+    sleep(500);
+
+    display.clear_screen();
 
     play_sound(NOTE_D5);
     sleep(500);
     nosound();
 
     display.printf("NetworkOS Kernel v0.1\n");
-    display.printf("booting with %u bytes of memory\n", get_extended_memory_kb());
+    display.printf("booting with %u bytes of memory\n", mem3);
 
     ahsh();
 

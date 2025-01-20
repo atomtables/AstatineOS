@@ -10,6 +10,8 @@
 
 #include "keyboard.h"
 
+static const bool DEBUG = false;
+
 #define wait_for(_cond) while (!(_cond)) { NOP(); }
 
 bool verify_controller_ready_write() {
@@ -49,8 +51,8 @@ u8 read_configuration_byte() {
 
 void write_configuration_byte(u8 config) {
     sendcommandw(0x60, config);
-    display.printf("0x%x\n", readdatab());
-    display.printf("0x%x\n", read_configuration_byte());
+    if (DEBUG) display.printf("return after writing config: 0x%x\n", readdatab());
+    if (DEBUG) display.printf("current controller byte: 0x%x\n", read_configuration_byte());
 }
 
 void ps2_controller_init() {
