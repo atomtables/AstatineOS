@@ -52,9 +52,9 @@ int main() {
     sleep(500);
 
 
-    draw_string(30, 13, "   floating point   ");
-    fpu_init();
-    sleep(500);
+    //draw_string(30, 13, "   floating point   ");
+    //fpu_init();
+    //sleep(500);
 
     draw_string(30, 13, "        sound       ");
     pcs_init();
