@@ -112,11 +112,21 @@ static void setup() {
     state.ops[1].active = false;
     state.ops[2].active = false;
     state.ops[3].active = false;
+    state.op_length = 0;
 
     state.lives = 3;
     state.level = 0;
     state.input = calloc(9);
     state.input_length = 0;
+    state.input_index = 0;
+
+    state.score = 0;
+
+    state.first_customer = false;
+    state.has_been_full = false;
+    state.full = false;
+    state.last_was_incorrect = false;
+    state.paused = false;
 
     state.ms_min = 1000;
     state.ms_max = 10000;
@@ -162,7 +172,7 @@ static void render_instructions() {
 
     int x = 6;
     int y = Y_MIDDLE - (8 / 2);
-    for (int i = 0; i < MIN(state.frame - state.starting_frame, (u32)strlen(instructions)); i++) {
+    for (u32 i = 0; i < MIN(state.frame - state.starting_frame, (u32)strlen(instructions)); i++) {
         if (instructions[i] == '\n') goto newline;
         draw_char(x, y, instructions[i]);
         x++;
@@ -209,6 +219,7 @@ static void up_the_difficulty() {
         state.ms_min = 1000;
         state.ms_max = 6000;
         state.operation_time = 20;
+        break;
     case 6:
         state.addsub_min = 40;
         state.addsub_max = 125;
@@ -216,6 +227,7 @@ static void up_the_difficulty() {
         state.ms_min = 900;
         state.ms_max = 6000;
         state.operation_time = 18;
+        break;
     default: break;
     }
 
@@ -288,7 +300,7 @@ static void render_game() {
 
     int x = 2;
     int y = 23;
-    for (int i = 0; i < MIN(state.frame - state.starting_frame, (u32)strlen(currentop)); i++) {
+    for (u32 i = 0; i < MIN(state.frame - state.starting_frame, (u32)strlen(currentop)); i++) {
         draw_char(x, y, currentop[i]);
         x++;
     }

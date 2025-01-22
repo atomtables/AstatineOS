@@ -13,10 +13,10 @@
 #include <modules/modules.h>
 
 // implementing double-buffering because flickering is a huge problem
-u8 _sbuffers[VGA_TEXT_BSIZE][2];
-u8 _sback = 0;
+static u8 _sbuffers[VGA_TEXT_BSIZE][2];
+static u8 _sback = 0;
 
-bool double_buffering = false;
+static bool double_buffering = false;
 
 // i don't get jdh's implementation but hes smart soooo
 #define CURRENT (double_buffering ? _sbuffers[_sback] : (u8*)0xb8000)
@@ -115,6 +115,7 @@ void disable_vga_blink() {
 }
 
 void swap_graphics_buffer() {
+    ret_if(!double_buffering);
     memcpy((void*)0xb8000, CURRENT, VGA_TEXT_BSIZE);
     SWAP();
 }

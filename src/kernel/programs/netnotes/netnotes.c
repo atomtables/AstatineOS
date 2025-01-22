@@ -32,7 +32,8 @@ typedef struct note {
 } note;
 
 static struct {
-    enum { SELECTION, NOTE } page;
+    u32 barrier;
+    u32 page;
 
     int selected;
 
@@ -50,7 +51,7 @@ static struct {
     char* pbuffer;
     int pindex;
     void (*paction)(void);
-} data = {.selected = 0};
+} data = {.firstRun = false, .selected = 0, .page = 0};
 
 static void init_note(note* n) {
     n->title = malloc(128);
@@ -63,8 +64,6 @@ static void init_note(note* n) {
 
     n->id = rand();
 }
-
-static void debug(char*);
 
 static void create_note(void) {
     data.showPrompt = false;
@@ -137,14 +136,19 @@ static void setup() {
     data.shouldQuit = false;
 
     if (!data.firstRun) {
-        data.notes = malloc(sizeof(note) * 10);
+        data.notes = calloc(sizeof(note) * 10);
         data.size_notes = 10;
+        data.count_notes = 0;
         create_sample_notes();
     }
-
+    data.current_note = null;
     data.firstRun = true;
+    // data.page = 0;
+    data.selected = 0;
+    data.showPrompt = false;
 
     data.pbuffer = malloc(64);
+    data.pindex = 0;
 }
 
 static void render_prompt(char* question, char* buffer) {
@@ -218,14 +222,14 @@ static void render_menu() {
         0, 22,
         "\xCC\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xB9");
 
-    if (data.page == SELECTION) {
+    if (data.page == 0) {
         draw_string_with_color(3, 23, "^N", VGA_TEXT_COLOR(COLOR_BLACK, COLOR_LIGHT_GREY));
         draw_string(6, 23, "New");
 
         draw_string_with_color(10, 23, "^Q", VGA_TEXT_COLOR(COLOR_BLACK, COLOR_LIGHT_GREY));
         draw_string(13, 23, "Quit");
     }
-    else if (data.page == NOTE) {
+    else if (data.page == 1) {
         draw_string_with_color(3, 23, "^X", VGA_TEXT_COLOR(COLOR_BLACK, COLOR_LIGHT_GREY));
         draw_string(6, 23, "Close");
 
@@ -275,9 +279,9 @@ static void render() {
     draw_outline();
 
     render_menu();
-    if (data.page == SELECTION) render_selection();
+    if (data.page == 0) render_selection();
     if (data.showPrompt) render_prompt(data.pquestion, data.pbuffer);
-    if (data.page == NOTE) render_note();
+    if (data.page == 1) render_note();
 }
 
 void debug(char* c) { for (int i = 0; c[i] != 0; i++) { outportb(0xE9, c[i]); } }
@@ -367,7 +371,7 @@ static void keysin_prompt() {
 static void keysin() {
     static u8 c;
     ret_if(keyboard_key(c));
-    if (data.page == SELECTION) {
+    if (data.page == 0) {
         if (keyboard_key(KEY_UP)) {
             c = KEY_UP;
             data.selected--;
@@ -384,7 +388,7 @@ static void keysin() {
         if (keyboard_char('\n')) {
             c = '\n';
 
-            data.page = NOTE;
+            data.page = 1;
             data.current_note = &data.notes[data.selected];
 
             loadnote();
@@ -412,11 +416,11 @@ static void keysin() {
             }
         }
     }
-    else if (data.page == NOTE) {
+    else if (data.page == 1) {
         if (keyboard.ctrl) {
             if (keyboard_char('x')) {
                 c = 'x';
-                data.page = SELECTION;
+                data.page = 0;
                 return;
             }
             c = null;
@@ -448,9 +452,8 @@ void netnotes() {
     wait_for_key_release('\n');
     setup();
     u64 last_frame = 0;
-    volatile const bool t = true;
 
-    while (t) { // runloop
+    while (true) { // runloop
         // this takes all precedent.
 
         u64 current_tick = timer_get();
@@ -476,6 +479,7 @@ void netnotes() {
             // }
             // else { nosound(); }
 
+            draw_string(0, 0, itoa(current_tick, "         "));
             swap_graphics_buffer();
         }
 

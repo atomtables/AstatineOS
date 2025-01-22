@@ -109,12 +109,14 @@ void timer_init() {
         process_wait_states[i].start = -1;
         process_wait_states[i].end = -1;
         process_wait_states[i].ret = null;
+        every_second_handlers[i] = null;
     }
 
     const u64 freq = REAL_FREQ_OF_FREQ(TIMER_TPS);
     state.frequency = freq;
     state.divisor = DIV_OF_FREQ(freq);
     state.ticks = 0;
+    sleep_state.end = 0;
     sleep_state.active = false;
     timer_set(freq);
     PIC_install(0, timer_handler);

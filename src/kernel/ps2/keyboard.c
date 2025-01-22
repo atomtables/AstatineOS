@@ -217,6 +217,9 @@ u8 send_keyboard_command_word(u8 byte, u8 sub) {
 }
 
 void keyboard_init() {
+    memset(&simple_state, 0, sizeof(struct keyboard_state));
+    memset((void*)&keyboard, 0, sizeof(struct keyboard_advanced_state));
+
     send_keyboard_command(KEYCMD_DISABLE); // has the side effect of possibly resetting the keyboard anyway so that's good
 
     send_keyboard_command_word(0xF0, 0x02); // since 0x02 is guaranteed to be supported on all keyboards
