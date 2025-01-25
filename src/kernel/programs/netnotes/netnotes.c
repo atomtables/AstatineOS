@@ -479,7 +479,6 @@ void netnotes() {
             // }
             // else { nosound(); }
 
-            draw_string(0, 0, itoa(current_tick, "         "));
             swap_graphics_buffer();
         }
 
