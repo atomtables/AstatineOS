@@ -2,6 +2,7 @@
 
 jmp     0x7c0:next    ; Jump to add CS 0x7c00
 
+align 4
 lba:
     lbasize: db 0x10
     lbaresv: db 0x00

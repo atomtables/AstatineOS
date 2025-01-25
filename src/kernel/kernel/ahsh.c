@@ -20,7 +20,7 @@ typedef struct Command {
 
 void echo(int argc, char** argv) {
     for (int i = 0; i < argc; i++) {
-        display.printf("%s", argv[i]);
+        display.printf("%s ", argv[i]);
     }
     display.printf("\n");
 }
@@ -34,6 +34,10 @@ void clear(int argc, char** argv) {
     display.clear_screen();
 }
 
+void div0() {
+    DIV_BY_ZERO();
+}
+
 static Command commands[] = {
     {"echo", echo},
     {"beep", beep},
@@ -43,6 +47,7 @@ static Command commands[] = {
     {"basicbasic", basicbasic},
     {"clear", clear},
     {"reboot", reboot},
+    {"crash", div0}
 };
 
 void ahsh() {
