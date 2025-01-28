@@ -20,6 +20,6 @@ a bug could be caused by anything from reading an incorrect number of sectors to
 Build it yourself using all the dependencies above. Keep in mind that you will need to make significant changes to make the
 build file work on Windows or Linux (but on macOS it works).
 
-Or, download an ISO from the releases section below and test it out yourself on (https://copy.sh/v86)[https://copy.sh/v86].
+Or, download an ISO from the releases section below and test it out yourself on [https://copy.sh/v86].
 
 Thanks and have a nice day !!!!!!
