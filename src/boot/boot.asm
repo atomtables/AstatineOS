@@ -1,118 +1,102 @@
 [bits   16]
 
-jmp     0x7c0:next    ; Jump to add CS 0x7c00
+jmp     long 0x7c0:next    ; Jump to add CS 0x7c00
 
-align 4
+align   4
 lba:
     lbasize: db 0x10
     lbaresv: db 0x00
     lbamaxs: dw 0x007F
     lbaoffs: dw 0x0000
-    lbasegs: dw 0x1000
+    lbasegs: dw 0x07c0
     lbalow4: dd 0x00000001
     lbahigh: dd 0x00000000
 
-
 next:
-mov     [BOOT_DRIVE], dl
-
-xor     ax, ax
-mov     bx, 0x8000
-mov     ss, bx
-mov     sp, ax
-
-cld
-
-KERNEL_OFFSET equ 0x10000 ; The same one we used when linking the kernel
-
-mov     ax, 0x7c0
+; relocate boot code to 0x500
+mov     ax, 0x0000
 mov     ds, ax
 mov     es, ax
+cld
+mov     si, 0x7c00
+mov     di, 0x0500
+mov     cx, 0x0200
+rep     movsb
+jmp     0x0050:resume ; resume execution at 0x0500
 
-mov     si, lba
-mov     ah, 0x42
-int     0x13
-jc      disk_error
+resume:
+; set general parameters
+xor     ax, ax
+mov     bx, 0x8000
+mov     ss, bx  ; set the stack segment to 0x8000
+mov     sp, ax  ; set the pointer to 0x0, stack starts at 0x80000.
+mov     ax, 0x0050
+mov     ds, ax  ; set the data segment
+mov     es, ax  ; and the extra segment to code segment (0x7c00)
 
-call    switch_to_32bit ; disable interrupts, load GDT,  etc. Finally jumps to 'BEGIN_PM'
-jmp     $               ; Never executed
+mov     [BOOT_DRIVE], dl    ; store boot drive in a more persistent place
 
-disk_error:
-    ; mov     si, disk_error_msg
-    ; Print the error message by moving it to the video memory
-    mov     dl, ah
-    mov     ah, 0x0E
-    mov     al, 'E'
+; find the active partition
+mov     bx, 0x1be ; 0x1be, 1ce, 1de, 1ee show the active partition (main booting partition)
+loop:
+mov     ax, [ds:bx]
+and     ax, 0x0080
+cmp     ax, 0x0080
+je      bootto      ; if active, jump to boot routine
+add     bx, 0x0010
+cmp     bx, 0x01ef
+jge     packitup    ; if we've seen all 4 partitions, there is no active partition
+jmp     loop
+
+bootto:
+;    mov     cx, 4       ; copy 4 bytes (size of lower LBA address)
+;    mov     si, bx      ; Source offset (active paritition pointer)
+;    add     si, 0x08    ; since the LBA is at an offset of 8 from the active partition byte
+;    mov     di, lowerlba; Destination offset
+;    rep     movsb   ; movsb moves DS:SI to ES:DI CX times
+;                    ; so in effect, we are copying the LBA of the partition
+;                    ; into the packet
+
+    mov     si, lba ; set the address of the LBA packet
+    mov     ah, 0x42; BIOS call to load sectors via LBA
+    mov     dl, [BOOT_DRIVE] ; just in case, load DL
+    int     0x13    ; read the first sector of the active partition
+    jc      packitup ; if error, jump to error routine
+
+    jmp     long 0x07c0:0x0000 ; jump back to partition
+
+packitup:
+    mov     ah, 0x0e
+    mov     bx, error
+    loop2:
+    mov     al, [bx]
+    cmp     al, 0x0
+    je      end
     int     0x10
-done:
+    inc     bx
+    jmp     short loop2
+    end:
     jmp     $
 
-[bits 16]
-switch_to_32bit:
-    ; before all that, get memory
-    XOR CX, CX
-    XOR DX, DX
-    MOV AX, 0xE801
-    INT 0x15		; request upper memory size
-    JC disk_error
-    JCXZ .USEAX		; was the CX result invalid?
-
-    MOV AX, CX
-    MOV BX, DX
-    .USEAX:
-    ; AX = number of contiguous Kb, 1M to 16M
-    ; BX = contiguous 64Kb pages above 16M
-    mov     cx, ax
-    xor     ax, ax
-    mov     fs, ax
-    mov     word [fs:0x500], cx
-    mov     word [fs:0x502], bx
-    call    enable_a20          ; 0. enable A20 line
-    cli                         ; 1. disable interrupts
-    nop                         ; 1.1. some CPUs require a delay after cli
-    lgdt    [gdt_descriptor]    ; 2. load the GDT descriptor
-    mov     eax, cr0
-    or      eax, 0x1            ; 3. set 32-bit mode bit in cr0
-    mov     cr0, eax
-                                ; 4. far jump by using a different segment
-    jmp     CODE_SEG:init_32bit+0x7c00
-
-[bits 32]
-init_32bit:                 ; we are now using 32-bit instructions
-                            ; 5. update the segment registers
-    mov     word ax, DATA_SEG
-    mov     ds, ax
-    mov     ss, ax
-    mov     es, ax
-    mov     fs, ax
-    mov     gs, ax
-
-    mov     ebp, 0x90000    ; 6. update the stack right at the top of the free space
-    mov     esp, ebp
-
-    call    BEGIN_32BIT     ; 7. Call a well-known label with useful code
-
-[bits 32]
-BEGIN_32BIT:
-    call    CODE_SEG:0x10000         ; Give control to the kernel
-    jmp     $               ; Stay here when the kernel returns control to us (if ever)
-
-%include "gdt.asm"
-%include "a20.asm"
-
-BOOT_DRIVE db 0             ; It is a good idea to store it in memory because 'dl' may get overwritten
+BOOT_DRIVE: db 0             ; It is a good idea to store it in memory because 'dl' may get overwritten
+error: db "AstatineOS Bootloader failed to find an active/bootable partition."
 
 times 446 - ($-$$) db 0
 partition_1:
     db 0x80                    ; Drive attribute: 0x80 = active/bootable
     db 0x00, 0x01, 0x01        ; CHS address of partition start (Cylinder 0, Head 1, Sector 1)
-    db 0xFF                    ; Partition type: 0xFF (custom/vendor-specific)
-    db 0x00, 0x0F, 0x12        ; CHS address of partition end (approx. Cylinder 79, Head 1, Sector 18)
+    db 0xD9                    ; Partition type: 0xD9 (AstatineOS Bootstrap Partition)
+    db 0x00, 0x05, 0x01        ; CHS address of partition end (approx. Cylinder 79, Head 1, Sector 18)
     dd 0x00000001              ; LBA of partition start (sector 1, as sector 0 is the MBR)
+    dd 0x00000271              ; Number of sectors in partition (1440 sectors for 1.44 MB)
+partition_2:
+    db 0x00                    ; Drive attribute: 0x80 = active/bootable
+    db 0x00, 0x01, 0x01        ; CHS address of partition start (Cylinder 0, Head 1, Sector 1)
+    db 0xD9                    ; Partition type: 0xD9 (AstatineOS Bootstrap Partition)
+    db 0x00, 0x0F, 0x12        ; CHS address of partition end (approx. Cylinder 79, Head 1, Sector 18)
+    dd 0x00000272              ; LBA of partition start (sector 1, as sector 0 is the MBR)
     dd 0x000005A0              ; Number of sectors in partition (1440 sectors for 1.44 MB)
-; padding
-times 16 db 0                ; Entry 2
-times 16 db 0                ; Entry 3
-times 16 db 0                ; Entry 4
+times 16 db 0                  ; Entry 3 (blank)
+times 16 db 0                  ; Entry 4 (blank)
 
 dw 0xaa55

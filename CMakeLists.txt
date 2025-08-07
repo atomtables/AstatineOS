@@ -15,6 +15,7 @@ set(BUILD_DIR "objects")
 file(MAKE_DIRECTORY ${BUILD_DIR})
 
 set(BOOT_DIR "boot")
+set(LOADER_DIR "stage2")
 set(KERNEL_DIR "kernel")
 set(LIBRARY_DIR "libraries")
 
@@ -45,8 +46,8 @@ set(CCFLAGS_KERNEL
         -Wno-pointer-arith -Wno-unused-parameter
         -nostdlib -nostdinc -ffreestanding -fno-pie -fno-stack-protector
         -fno-builtin-function -fno-builtin -I${PROJECT_SOURCE_DIR}/${SOURCE_DIR}/${KERNEL_DIR}
-        -I/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include
-        -I/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include-fixed
+        -I/opt/homebrew/Cellar/i686-elf-gcc/15.1.0/lib/gcc/i686-elf/15.1.0/include
+        -I/opt/homebrew/Cellar/i686-elf-gcc/15.1.0/lib/gcc/i686-elf/15.1.0/include-fixed
 )
 set(QEMUFLAGS -monitor stdio -d int -D qemu.log -audiodev coreaudio,id=audio0 -machine pcspk-audiodev=audio0 -debugcon file:qemu.log) # -no-reboot -no-shutdown)
 
@@ -54,10 +55,11 @@ set(QEMUFLAGS -monitor stdio -d int -D qemu.log -audiodev coreaudio,id=audio0 -m
 include_directories("${SOURCE_DIR}/${KERNEL_DIR}" "/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include" "/opt/homebrew/Cellar/i686-elf-gcc/14.1.0/lib/gcc/i686-elf/14.1.0/include-fixed")
 
 set(BOOTSECT_SOURCES "${PROJECT_SOURCE_DIR}/${SOURCE_DIR}/${BOOT_DIR}/boot.asm")
-set(BOOTSECT_DEPS "${PROJECT_SOURCE_DIR}/${SOURCE_DIR}/${BOOT_DIR}/gdt.asm")
-# all NASM includes should be in entry32
-list(GET BOOTSECT_DEPS 0 BOOTSECT_DEP_FIRST)
-get_filename_component(BOOTSECT_INCLUDES ${BOOTSECT_DEP_FIRST} DIRECTORY)
+
+set(BOOTLOAD_SOURCES "${PROJECT_SOURCE_DIR}/${SOURCE_DIR}/${LOADER_DIR}/vbr.asm")
+set(BOOTLOAD_DEPS "${PROJECT_SOURCE_DIR}/${SOURCE_DIR}/${LOADER_DIR}/vbr.asm")
+list(GET BOOTLOAD_DEPS 0 BOOTLOAD_DEP_FIRST)
+get_filename_component(BOOTLOAD_INCLUDES ${BOOTLOAD_DEP_FIRST} DIRECTORY)
 
 file(GLOB_RECURSE KERNEL_HEADERS "${SOURCE_DIR}/${KERNEL_DIR}/*.h")
 file(GLOB_RECURSE KERNEL_SOURCES_C "${SOURCE_DIR}/${KERNEL_DIR}/*.c")
@@ -86,7 +88,8 @@ list(APPEND BUILD_DIRS "product")
 
 # Paths of completed files
 set(BOOTSECT "${PROJECT_SOURCE_DIR}/${BUILD_DIR}/boot.bin")
-set(KERNEL "${PROJECT_SOURCE_DIR}/${BUILD_DIR}/kernel.bin")
+set(BOOTLOAD "${PROJECT_SOURCE_DIR}/${BUILD_DIR}/loader.bin")
+set(KERNEL "${PROJECT_SOURCE_DIR}/${BUILD_DIR}/kernel.img")
 set(ISO "${PROJECT_SOURCE_DIR}/${BUILD_DIR}/NetworkOS.iso")
 set(FISO "${PROJECT_SOURCE_DIR}/product/NetworkOS.iso")
 
@@ -124,9 +127,16 @@ endforeach ()
 
 add_custom_command(
         OUTPUT ${BOOTSECT}
-        COMMAND ${NASM} -fbin ${BOOTSECT_SOURCES} -o ${BOOTSECT} -I ${BOOTSECT_INCLUDES}
-        DEPENDS ${BOOTSECT_SOURCES} ${BOOTSECT_DEPS}
+        COMMAND ${NASM} -fbin ${BOOTSECT_SOURCES} -o ${BOOTSECT}
+        DEPENDS ${BOOTSECT_SOURCES}
         COMMENT "Assembling bootsector ${BOOTSECT_SOURCES}"
+)
+
+add_custom_command(
+        OUTPUT ${BOOTLOAD}
+        COMMAND ${NASM} -fbin ${BOOTLOAD_SOURCES} -o ${BOOTLOAD} -i ${BOOTLOAD_INCLUDES}
+        DEPENDS ${BOOTLOAD_SOURCES} ${BOOTLOAD_DEPS}
+        COMMENT "Assembling MBR-only bootloader ${BOOTLOAD_SOURCES}"
 )
 
 add_custom_command(
@@ -139,11 +149,12 @@ add_custom_command(
 add_custom_command(
         OUTPUT ${FISO}
         COMMAND ${MKDIR} -p product
-        COMMAND ${DD} if=/dev/zero of=${ISO} bs=512 count=2880
+        COMMAND ${DD} if=/dev/zero of=${ISO} bs=512 count=5760
         COMMAND ${DD} if=${BOOTSECT} of=${ISO} conv=notrunc bs=512 seek=0 count=1
-        COMMAND ${DD} if=${KERNEL} of=${ISO} conv=notrunc bs=512 seek=1 count=2879
+        COMMAND ${DD} if=${BOOTLOAD} of=${ISO} conv=notrunc bs=512 seek=1 count=1
+        # COMMAND ${DD} if=${KERNEL} of=${ISO} conv=notrunc bs=512 seek=1 count=2879
         COMMAND ${MV} ${ISO} ${FISO}
-        DEPENDS ${BOOTSECT} ${KERNEL}
+        DEPENDS ${BOOTSECT} ${BOOTLOAD} ${KERNEL}
         COMMENT "Creating bootable media ${ISO}"
 )
 
@@ -154,11 +165,11 @@ add_custom_target(
 
 add_custom_target(
         run ALL
-        COMMAND ${QEMU} ${QEMUFLAGS} -drive file=${FISO},format=raw
+        COMMAND ${QEMU} ${QEMUFLAGS} -hda ${FISO}
         DEPENDS build
 )
 
 # for the discovery of files that I can apply for CLion
 # the actual execution of this will fail because i686-elf-gcc is a cross-compiler for x86
 # and im on an apple silicon mac. might work for prince though
-add_executable(FailStub ${KERNEL_HEADERS} ${KERNEL_SOURCES_C} ${KERNEL_SOURCES_ASM} ${BOOTSECT_SOURCES} ${BOOTSECT_DEPS})
+add_executable(FailStub ${KERNEL_HEADERS} ${KERNEL_SOURCES_C} ${KERNEL_SOURCES_ASM} ${BOOTSECT_SOURCES} ${BOOTSECT_DEPS} ${BOOTLOAD_SOURCES} ${BOOTLOAD_DEPS})
