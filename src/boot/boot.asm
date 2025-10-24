@@ -6,7 +6,7 @@ align   4
 lba:
     lbasize: db 0x10
     lbaresv: db 0x00
-    lbamaxs: dw 0x007F
+    lbamaxs: dw 0x0001
     lbaoffs: dw 0x0000
     lbasegs: dw 0x07c0
     lbalow4: dd 0x00000001
@@ -45,41 +45,39 @@ cmp     ax, 0x0080
 je      bootto      ; if active, jump to boot routine
 add     bx, 0x0010
 cmp     bx, 0x01ef
-jge     packitup    ; if we've seen all 4 partitions, there is no active partition
+mov     bx, error
+jge     print    ; if we've seen all 4 partitions, there is no active partition (TODO: no support for extended)
 jmp     loop
 
 bootto:
-;    mov     cx, 4       ; copy 4 bytes (size of lower LBA address)
-;    mov     si, bx      ; Source offset (active paritition pointer)
-;    add     si, 0x08    ; since the LBA is at an offset of 8 from the active partition byte
-;    mov     di, lowerlba; Destination offset
-;    rep     movsb   ; movsb moves DS:SI to ES:DI CX times
-;                    ; so in effect, we are copying the LBA of the partition
-;                    ; into the packet
-
     mov     si, lba ; set the address of the LBA packet
     mov     ah, 0x42; BIOS call to load sectors via LBA
     mov     dl, [BOOT_DRIVE] ; just in case, load DL
     int     0x13    ; read the first sector of the active partition
-    jc      packitup ; if error, jump to error routine
+    mov     bx, error3
+    jc      print ; if error, jump to error routine
 
+
+    mov     dl, [BOOT_DRIVE] ; restore the boot drive (just in case)
     jmp     long 0x07c0:0x0000 ; jump back to partition
 
-packitup:
+print:
+    pusha
     mov     ah, 0x0e
-    mov     bx, error
     loop2:
     mov     al, [bx]
     cmp     al, 0x0
     je      end
     int     0x10
     inc     bx
-    jmp     short loop2
+    jmp     loop2
     end:
-    jmp     $
+    popa
+    ret
 
 BOOT_DRIVE: db 0             ; It is a good idea to store it in memory because 'dl' may get overwritten
-error: db "AstatineOS Bootloader failed to find an active/bootable partition."
+error: db "Unable to find an active partition, resetting..."
+error3: db "Unable to read disk using LBA, hanging boot...", 0
 
 times 446 - ($-$$) db 0
 partition_1:

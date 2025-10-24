@@ -9,3 +9,6 @@ build/
 product/
 objects/
 cmake-build-main
+utilities/mkabp/default.bin
+utilities/mkabp/mkabp
+.vscode

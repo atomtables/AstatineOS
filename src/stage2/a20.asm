@@ -45,7 +45,7 @@ get_a20_state:
 	ret
 
 	.BufferBelowMB:	db 0
-	.BufferOverMB	db 0
+	.BufferOverMB:	db 0
 
 ;	out:
 ;		ax - a20 support bits (bit #0 - supported on keyboard controller; bit #1 - supported with bit #1 of port 0x92)
@@ -130,7 +130,7 @@ enable_a20:
 	jnz .keybord_controller
 
 	test bl, 2							;	enable A20 using fast A20 gate
-	;jnz .fast_gate
+	jnz .fast_gate
 .bios_int:
 	mov ax, 0x2401
 	int 0x15
@@ -164,7 +164,7 @@ enable_a20:
 	mov bh, 1							;	flag enable attempt with keyboard controller
 
 	test bl, 2
-	;jnz .fast_gate
+	jnz .fast_gate
 	jmp .failed
 .failed:
 	stc

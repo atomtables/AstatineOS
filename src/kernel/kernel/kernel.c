@@ -26,56 +26,40 @@ extern void ahsh();
 
 // only blocking thread.
 int main() {
-    // about the only thing set up here is the GDT and the text-mode interface. we can use printf before init everything else.
     display.clear_screen();
+    display.println_color("AstatineOS v0.1.0-alpha", COLOR_LIGHT_RED);
 
     u32 mem1 = *((u16*)0x500) * 1000;
     u32 mem2 = *((u16*)0x502) * 64000;
     u32 mem3 = mem1 + mem2;
-
-    draw_string(30, 10, "NetworkOS Kernel v0.1");
-    draw_string(33, 12, "Initialising...");
-    draw_string(30, 13, "     interrupts     ");
-
-    for (int i = 0; i < 1000000000; i++) {NOP();}
+    display.printf("%u MB of memory detected\n", mem3);
 
     idt_init();
     isr_init();
     PIC_init();
+    display.printf("Target complete: interrupts\n");
 
-    draw_string(30, 13, "   internal clock   ");
     timer_init();
-    sleep(500);
+    display.printf("Target complete: timer\n");
 
-    draw_string(30, 13, "       memory       ");
     init_mem();
-    sleep(500);
+    display.printf("Target complete: memory\n");
 
-
-    draw_string(30, 13, "   floating point   ");
     fpu_init();
-    sleep(500);
+    display.printf("Target complete: fpu\n");
 
-    draw_string(30, 13, "        sound       ");
     pcs_init();
-    sleep(500);
+    display.printf("Target complete: pcspeaker\n");
 
-    draw_string(30, 13, "   ps/2 controller  ");
     ps2_controller_init();
-    sleep(500);
+    display.printf("Target complete: ps2 controller\n");
 
-    draw_string(30, 13, "      keyboard      ");
     keyboard_init();
-    sleep(500);
-
-    display.clear_screen();
+    display.printf("Target complete: keyboard\n");
 
     play_sound(NOTE_D5);
     sleep(500);
     nosound();
-
-    display.printf("NetworkOS Kernel v0.1\n");
-    display.printf("booting with %u bytes of memory\n", mem3);
 
     ahsh();
 
