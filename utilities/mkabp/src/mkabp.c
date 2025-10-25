@@ -155,6 +155,8 @@ int main(const int argc, char** argv) {
         memcpy(output+512, listed, listedCount * sizeof(FILE_ENTRY));
     }
 
+    *(uint32_t*)(output+12) = (uint32_t)(outputSize/512);
+    
     outputFile = fopen(outputName, "w+");
     fwrite(output, sizeof(u8), outputSize, outputFile);
 

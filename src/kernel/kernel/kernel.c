@@ -29,8 +29,8 @@ int main() {
     display.clear_screen();
     display.println_color("AstatineOS v0.1.0-alpha", COLOR_LIGHT_RED);
 
-    u32 mem1 = *((u16*)0x500) * 1000;
-    u32 mem2 = *((u16*)0x502) * 64000;
+    u32 mem1 = *((u16*)0x8000) * 1000;
+    u32 mem2 = *((u16*)0x8002) * 64000;
     u32 mem3 = mem1 + mem2;
     display.printf("%u MB of memory detected\n", mem3);
 

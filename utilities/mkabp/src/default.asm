@@ -2,7 +2,7 @@
 [bits   16]
 ; execution context: we are now still 16-bit but at 0x07c0:0x0000
 ; we have 512 bytes but must include signatures relating to an AB partition
-jmp near    after    ; two bytes
+jmp near   after ; two bytes
 nop              ; fat32 does this (0x90)
 
 PART_TYPE: db 0xD9  ; partition byte number (off 0x03)

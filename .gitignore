@@ -8,7 +8,9 @@
 build/
 product/
 objects/
-cmake-build-main
+cmake-build-*
 utilities/mkabp/default.bin
 utilities/mkabp/mkabp
 .vscode
+out
+.DS*

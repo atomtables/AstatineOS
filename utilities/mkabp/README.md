@@ -10,6 +10,7 @@ specifications as specified in the specification sheet shown below.
 ### File list
 for a file
 - size of an entry is 16 bytes
+- 0x00: flags (for future use)
 - 0x01-0x08: file name string (max of 8 characters with early termination)
 - 0x09-0x0B: which sector the file is stored in (max offset of 2^24 sectors)
 - 0x0C-0x0F: size of the file in bytes
