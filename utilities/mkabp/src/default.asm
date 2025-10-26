@@ -182,6 +182,7 @@ runexe:
     ; using the remainder from before
     mov     si, 0x0500
     add     si, dx
+    mov     dl, [BOOT_DRIVE]
     jmp     0x0000:0x7c00+val ; set segment to zero so we can jump direct
     val:    jmp si  ; up up and away!
 

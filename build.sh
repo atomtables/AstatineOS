@@ -63,7 +63,7 @@ ISO_IMG="${BUILD_DIR}/NetworkOS.iso"
 FINAL_ISO="${PRODUCT_DIR}/NetworkOS.iso"
 
 # ───────────────────────────────────────────────
-# 1️⃣ COMPILE KERNEL (C + ASM)
+# COMPILE KERNEL (C + ASM)
 # ───────────────────────────────────────────────
 
 echo "[*] Compiling kernel sources..."
@@ -85,21 +85,21 @@ done
 KERNEL_OBJECTS=$(find "$BUILD_DIR/$KERNEL_DIR" -type f -name "*.o")
 
 # ───────────────────────────────────────────────
-# 2️⃣ LINK KERNEL
+# LINK KERNEL
 # ───────────────────────────────────────────────
 
 echo "[*] Linking kernel..."
 $LD -o "$KERNEL_IMG" $KERNEL_OBJECTS $LDFLAGS
 
 # ───────────────────────────────────────────────
-# 3️⃣ ASSEMBLE BOOTSECTOR
+# ASSEMBLE BOOTSECTOR
 # ───────────────────────────────────────────────
 
 echo "[*] Assembling bootsector..."
 $NASM -fbin "$BOOTSECT_SRC" -o "$BOOTSECT_BIN"
 
 # ───────────────────────────────────────────────
-# 4️⃣ ASSEMBLE BOOTLOADER (ABP)
+# ASSEMBLE BOOTLOADER (ABP)
 # ───────────────────────────────────────────────
 
 echo "[*] Assembling bootloader..."
@@ -108,14 +108,14 @@ $MKABP "$BOOTLOADER_COMP_DIR" "$BOOTLOADER_BIN"
 echo
 
 # ───────────────────────────────────────────────
-# 5️⃣ CREATE ISO IMAGE
+# CREATE ISO IMAGE
 # ───────────────────────────────────────────────
 
 echo "[*] Creating bootable ISO image..."
 $DD if=/dev/zero of="$ISO_IMG" bs=512 count=1
 $DD if="$BOOTSECT_BIN" of="$ISO_IMG" conv=notrunc bs=512 seek=0 count=1
 $DD if="$BOOTLOADER_BIN" of="$ISO_IMG" conv=notrunc seek=1 bs=512
-SEEK=$(($(($(wc -c < "product/NetworkOS.iso")))/512))
+SEEK=$(($(($(wc -c < $ISO_IMG)))/512))
 echo $SEEK
 $DD if="$KERNEL_IMG" of="$ISO_IMG" conv=notrunc bs=512 seek=$SEEK
 
@@ -124,7 +124,7 @@ $MV "$ISO_IMG" "$FINAL_ISO"
 echo "[✔] ISO built at: $FINAL_ISO"
 
 # ───────────────────────────────────────────────
-# 6️⃣ (OPTIONAL) RUN IN QEMU
+# (OPTIONAL) RUN IN QEMU
 # ───────────────────────────────────────────────
 
 if [[ "$1" == "run" ]]; then

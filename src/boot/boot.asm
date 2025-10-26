@@ -107,7 +107,7 @@ partition_2:
     db 0x7F                    ; Partition type: 0xD9 (AstatineOS Bootstrap Partition)
     db 0x00, 0x0F, 0x12        ; CHS address of partition end (approx. Cylinder 79, Head 1, Sector 18)
     dd 0x00000005              ; LBA of partition start (sector 1, as sector 0 is the MBR)
-    dd 0x000005A0              ; Number of sectors in partition (1440 sectors for 1.44 MB)
+    dd 0x0000004B              ; Number of sectors in partition (1440 sectors for 1.44 MB)
 times 16 db 0                  ; Entry 3 (blank)
 times 16 db 0                  ; Entry 4 (blank)
 

@@ -41,22 +41,38 @@ int main() {
 
     timer_init();
     display.printf("Target complete: timer\n");
-
+    sleep(1000);
     init_mem();
     display.printf("Target complete: memory\n");
-
+    sleep(1000);
     fpu_init();
     display.printf("Target complete: fpu\n");
 
+    sleep(1000);
     pcs_init();
     display.printf("Target complete: pcspeaker\n");
 
+    sleep(1000);
     ps2_controller_init();
     display.printf("Target complete: ps2 controller\n");
 
+    sleep(1000);
     keyboard_init();
     display.printf("Target complete: keyboard\n");
 
+    // clear the 0x100000-0x1FFFFF region to prevent dynamic memory corruption
+    sleep(1000);
+    display.printf("Setting up dymem region...");
+    for (u32* ptr = (u32*)0x100000; ptr < (u32*)0x200000; ptr++) {
+        *ptr = 0;
+        if ((u32)ptr % 0x1000 == 0) {
+            display.printf(".");
+            sleep(0.2); // make it seem like it does something
+        }
+    }
+    display.printf("Done\n");
+
+    sleep(1000);
     play_sound(NOTE_D5);
     sleep(500);
     nosound();

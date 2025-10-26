@@ -19,6 +19,11 @@ bool verify_controller_ready_write() {
     return BIT_GET(status, 1) == 0;
 }
 
+bool verify_controller_ready_read() {
+    u8 status = inportb(CONTROLLER_MAIN);
+    return BIT_GET(status, 0) == 1;
+}
+
 bool verify_controller_response(u8 response) {
     if (response == 0x00 || response == 0xFF) {
         return false;
@@ -40,6 +45,7 @@ void sendcommandw(u8 cmd, u8 subcmd) {
 }
 
 u8 readdatab() {
+    wait_for(verify_controller_ready_read());
     return inportb(CONTROLLER_AUX);
 }
 
@@ -51,7 +57,7 @@ u8 read_configuration_byte() {
 
 void write_configuration_byte(u8 config) {
     sendcommandw(0x60, config);
-    if (DEBUG) display.printf("return after writing config: 0x%x\n", readdatab());
+    // Don't read response - there isn't one for this command
     if (DEBUG) display.printf("current controller byte: 0x%x\n", read_configuration_byte());
 }
 

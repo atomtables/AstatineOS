@@ -9,6 +9,7 @@ mov     sp, ax
 jmp     0x50:next
 
 next:
+mov     [BOOT_DRIVE], dl
 cld
 
 KERNEL_OFFSET equ 0x10000 ; The same one we used when linking the kernel
@@ -46,6 +47,16 @@ switch_to_32bit:
     mov     fs, ax
     mov     word [fs:0x8000], cx
     mov     word [fs:0x8002], bx
+
+    ; if our drive isnt 0x80, then take precautionary measures
+    mov     dl, [BOOT_DRIVE]
+    ; cmp     dl, 0x80
+    ; je      .continue
+    ; otherwise, load via bios
+    call    READ_BIOS
+    call    READ_BIOS_KERNEL
+    
+    .continue:
     call    enable_a20          ; 0. enable A20 line
     cli                         ; 1. disable interrupts
     nop                         ; 1.1. some CPUs require a delay after cli
@@ -73,14 +84,173 @@ init_32bit:                 ; we are now using 32-bit instructions
 
 [bits 32]
 READ:
+    mov     dl, [0x500+BOOT_DRIVE]
+    cmp     dl, 0x80
+    jmp     READ_KERNEL.done ; if we aren't reading manually then just assume above.
+
     mov     eax, 0x0    ; we need to get the lba
     mov     cl,  0x1    ; this command only reliably reads one sector
     mov     edi, 0x7c00 ; basically a temp buffer to store
-    mov     [0xb8000], 'F'
+    call    ata_lba_read; TODO: ssumption that we're booting off of 0x80
+    
+    mov     ebx, 0x7dc2
+    .loop:
+        mov     byte dl, [ebx]
+        cmp     dl, 0x7F
+        jne     .not_found
+        ; Found the end of the string
+        mov     byte [ebx], 0
+        jmp     .done
+        .not_found:
+            add     ebx, 0x10
+            cmp     ebx, 0x7df3
+            jl      .loop
+            jge     .failed
+        .failed:
+            mov     [0xb8000], 'F'
+            mov     [0xb8002], 'A'
+            mov     [0xb8004], 'I'
+            mov     [0xb8006], 'L'
+            mov     [0xb8008], 'E'
+            mov     [0xb800a], 'D'
+            jmp     $
+        .done:
+            mov     [0xb8000], 'D'
+            mov     [0xb8002], 'O'
+            mov     [0xb8004], 'N'
+            mov     [0xb8006], 'E'
+            mov     eax, [ebx+4] ; starting LBA
+            mov     ebx, [ebx+8] ; ending LBA
+            jmp     READ_KERNEL
+READ_KERNEL:
+    ; lba in memory from line above
+    mov     cl,  0x1    ; read one sector at a time
+    mov     edi, 0x10000 ; store at our offset
+    clc
+    .loop:
+    call    ata_lba_read ; TODO: assumption that we're booting off of 0x80
+    add     edi, 512
+    inc     eax
+    cmp     eax, ebx
+    jl      .loop
+    jge     .done
+    .disk_error:
+    mov     [0xb8000], 'D'
+    mov     [0xb8002], 'I'
+    mov     [0xb8004], 'S'
+    mov     [0xb8006], 'K'
+    mov     [0xb8008], ' '
+    mov     [0xb800a], 'E'
+    mov     [0xb800c], 'R'
+    mov     [0xb800e], 'R'
+    mov     [0xb8010], 'O'
+    mov     [0xb8012], 'R'
     jmp     $
-    call    ata_lba_read
+    .done:
+    call    far CODE_SEG:0x10000
     jmp     $
+
+[bits 16]
+READ_BIOS:
+    pushf
+    push    dx
+    push    si
+    mov     dl, [BOOT_DRIVE]
+    cmp     dl, 0x80
+    ; je      .unnecessary
+
+    mov     ah, 0x42
+    mov     si, lbaFIRSTPART
+    mov     dl, [BOOT_DRIVE]
+    int     0x13
+    
+    mov     bx, 0x7dc2-0x500
+    .loop:
+        mov     byte dh, [bx]
+        cmp     dh, 0x7F
+        jne     .not_found
+        ; Found the end of the string
+        mov     byte [bx], 0
+        jmp     .done
+        .not_found:
+            add     bx, 0x10
+            cmp     bx, 0x7df3-0x500
+            jl      .loop
+            jge     .failed
+        .failed:
+            mov     ah, 0x0e
+            mov     al, 'F'
+            int     0x10
+            mov     dl, [BOOT_DRIVE]
+            jmp     $
+        .done:
+            mov     eax, [ebx+4] ; starting LBA
+            mov     ebx, [ebx+8] ; size LBA
+            add     ebx, eax    ; make that ending rq
+    .unnecessary:
+        pop     si
+        pop     dx
+        popf
+        ret
+
+; proof we can use r32 in real mode
+[bits 16]
+READ_BIOS_KERNEL:
+    pushf
+    pusha
+    mov     ecx, ebx
+    mov     [lbalow4], eax
+    .loop:
+    xor     eax, eax
+    mov     ah, 0x42
+    mov     si, lba
+    mov     dl, [BOOT_DRIVE]
+    int     0x13
+    jc      .failed
+    ; update the location
+    mov     dx, [lbasegs]
+    add     dx, 32
+    mov     [lbasegs], dx
+    ; update LBA
+    mov     dword eax, [lbalow4]
+    inc     eax
+    mov     dword [lbalow4], eax
+    cmp     eax, ecx
+    ; if less, then we gucci
+    jl      .loop
+    jge     .done
+    .failed:
+    push    ax
+    mov     ah, 0x0e
+    mov     al, 'F'
+    int     0x10
+    pop     ax
+    jmp     $
+    .done:
+    popa
+    popf
+    ret
 
 %include "src/stage2/a20.asm"
 %include "src/stage2/gdt.asm"
 %include "src/stage2/read.asm"
+
+BOOT_DRIVE: db 0
+align 4
+lba:
+lbasize: db 0x10
+lbaresv: db 0x00
+lbamaxs: dw 0x0001
+lbaoffs: dw 0x0000
+lbasegs: dw 0x1000
+lbalow4: dd 0x00000000
+lbahigh: dd 0x00000000
+align 4
+lbaFIRSTPART:
+db 0x10
+db 0x00
+dw 0x0001
+dw 0x7c00
+dw 0x0000
+dd 0x00000000
+dd 0x00000000
