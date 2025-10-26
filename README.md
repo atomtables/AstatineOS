@@ -33,4 +33,8 @@ Build it yourself using all the dependencies above.
 
 Or, download an ISO from the releases section below and test it out yourself on [https://copy.sh/v86].
 
+## it works on real hardware bro trust me
+source: this video
+![https://github.com/user-attachments/assets/6a99789c-01c5-4923-ba64-a16864090a6a](https://github.com/user-attachments/assets/6a99789c-01c5-4923-ba64-a16864090a6a)
+
 Thanks and have a nice day !!!!!!
