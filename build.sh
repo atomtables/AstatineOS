@@ -7,6 +7,39 @@ if [ -e ".build.log" ]; then
 else
   echo "Running a clean compilation."
 fi
+
+# ───────────────────────────────────────────────
+# HELPER FUNCTIONS
+# ───────────────────────────────────────────────
+
+# Check if a source file has changed based on checksum
+# Returns 0 (true) if changed, 1 (false) if unchanged
+file_changed() {
+    local SRC="$1"
+    local val1="${SRC//\//_}"
+    local val="${val1//./_}_last"
+    local current_checksum=$(cat "$SRC" | cksum | awk '{ printf $1 }')
+    
+    if [ "$current_checksum" = "${!val}" ]; then
+        return 1  # unchanged
+    fi
+    return 0  # changed
+}
+
+# Update the checksum for a source file in .build.log
+update_checksum() {
+    local SRC="$1"
+    local val1="${SRC//\//_}"
+    local val="${val1//./_}_last"
+    local current_checksum=$(cat "$SRC" | cksum | awk '{ printf $1 }')
+    
+    if [ "${!val}" = "" ]; then
+        echo -n "export $val=" >> .build.log
+        echo "$current_checksum" >> .build.log
+    else
+        sed -i '' "s/${!val}/${current_checksum}/g" .build.log
+    fi
+}
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
@@ -31,11 +64,12 @@ fi
 
     SOURCE_DIR="src"
     BUILD_DIR="objects"
-    BOOT_DIR="${SOURCE_DIR}/boot"
-    BOOTLOADER_DIR="${SOURCE_DIR}/stage2"
+    BOOT_DIR="${SOURCE_DIR}/bootsector"
+    BOOTLOADER_DIR="${SOURCE_DIR}/bootloader_partition"
     KERNEL_DIR="${SOURCE_DIR}/kernel"
-    LIBRARY_DIR="${SOURCE_DIR}/libraries"
+    LIBRARY_DIR="libraries"
     PRODUCT_DIR="product"
+    
     BOOTLOADER_COMP_DIR="${BUILD_DIR}/ABP"
 
     mkdir -p "$BUILD_DIR" "$BOOTLOADER_COMP_DIR" "$PRODUCT_DIR"
@@ -61,12 +95,11 @@ fi
     BOOTSECT_SRC="${BOOT_DIR}/boot.asm"
     BOOTSECT_BIN="${BUILD_DIR}/boot.bin"
 
-    BOOTLOADER_SRC="${BOOTLOADER_DIR}/boot.aex.asm"
-    BOOTLOADER_C_SRC="${BOOTLOADER_DIR}/otherfiles/fat32.c ${BOOTLOADER_DIR}/otherfiles/main.c"
-    BOOTLOADER_ASM_SRC="${BOOTLOADER_DIR}/otherfiles/ata_lba_read_c.asm ${BOOTLOADER_DIR}/otherfiles/entry.asm"
+    BOOTLOADER_boot_aex_src="${BOOTLOADER_DIR}/boot.aex/boot.aex.asm"
+    BOOTLOADER_loader_aex_SRC="${BOOTLOADER_DIR}/loader.aex"
     BOOTLOADER_BIN="${BUILD_DIR}/abp.bin"
-    BOOTLOADER_MAIN="${BOOTLOADER_COMP_DIR}/BOOT.AEX"
-    BOOTLOADER_CASM="${BOOTLOADER_COMP_DIR}/LOADER.AEX"
+    BOOTLOADER_boot_aex="${BOOTLOADER_COMP_DIR}/BOOT.AEX"
+    BOOTLOADER_loader_aex="${BOOTLOADER_COMP_DIR}/LOADER.AEX"
 
     KERNEL_IMG="${BUILD_DIR}/kernel.img"
     ISO_IMG="${BUILD_DIR}/NetworkOS.iso"
@@ -74,26 +107,19 @@ fi
 # ───────────────────────────────────────────────
 # CHANGE SWITCHES
 # ───────────────────────────────────────────────
-KERNEL_DIR_SRC_CHANGED=false
-BOOTSECTOR_SRC_CHANGED=false
-BOOTLOADER_SRC_CHANGED=false
+    KERNEL_DIR_SRC_CHANGED=false
+    BOOTSECTOR_SRC_CHANGED=false
+    BOOTLOADER_SRC_CHANGED=false
 # ───────────────────────────────────────────────
 # COMPILE KERNEL (C + ASM)
 # ───────────────────────────────────────────────
 
 echo "[*] Compiling kernel sources..."
 find "${KERNEL_DIR}" -type f -name "*.c" | while read -r SRC; do
-    val1="${SRC//\//_}"
-    val="${val1//./_}_last"
-    if [ "$(cat $SRC | cksum | awk '{ printf $1 }')" = "${!val}" ]; then
-        continue;
+    if ! file_changed "$SRC"; then
+        continue
     fi
-    if [ "${!val}" = "" ]; then
-        echo -n export $val= >> .build.log
-        cat $SRC | cksum | awk '{ print $1 }' >> .build.log
-    else
-        sed -i '' "s/${!val}/$(cat $SRC | cksum | awk '{ printf $1 }')/g" .build.log
-    fi
+    update_checksum "$SRC"
     KERNEL_DIR_SRC_CHANGED=true
     OBJ="${BUILD_DIR}/${SRC%.c}.o"
     mkdir -p "$(dirname "$OBJ")"
@@ -102,17 +128,10 @@ find "${KERNEL_DIR}" -type f -name "*.c" | while read -r SRC; do
 done
 
 find "${KERNEL_DIR}" -type f -name "*.asm" | while read -r SRC; do
-    val1="${SRC//\//_}"
-    val="${val1//./_}_last"
-    if [ "$(cat $SRC | cksum | awk '{ printf $1 }')" = "${!val}" ]; then
-        continue;
+    if ! file_changed "$SRC"; then
+        continue
     fi
-    if [ "${!val}" = "" ]; then
-        echo -n export $val= >> .build.log
-        cat $SRC | cksum | awk '{ print $1 }' >> .build.log
-    else
-        sed -i '' "s/${!val}/$(cat $SRC | cksum | awk '{ printf $1 }')/g" .build.log
-    fi
+    update_checksum "$SRC"
     KERNEL_DIR_SRC_CHANGED=true
     OBJ="${BUILD_DIR}/${SRC%.asm}.o"
     mkdir -p "$(dirname "$OBJ")"
@@ -135,89 +154,60 @@ fi
 # ───────────────────────────────────────────────
 # ASSEMBLE BOOTSECTOR (make change in boot.asm to reflect)
 # ───────────────────────────────────────────────
-val1="${BOOTSECT_SRC//\//_}"
-val="${val1//./_}_last"
-if [ "$(cat $BOOTSECT_SRC | cksum | awk '{ printf $1 }')" = "${!val}" ]; then
-    :
-else
+if file_changed "$BOOTSECT_SRC"; then
     echo "[*] Assembling bootsector..."
     $NASM -fbin "$BOOTSECT_SRC" -o "$BOOTSECT_BIN"
+    BOOTSECTOR_SRC_CHANGED=true
 fi
-if [ "${!val}" = "" ]; then
-    echo -n export $val= >> .build.log
-    cat $BOOTSECT_SRC | cksum | awk '{ print $1 }' >> .build.log
-else
-    sed -i '' "s/${!val}/$(cat $BOOTSECT_SRC | cksum | awk '{ printf $1 }')/g" .build.log
-fi
+update_checksum "$BOOTSECT_SRC"
 
 # ───────────────────────────────────────────────
 # ASSEMBLE BOOTLOADER (ABP)
 # ───────────────────────────────────────────────
 
-val1="${BOOTLOADER_SRC//\//_}"
-val="${val1//./_}_last"
-if [ "$(cat $BOOTLOADER_SRC | cksum | awk '{ printf $1 }')" = "${!val}" ]; then
-    :
-else
+if file_changed "$BOOTLOADER_boot_aex_src"; then
     echo "[*] Assembling bootloader..."
     # compile the BOOT.AEX file
-    $NASM -fbin "$BOOTLOADER_SRC" -o "$BOOTLOADER_MAIN"
+    $NASM -fbin "$BOOTLOADER_boot_aex_src" -o "$BOOTLOADER_boot_aex"
     BOOTLOADER_SRC_CHANGED=true
+    update_checksum "$BOOTLOADER_boot_aex_src"
 fi
-if [ "${!val}" = "" ]; then
-    echo -n export $val= >> .build.log
-    cat $BOOTLOADER_SRC | cksum | awk '{ print $1 }' >> .build.log
-else
-    sed -i '' "s/${!val}/$(cat $BOOTLOADER_SRC | cksum | awk '{ printf $1 }')/g" .build.log
-fi
+
 # compile the LOADER.AEX file
 BOOTLOADER_OBJECTS=""
 # for each ASM file, compile it
-for SRC in $BOOTLOADER_ASM_SRC; do
+find "${BOOTLOADER_loader_aex_SRC}" -type f -name "*.asm" | while read -r SRC; do
     OBJ="${BUILD_DIR}/${SRC%.asm}.o"
-    BOOTLOADER_OBJECTS="$BOOTLOADER_OBJECTS $OBJ"
 
-    val1="${SRC//\//_}"
-    val="${val1//./_}_last"
-    if [ "$(cat $SRC | cksum | awk '{ printf $1 }')" = "${!val}" ]; then
-        continue;
+    if ! file_changed "$SRC"; then
+        continue
     fi
-    if [ "${!val}" = "" ]; then
-        echo -n export $val= >> .build.log
-        cat $SRC | cksum | awk '{ print $1 }' >> .build.log
-    else
-        sed -i '' "s/${!val}/$(cat $SRC | cksum | awk '{ printf $1 }')/g" .build.log
-    fi
-
+    update_checksum "$SRC"
     BOOTLOADER_SRC_CHANGED=true
+
     mkdir -p "$(dirname "$OBJ")"
     echo " -> $SRC"
     $NASM $NASMFLAGS "$SRC" -o "$OBJ"
 done
 # for each C file, compile it
-for SRC in $BOOTLOADER_C_SRC; do
-    val1="${SRC//\//_}"
-    val="${val1//./_}_last"
-    if [ "$(cat $SRC | cksum | awk '{ printf $1 }')" = "${!val}" ]; then
-        continue;
-    fi
-    if [ "${!val}" = "" ]; then
-        echo -n export $val= >> .build.log
-        cat $SRC | cksum | awk '{ print $1 }' >> .build.log
-    else
-        sed -i '' "s/${!val}/$(cat $SRC | cksum | awk '{ printf $1 }')/g" .build.log
-    fi
-    
-    BOOTLOADER_SRC_CHANGED=true
+find "${BOOTLOADER_loader_aex_SRC}" -type f -name "*.c" | while read -r SRC; do
     OBJ="${BUILD_DIR}/${SRC%.c}.o"
-    BOOTLOADER_OBJECTS="$BOOTLOADER_OBJECTS $OBJ"
+
+    if ! file_changed "$SRC"; then
+        continue
+    fi
+    update_checksum "$SRC"
+    BOOTLOADER_SRC_CHANGED=true
+
     mkdir -p "$(dirname "$OBJ")"
     echo " -> $SRC"
     $CROSS_GCC -c "$SRC" -o "$OBJ" $CCFLAGS_KERNEL
 done
+BOOTLOADER_loader_aex_OBJECTS=$(find "$BUILD_DIR/$BOOTLOADER_loader_aex_SRC" -type f -name "*.o")
 # link the bootloader
 if [ "$BOOTLOADER_SRC_CHANGED" = true ]; then
-    $LD -o "$BOOTLOADER_CASM" $BOOTLOADER_OBJECTS -m elf_i386 -Ttext 0x8000 --oformat binary
+    echo $BOOTLOADER_loader_aex_OBJECTS
+    $LD -o "$BOOTLOADER_loader_aex" $BOOTLOADER_loader_aex_OBJECTS -m elf_i386 -Ttext 0x8000 --oformat binary
     $MKABP "$BOOTLOADER_COMP_DIR" "$BOOTLOADER_BIN"
     echo
 fi

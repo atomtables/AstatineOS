@@ -10,7 +10,7 @@
 #include <timer/PIT.h>
 
 void reboot() {
-    u8 good = 0x02;
+    u8 good = 0x02; 
     while (good & 0x02)
         good = inportb(0x64);
     outportb(0x64, 0xFE);

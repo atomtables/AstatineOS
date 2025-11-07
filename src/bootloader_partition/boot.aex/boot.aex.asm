@@ -211,11 +211,11 @@ init_32bit:                 ; we are now using 32-bit instructions
     ; hold onto the value of bx so we can read again later
     jmp     check_name
 
-%include "src/stage2/a20.asm"
-%include "src/stage2/gdt.asm"
-%include "src/stage2/read.asm"
+%include "src/bootloader_partition/boot.aex/a20.asm"
+%include "src/bootloader_partition/boot.aex/gdt.asm"
+%include "src/bootloader_partition/boot.aex/read.asm"
 
-BOOT_DRIVE: db 0
+BOOT_DRIVE: db 0 
 PART_START_SECTOR: dd 0
 align 4
 lba:
