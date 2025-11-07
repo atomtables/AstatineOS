@@ -1,16 +1,14 @@
 [bits 32]
-;=============================================================================
-; ATA read sectors (LBA mode)
-;
-; @param EAX Logical Block Address of sector
-; @param CL  Number of sectors to read
-; @param EDI The address of buffer to put data obtained from disk
-;
-; @return None
-;=============================================================================
+global ata_lba_read
+
+; void ata_lba_read(uint32_t lba, uint8_t sectors, void* buffer);
 ata_lba_read:
-    pushad
     pushfd
+    pushad
+
+    mov eax, [esp + 40]   ; LBA (EAX in C)
+    mov cl,  [esp + 44]   ; sectors (CL in C)
+    mov edi, [esp + 48]   ; buffer (RDI in C)
 
     and eax, 0x0FFFFFFF
 
@@ -56,6 +54,6 @@ ata_lba_read:
     mov edx, 0x1F0       ; Data port, in and out
     rep insw             ; in to [RDI]
 
-    popfd
     popad
+    popfd
     ret

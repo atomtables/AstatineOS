@@ -100,14 +100,14 @@ partition_1:
     db 0xD9                    ; Partition type: 0xD9 (AstatineOS Bootstrap Partition)
     db 0x00, 0x05, 0x01        ; CHS address of partition end (approx. Cylinder 79, Head 1, Sector 18)
     dd 0x00000001              ; LBA of partition start (sector 1, as sector 0 is the MBR)
-    dd 0x00000004              ; Number of sectors in partition (1440 sectors for 1.44 MB)
+    dd 0x0000001b              ; Number of sectors in partition (1440 sectors for 1.44 MB)
 partition_2:
     db 0x00                    ; Drive attribute: 0x80 = active/bootable
     db 0x00, 0x01, 0x01        ; CHS address of partition start (Cylinder 0, Head 1, Sector 1)
-    db 0x7F                    ; Partition type: 0xD9 (AstatineOS Bootstrap Partition)
+    db 0x0C                     ; Partition type: 0xD9 (AstatineOS Bootstrap Partition)
     db 0x00, 0x0F, 0x12        ; CHS address of partition end (approx. Cylinder 79, Head 1, Sector 18)
-    dd 0x00000005              ; LBA of partition start (sector 1, as sector 0 is the MBR)
-    dd 0x0000004B              ; Number of sectors in partition (1440 sectors for 1.44 MB)
+    dd 0x0000001c              ; LBA of partition start (sector 1, as sector 0 is the MBR)
+    dd 0x000203D0              ; Number of sectors in partition (1440 sectors for 1.44 MB)
 times 16 db 0                  ; Entry 3 (blank)
 times 16 db 0                  ; Entry 4 (blank)
 

@@ -5,16 +5,17 @@ mov     ds, ax
 mov     es, ax
 mov     bx, 0x8000
 mov     ss, bx
-mov     sp, ax
+xor     sp, sp
 jmp     0x50:next
 
 next:
 mov     [BOOT_DRIVE], dl
+mov     [PART_START_SECTOR], edi ; receive this from the start program
 cld
 
 KERNEL_OFFSET equ 0x10000 ; The same one we used when linking the kernel
 
-call    switch_to_32bit ; disable interrupts, load GDT,  etc. Finally jumps to 'BEGIN_PM'
+jmp     switch_to_32bit ; disable interrupts, load GDT,  etc. Finally jumps to 'BEGIN_PM'
 jmp     $               ; Never executed
 
 disk_error:
@@ -53,8 +54,8 @@ switch_to_32bit:
     ; cmp     dl, 0x80
     ; je      .continue
     ; otherwise, load via bios
-    call    READ_BIOS
-    call    READ_BIOS_KERNEL
+    ; call    READ_BIOS
+    ; call    READ_BIOS_KERNEL
     
     .continue:
     call    enable_a20          ; 0. enable A20 line
@@ -66,6 +67,36 @@ switch_to_32bit:
     mov     cr0, eax
                                 ; 4. far jump by using a different segment
     jmp     CODE_SEG:init_32bit+0x500
+
+[bits 16]
+strcmp:
+    push    di
+    push    si
+    repe    cmpsb
+    pop     si
+    pop     di
+    je      .match
+    xor     ax, ax
+    ret
+.match:
+    mov     ax, 1
+    ret
+
+; NEVER MIX THE BLOODY 16 AND 32
+; I HATE LIFE DEBUGGED TS FOR 2 HOURS
+[bits 32]
+strcmp32:
+    push    edi
+    push    esi
+    repe    cmpsb
+    pop     esi
+    pop     edi
+    je      .match
+    xor     ax, ax
+    ret
+.match:
+    mov     ax, 1
+    ret
 
 [bits 32]
 init_32bit:                 ; we are now using 32-bit instructions
@@ -80,162 +111,112 @@ init_32bit:                 ; we are now using 32-bit instructions
     mov     ebp, 0x90000    ; 6. update the stack right at the top of the free space
     mov     esp, ebp
 
-    jmp     READ     ; 7. Call a well-known label with useful code
-
-[bits 32]
-READ:
-    mov     dl, [0x500+BOOT_DRIVE]
-    cmp     dl, 0x80
-    jmp     READ_KERNEL.done ; if we aren't reading manually then just assume above.
-
-    mov     eax, 0x0    ; we need to get the lba
+    mov     eax, [0x500+PART_START_SECTOR]    ; we need to get the lba
     mov     cl,  0x1    ; this command only reliably reads one sector
-    mov     edi, 0x7c00 ; basically a temp buffer to store
+    mov     edi, 0x8000 ; basically a temp buffer to store
     call    ata_lba_read; TODO: ssumption that we're booting off of 0x80
-    
-    mov     ebx, 0x7dc2
-    .loop:
-        mov     byte dl, [ebx]
-        cmp     dl, 0x7F
-        jne     .not_found
-        ; Found the end of the string
-        mov     byte [ebx], 0
-        jmp     .done
-        .not_found:
-            add     ebx, 0x10
-            cmp     ebx, 0x7df3
-            jl      .loop
-            jge     .failed
-        .failed:
-            mov     [0xb8000], 'F'
-            mov     [0xb8002], 'A'
-            mov     [0xb8004], 'I'
-            mov     [0xb8006], 'L'
-            mov     [0xb8008], 'E'
-            mov     [0xb800a], 'D'
-            jmp     $
-        .done:
-            mov     [0xb8000], 'D'
-            mov     [0xb8002], 'O'
-            mov     [0xb8004], 'N'
-            mov     [0xb8006], 'E'
-            mov     eax, [ebx+4] ; starting LBA
-            mov     ebx, [ebx+8] ; ending LBA
-            jmp     READ_KERNEL
-READ_KERNEL:
-    ; lba in memory from line above
-    mov     cl,  0x1    ; read one sector at a time
-    mov     edi, 0x10000 ; store at our offset
-    clc
-    .loop:
-    call    ata_lba_read ; TODO: assumption that we're booting off of 0x80
+
+    mov     si, [0x8010] ; amount of entries
+    mov     eax, [0x500+PART_START_SECTOR]    ; we need to get the lba
+    inc     eax; load next partition
+    mov     cl,  0x1    ; this command only reliably reads one sector
     add     edi, 512
-    inc     eax
-    cmp     eax, ebx
-    jl      .loop
-    jge     .done
-    .disk_error:
-    mov     [0xb8000], 'D'
-    mov     [0xb8002], 'I'
-    mov     [0xb8004], 'S'
-    mov     [0xb8006], 'K'
-    mov     [0xb8008], ' '
-    mov     [0xb800a], 'E'
-    mov     [0xb800c], 'R'
-    mov     [0xb800e], 'R'
-    mov     [0xb8010], 'O'
-    mov     [0xb8012], 'R'
-    jmp     $
-    .done:
-    call    far CODE_SEG:0x10000
-    jmp     $
-
-[bits 16]
-READ_BIOS:
+    call    ata_lba_read; TODO: ssumption that we're booting off of 0x80
+    found:
+    ; the first file entry is at 0x200
+    mov     edi, 0x8201 ; 0x8200
+    mov     word [0x7bfe], 0x8400 ; the next sector (next place we need to load at)
+    mov     dword [0x7bfa], 1    ; the difference in sector
+    check_name:
+    cmp     si, 0   ; if the amount of files left is 0
+    je      $       ; hang (there is no bootable file)
+    ; check the file name (match1 is the name)
+    push    esi
+    mov     esi, match1+0x500
+    ; DI should be at the aligned file name
+    mov     cx, 7
+    call    strcmp32  ; compare the file name
+    ; jmp     $
+    cmp     ax, 1
     pushf
-    push    dx
-    push    si
-    mov     dl, [BOOT_DRIVE]
-    cmp     dl, 0x80
-    ; je      .unnecessary
-
-    mov     ah, 0x42
-    mov     si, lbaFIRSTPART
-    mov     dl, [BOOT_DRIVE]
-    int     0x13
-    
-    mov     bx, 0x7dc2-0x500
-    .loop:
-        mov     byte dh, [bx]
-        cmp     dh, 0x7F
-        jne     .not_found
-        ; Found the end of the string
-        mov     byte [bx], 0
-        jmp     .done
-        .not_found:
-            add     bx, 0x10
-            cmp     bx, 0x7df3-0x500
-            jl      .loop
-            jge     .failed
-        .failed:
-            mov     ah, 0x0e
-            mov     al, 'F'
-            int     0x10
-            mov     dl, [BOOT_DRIVE]
-            jmp     $
-        .done:
-            mov     eax, [ebx+4] ; starting LBA
-            mov     ebx, [ebx+8] ; size LBA
-            add     ebx, eax    ; make that ending rq
-    .unnecessary:
-        pop     si
-        pop     dx
-        popf
-        ret
-
-; proof we can use r32 in real mode
-[bits 16]
-READ_BIOS_KERNEL:
-    pushf
-    pusha
-    mov     ecx, ebx
-    mov     [lbalow4], eax
-    .loop:
-    xor     eax, eax
-    mov     ah, 0x42
-    mov     si, lba
-    mov     dl, [BOOT_DRIVE]
-    int     0x13
-    jc      .failed
-    ; update the location
-    mov     dx, [lbasegs]
-    add     dx, 32
-    mov     [lbasegs], dx
-    ; update LBA
-    mov     dword eax, [lbalow4]
-    inc     eax
-    mov     dword [lbalow4], eax
-    cmp     eax, ecx
-    ; if less, then we gucci
-    jl      .loop
-    jge     .done
-    .failed:
-    push    ax
-    mov     ah, 0x0e
-    mov     al, 'F'
-    int     0x10
-    pop     ax
-    jmp     $
-    .done:
-    popa
+    add     di, 8   ; 0x209
     popf
-    ret
+    pop     esi
+    jne     tryagain; if it fails then just restart then and there
+    push    esi
+    ; now let's compare file extension
+    mov     esi, match2+0x500
+    mov     cx, 3
+    call    strcmp32  ; compare the file extension
+    cmp     eax, 1
+    pop     esi
+    jne     tryagain
+
+    ; now that we've established a file, we subtract di and
+    ; runexe
+    add     edi, 3
+    xor     edx, edx
+    mov     eax, [edi + 4]  ; get the size of the file
+    mov     esi, 512
+    div     esi             ; divide by 512 to get amount of sectors it spans
+    inc     eax             ; account for the last partial sector
+    mov     ebx, eax        ; ebx now contains number of sectors (size)
+    
+    xor     edx, edx
+    mov     eax, [edi]
+    div     esi             ; divide by 512 to get amount of sectors it spans
+    ; inc     eax             ; part_start_sector includes the vba, so ignore that
+    add     eax, [0x500+PART_START_SECTOR]
+                            ; we get the full dword of the partition area and add it
+    ; eax contains LBA of the file start
+    ; and edx contains the offset (% 512)
+    xor     esi, esi
+    mov     edi, 0x8000
+    read:
+        mov     cl, 1
+        call    ata_lba_read
+        mov     [0xb8000], 'D'
+        cmp     ebx, esi
+        jne     .continue
+        jmp     .done
+        .continue:
+        inc     esi
+        inc     eax
+        add     edi, 512
+        mov     [0xb8000], ' '
+        jmp     read
+        .done:
+        mov     [0xb8002], 'D'
+        call    CODE_SEG:0x8000
+        jmp     $
+    tryagain:
+    ; try again
+    add     di, 12  ; 20 bytes later
+    sub     si, 1   ; we went through one file
+    mov     dx, [0x7bfe]
+    cmp     di, dx  ; make sure we aren't at the end of the sector
+    jge     getnewvalues ; if we are then we load new files
+    jmp     check_name
+    getnewvalues:
+    xor     ah, ah
+    mov     eax, [0x7bfa]; get the last increment in sectors
+    add     al, 1       ; add one more to ah
+    mov     dword [0x7bfa], eax; and put the increment back
+
+    add     eax, [0x500+PART_START_SECTOR]; offset by the start
+    mov     cl, 0x01    ; one sector as usual
+    mov     edi, 0x8200 ; same sector
+    call    ata_lba_read
+    ; after this point, we only read one sector.
+    ; hold onto the value of bx so we can read again later
+    jmp     check_name
 
 %include "src/stage2/a20.asm"
 %include "src/stage2/gdt.asm"
 %include "src/stage2/read.asm"
 
 BOOT_DRIVE: db 0
+PART_START_SECTOR: dd 0
 align 4
 lba:
 lbasize: db 0x10
@@ -254,3 +235,5 @@ dw 0x7c00
 dw 0x0000
 dd 0x00000000
 dd 0x00000000
+match1: db "LOADER", 0
+match2: db "AEX", 0

@@ -14,8 +14,9 @@ VERSION:   db 0x00, 0x01   ; version number (major minor, so 0.1) (0x12/13)
 
 after:
 mov     ah, 0x0e
-mov     al, 'h'
-int     0x10
+mov     al, 'B'
+int     0x10    ; code breaks without
+
 mov     ax, 0x07c0
 mov     ds, ax
 mov     es, ax
@@ -37,7 +38,7 @@ jl      check2
 jmp     $
 found:
 mov     ah, 0x0e
-mov     al, 'h'
+mov     al, 'F'
 int     0x10
 ; get the starting LBA of the partition
 add     bx, 4       ; the lba is at 4 bytes
@@ -47,6 +48,8 @@ add     cx, 1       ; the file list is at the next sector
 adc     dx, 0       ; carry flag
 mov     word [lbalow4], cx
 mov     word [lbalow4+2], dx ; this just sets the values of the lba (TODO: which is 32-bit? may cause errors)
+mov     word [PART_START_SECTOR], cx
+mov     word [PART_START_SECTOR+2], dx ; save for later
 mov     word [lbaoffs], 0x7e00 ; and set the segment to 0x7e00.
 ; after this point, we only read one sector.
 ; hold onto the value of bx so we can read again later
@@ -62,18 +65,25 @@ mov     byte [0x7bfd], 1
 check_name:
 cmp     si, 0   ; if the amount of files left is 0
 je      $       ; hang (there is no bootable file)
-; check the file name (match1 is the name)
 push    si
+; check the file name (match1 is the name)
 mov     si, match1
 ; DI should be at the aligned file name
+mov     cx, 5
 call    strcmp  ; compare the file name
 cmp     ax, 1
-jne     tryagain; if it fails then just restart then and there
-; now let's compare file extension
+pushf
 add     di, 8   ; 0x209
+popf
+pop     si
+jne     tryagain; if it fails then just restart then and there
+push    si
+; now let's compare file extension
 mov     si, match2
+mov     cx, 3
 call    strcmp  ; compare the file extension
 cmp     ax, 1
+; restore si value to keep ticker indicator
 pop     si
 jne     tryagain
 
@@ -100,8 +110,6 @@ add     cx, ax      ; the file list is at the next sector
 adc     dx, 0       ; carry flag
 mov     word [lbalow4], cx
 mov     word [lbalow4+2], dx ; this just sets the values of the lba (TODO: which is 32-bit? may cause errors)
-mov     word [PART_START_SECTOR], cx
-mov     word [PART_START_SECTOR+2], dx ; save for later
 mov     word [lbaoffs], 0x7e00 ; and set the segment to 0x7e00.
 mov     byte [0x7bfd], ah
 ; after this point, we only read one sector.
@@ -113,8 +121,7 @@ jmp     check_name
 strcmp:
     push    di
     push    si
-    mov     cx, 4
-    rep     cmpsb
+    repe    cmpsb
     pop     si
     pop     di
     je      .match
@@ -151,6 +158,9 @@ call_lba:
         jmp     $
 
 runexe:
+    mov     ah, 0x0e
+    mov     al, 'F'
+    int     0x10
     ; given di - the offset of the entry
     ; load the executable into memory and call it
     add     di, 12  ; the offset is 13 bytes in
@@ -158,23 +168,25 @@ runexe:
     mov     word dx, [di+6] ; high portion
     mov     si, 512
     div     si              ; divide by 512 to get amount of sectors it spans
-    inc     eax              ; account for the last partial sector
-    mov     ecx, eax          ; save value for later
+    inc     ax              ; account for the last partial sector
+    mov     cx, ax          ; save value for later
 
     mov     word ax, [di]   ; get location of the file
     mov     word dx, [di+2] ; high portion
     mov     si, 512
     div     si              ; divide by 512 to get amount of sectors it spans
-    inc     eax              ; account for the last partial sector
+    ;inc     eax             ; we don't account for the partial sector dumbass
     mov     esi, [PART_START_SECTOR]
     add     eax, esi          ; we get the full dword of the partition area and add it
+    dec     eax               ; offsets start from the vbr so we can dec 1
     mov     ebx, eax          ; save value for next step
 
     ; bx has sectors to the file, cx has sector size.
     ; dx has the offset from the sector
     mov     dword [lbalow4], ebx
-    mov     dword [lbamaxs], ecx
-    mov     word [lbasegs], 0x0050
+    mov     word [lbamaxs], cx
+    mov     word [lbaoffs], 0x00
+    mov     word [lbasegs], 0x50
 
     call    call_lba
 
@@ -183,6 +195,8 @@ runexe:
     mov     si, 0x0500
     add     si, dx
     mov     dl, [BOOT_DRIVE]
+    mov     edi, [PART_START_SECTOR] ; send this to the start program
+    dec     edi ; part_start_sector should point at the vbr not the list
     jmp     0x0000:0x7c00+val ; set segment to zero so we can jump direct
     val:    jmp si  ; up up and away!
 

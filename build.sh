@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # got GPT to convert the cmakelists.txt to this because cmake sucks for custom comp
 set -e
-
+if [ -e ".build.log" ]; then
+  source .build.log
+else
+  echo "Running a clean compilation."
+fi
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
@@ -47,7 +51,7 @@ CCFLAGS_KERNEL="-m32 -std=c11 -O2 -g -Wall -Wextra -Wpedantic -Wstrict-aliasing 
 -fno-builtin-function -fno-builtin
 -I${KERNEL_DIR} -I${CROSS_GCC_INCLUDE} -I${CROSS_GCC_INCLUDE_FIXED}"
 
-QEMUFLAGS="-monitor stdio -d int -D qemu.log -audiodev coreaudio,id=audio0 -machine pcspk-audiodev=audio0 -debugcon file:qemu.log -no-reboot -no-shutdown"
+QEMUFLAGS="-monitor stdio -d int,in_asm -D qemu.log -audiodev coreaudio,id=audio0 -machine pcspk-audiodev=audio0 -debugcon file:qemu.log -no-reboot -no-shutdown"
 
 # ───────────────────────────────────────────────
 # PATHS
@@ -55,9 +59,14 @@ QEMUFLAGS="-monitor stdio -d int -D qemu.log -audiodev coreaudio,id=audio0 -mach
 
 BOOTSECT_SRC="${BOOT_DIR}/boot.asm"
 BOOTSECT_BIN="${BUILD_DIR}/boot.bin"
+
 BOOTLOADER_SRC="${BOOTLOADER_DIR}/boot.aex.asm"
+BOOTLOADER_C_SRC="${BOOTLOADER_DIR}/otherfiles/fat32.c ${BOOTLOADER_DIR}/otherfiles/main.c"
+BOOTLOADER_ASM_SRC="${BOOTLOADER_DIR}/otherfiles/ata_lba_read_c.asm ${BOOTLOADER_DIR}/otherfiles/entry.asm"
 BOOTLOADER_BIN="${BUILD_DIR}/abp.bin"
 BOOTLOADER_MAIN="${BOOTLOADER_COMP_DIR}/BOOT.AEX"
+BOOTLOADER_CASM="${BOOTLOADER_COMP_DIR}/LOADER.AEX"
+
 KERNEL_IMG="${BUILD_DIR}/kernel.img"
 ISO_IMG="${BUILD_DIR}/NetworkOS.iso"
 FINAL_ISO="${PRODUCT_DIR}/NetworkOS.iso"
@@ -68,6 +77,10 @@ FINAL_ISO="${PRODUCT_DIR}/NetworkOS.iso"
 
 echo "[*] Compiling kernel sources..."
 find "${KERNEL_DIR}" -type f -name "*.c" | while read -r SRC; do
+    val="$SRC-last"
+    if [ "$SRC" = "${!val}" ]; then
+        continue;
+    
     OBJ="${BUILD_DIR}/${SRC%.c}.o"
     mkdir -p "$(dirname "$OBJ")"
     echo " -> $SRC"
@@ -103,7 +116,28 @@ $NASM -fbin "$BOOTSECT_SRC" -o "$BOOTSECT_BIN"
 # ───────────────────────────────────────────────
 
 echo "[*] Assembling bootloader..."
+# compile the BOOT.AEX file
 $NASM -fbin "$BOOTLOADER_SRC" -o "$BOOTLOADER_MAIN"
+# compile the LOADER.AEX file
+BOOTLOADER_OBJECTS=""
+# for each ASM file, compile it
+for SRC in $BOOTLOADER_ASM_SRC; do
+    OBJ="${BUILD_DIR}/${SRC%.asm}.o"
+    BOOTLOADER_OBJECTS="$BOOTLOADER_OBJECTS $OBJ"
+    mkdir -p "$(dirname "$OBJ")"
+    echo " -> $SRC"
+    $NASM $NASMFLAGS "$SRC" -o "$OBJ"
+done
+# for each C file, compile it
+for SRC in $BOOTLOADER_C_SRC; do
+    OBJ="${BUILD_DIR}/${SRC%.c}.o"
+    BOOTLOADER_OBJECTS="$BOOTLOADER_OBJECTS $OBJ"
+    mkdir -p "$(dirname "$OBJ")"
+    echo " -> $SRC"
+    $CROSS_GCC -c "$SRC" -o "$OBJ" $CCFLAGS_KERNEL
+done
+# link the bootloader
+$LD -o "$BOOTLOADER_CASM" $BOOTLOADER_OBJECTS -m elf_i386 -Ttext 0x8000 --oformat binary
 $MKABP "$BOOTLOADER_COMP_DIR" "$BOOTLOADER_BIN"
 echo
 
@@ -116,8 +150,9 @@ $DD if=/dev/zero of="$ISO_IMG" bs=512 count=1
 $DD if="$BOOTSECT_BIN" of="$ISO_IMG" conv=notrunc bs=512 seek=0 count=1
 $DD if="$BOOTLOADER_BIN" of="$ISO_IMG" conv=notrunc seek=1 bs=512
 SEEK=$(($(($(wc -c < $ISO_IMG)))/512))
-echo $SEEK
-$DD if="$KERNEL_IMG" of="$ISO_IMG" conv=notrunc bs=512 seek=$SEEK
+echo BOOTLOADER SIZE: $(($SEEK - 1))
+$DD if='/Users/3024492/Downloads/disk.img' of="$ISO_IMG" conv=notrunc bs=512 seek=$SEEK
+# $DD if="$KERNEL_IMG" of="$ISO_IMG" conv=notrunc bs=512 seek=$SEEK
 
 $MV "$ISO_IMG" "$FINAL_ISO"
 
