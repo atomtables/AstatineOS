@@ -1,2 +1,4 @@
 1.0 (25/10/2025)
 - created program
+1.1 (08/11/2025)
+- updated the "default.asm" VBR to fix some bugs that arise from an invalid comparison
