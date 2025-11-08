@@ -72,5 +72,5 @@ void ps2_controller_init() {
     keyboard_irq_enabled = true;
     keyboard_translation_enabled = true;
 
-    sendcommandb(CONTROLCMD_ENABLE_P1);
+    // sendcommandb(CONTROLCMD_ENABLE_P1);
 }

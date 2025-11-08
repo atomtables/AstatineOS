@@ -118,15 +118,16 @@ void cat(int argc, char** argv) {
         return;
     }
     int cnt = 0;
-    uint8_t buf[512];
+    uint8_t buf[81];
     while (1) {
         if (err) {
             display.printf("Failed to read file '%s', error code %d\n", filename, err);
             return;
         }
-        err = fat_file_read(&file, buf, 512, &cnt);
-        display.printf("%s", buf);
-        if (cnt != 512)
+        err = fat_file_read(&file, buf, 80, &cnt);
+        buf[cnt] = '\0';
+        display.printf("%s\n", buf);
+        if (cnt != 80)
             break;
     } 
     display.printf("\n");
