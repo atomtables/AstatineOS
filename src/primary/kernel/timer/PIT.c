@@ -73,23 +73,27 @@ u64 timer_get() { return state.ticks; }
 static u8 local_ticks = 0;
 
 static void timer_handler(struct registers* regs) {
-    state.ticks += 1;
+    if (local_ticks++ == 16) {
+        local_ticks = 0;
+        state.ticks += 1;
+    }
     if (sleep_state.active) {
         if ((u32)state.ticks >= (u32)sleep_state.end) {
             sleep_state.active = false;
         }
     }
-    // for (int i = 0; i < 256; i++) {
-    //     if (process_wait_states[i].start != (u64)-1 && state.ticks >= process_wait_states[i].end) {
-    //         process_wait_states[i].ret();
-    //         process_wait_states[i].start = (u64)-1;
-    //         process_wait_states[i].end = (u64)-1;
-    //         process_wait_states[i].ret = null;
-    //     }
-    //     if (((u32)state.ticks) % 1000 == 0 && every_second_handlers[i] != null) {
-    //         every_second_handlers[i]();
-    //     }
-    // }
+    // need a better solution than this.
+    for (int i = 0; i < 256; i++) {
+        if (process_wait_states[i].start != (u64)-1 && state.ticks >= process_wait_states[i].end) {
+            process_wait_states[i].ret();
+            process_wait_states[i].start = (u64)-1;
+            process_wait_states[i].end = (u64)-1;
+            process_wait_states[i].ret = null;
+        }
+        if (((u32)state.ticks) % 1000 == 0 && every_second_handlers[i] != null) {
+            every_second_handlers[i]();
+        }
+    }
 }
 
 void sleep(int ms) {

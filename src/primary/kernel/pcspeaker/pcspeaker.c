@@ -39,11 +39,15 @@ void beep() {
 
 void pcs_play_8bit(u8 *data, u32 length) {
     for (u32 i = 0; i < length; i++) {
-        sleep(1);
-        u8 bit = data[i] & 0b01111111;
-        outportb(0x43, 0xb0);
-        outportb(0x42, bit);
-        outportb(0x43, 0);
+        while (((u32)timer_get() % 65536) < 65536) {}
+        u8 bit = data[i];
+        bit = (bit << 1) | (bit >> 7);
+        bit = (bit << 1) | (bit >> 7);
+        bit &= 0x02;
+        u8 inp = inportb(0x61);
+        bit &= 0xFC;
+        bit |= inp;
+        outportb(0x61, bit);
     }
 }
 
