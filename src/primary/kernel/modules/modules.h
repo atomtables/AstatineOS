@@ -124,12 +124,18 @@ void memset(void* dst, u8 value, u32 n);
 void memset_step(void* dst, u8 value, u32 n, u32 step);
 void* memcpy(void* dst, const void* src, u32 n);
 void* memmove(void* dst, void* src, u32 n);
+int memcmp(const char* s1, const char* s2, u32 t);
 
 u8 inportb(u16 port);
 void outportb(u16 port, u8 data);
-
 u16 inportw(u16 port);
 void outportw(u16 port, u16 data);
+u32 inportd(u16 port);
+void outportd(u16 port, u32 data);
+
+void outsw(u32 reg, u16 *buffer, i32 words);
+void insw(u32 reg, u16* buffer, i32 words);
+void insd(u32 reg, u32* buffer, i32 quads);
 
 u32 rand();
 void seed(u32 s);

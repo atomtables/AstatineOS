@@ -37,6 +37,7 @@ void printn(char* buf, int x) {
 
 char* xtoa_padded(uint32_t number, char* str);
 void main() {
+    print("started");
     DiskOps ops = {
         .read = read,
         .write = fake,

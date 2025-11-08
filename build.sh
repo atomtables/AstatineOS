@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 # got GPT to convert the cmakelists.txt to this because cmake sucks for custom comp
+# uses .build.log for saving previous hashes
 set -e
 
 if [ -e ".build.log" ]; then
-  source .build.log
+#   source .build.log
+    :
 else
   echo "Running a clean compilation."
 fi
 
 # ───────────────────────────────────────────────
-# HELPER FUNCTIONS
+# only rebuild if file changed
 # ───────────────────────────────────────────────
 
-# Check if a source file has changed based on checksum
-# Returns 0 (true) if changed, 1 (false) if unchanged
 file_changed() {
     local SRC="$1"
     local val1="${SRC//\//_}"
@@ -25,8 +25,6 @@ file_changed() {
     fi
     return 0  # changed
 }
-
-# Update the checksum for a source file in .build.log
 update_checksum() {
     local SRC="$1"
     local val1="${SRC//\//_}"
@@ -40,6 +38,7 @@ update_checksum() {
         sed -i '' "s/${!val}/${current_checksum}/g" .build.log
     fi
 }
+
 # ───────────────────────────────────────────────
 # CONFIGURATION
 # ───────────────────────────────────────────────
@@ -54,6 +53,9 @@ update_checksum() {
     MKABP=mkabp
     XXD=xxd
 
+    MFORMAT=mformat
+    MCOPY=mcopy
+
     # TODO: MUST BE CHANGED FOR LOCAL COMPILATION
     CROSS_GCC_INCLUDE=/Users/3024492/Applications/homebrew/Cellar/i686-elf-gcc/15.2.0/lib/gcc/i686-elf/15.2.0/include
     CROSS_GCC_INCLUDE_FIXED=/Users/3024492/Applications/homebrew/Cellar/i686-elf-gcc/15.2.0/lib/gcc/i686-elf/15.2.0/include-fixed
@@ -66,7 +68,11 @@ update_checksum() {
     BUILD_DIR="objects"
     BOOT_DIR="${SOURCE_DIR}/bootsector"
     BOOTLOADER_DIR="${SOURCE_DIR}/bootloader_partition"
-    KERNEL_DIR="${SOURCE_DIR}/kernel"
+
+    FAT32_SOURCES_DIR="${SOURCE_DIR}/primary"
+
+    KERNEL_RESOURCES="${FAT32_SOURCES_DIR}/static"
+    KERNEL_DIR="${FAT32_SOURCES_DIR}/kernel"
     LIBRARY_DIR="libraries"
     PRODUCT_DIR="product"
     
@@ -101,9 +107,12 @@ update_checksum() {
     BOOTLOADER_boot_aex="${BOOTLOADER_COMP_DIR}/BOOT.AEX"
     BOOTLOADER_loader_aex="${BOOTLOADER_COMP_DIR}/LOADER.AEX"
 
-    KERNEL_IMG="${BUILD_DIR}/kernel.img"
-    ISO_IMG="${BUILD_DIR}/NetworkOS.iso"
-    FINAL_ISO="${PRODUCT_DIR}/NetworkOS.iso"
+    KERNEL_IMG="${BUILD_DIR}/kernel.bin"
+    FAT32_PART_IMG="${BUILD_DIR}/fat32.img"
+    FAT32_PART_SIZE="66M"
+
+    ISO_IMG="${BUILD_DIR}/NetworkOS.img"
+    FINAL_ISO="${PRODUCT_DIR}/NetworkOS.img"
 # ───────────────────────────────────────────────
 # CHANGE SWITCHES
 # ───────────────────────────────────────────────
@@ -119,24 +128,24 @@ find "${KERNEL_DIR}" -type f -name "*.c" | while read -r SRC; do
     if ! file_changed "$SRC"; then
         continue
     fi
-    update_checksum "$SRC"
     KERNEL_DIR_SRC_CHANGED=true
     OBJ="${BUILD_DIR}/${SRC%.c}.o"
     mkdir -p "$(dirname "$OBJ")"
     echo " -> $SRC"
     $CROSS_GCC -c "$SRC" -o "$OBJ" $CCFLAGS_KERNEL
+    update_checksum "$SRC"
 done
 
 find "${KERNEL_DIR}" -type f -name "*.asm" | while read -r SRC; do
     if ! file_changed "$SRC"; then
         continue
     fi
-    update_checksum "$SRC"
     KERNEL_DIR_SRC_CHANGED=true
     OBJ="${BUILD_DIR}/${SRC%.asm}.o"
     mkdir -p "$(dirname "$OBJ")"
     echo " -> $SRC"
     $NASM $NASMFLAGS "$SRC" -o "$OBJ"
+    update_checksum "$SRC"
 done
 
 # Collect all object files
@@ -146,10 +155,20 @@ KERNEL_OBJECTS=$(find "$BUILD_DIR/$KERNEL_DIR" -type f -name "*.o")
 # LINK KERNEL
 # ───────────────────────────────────────────────
 
-if [ "$KERNEL_DIR_SRC_CHANGED" = true ]; then
-    echo "[*] Linking kernel..."
-    $LD -o "$KERNEL_IMG" $KERNEL_OBJECTS $LDFLAGS   
+echo "[*] Linking kernel..."
+$LD -o "$KERNEL_IMG" $KERNEL_OBJECTS $LDFLAGS  
+
+# ───────────────────────────────────────────────
+# FORMAT FAT32 PARTITION
+# ───────────────────────────────────────────────
+echo "[*] Creating FAT32 partition..."
+if [ -e "$FAT32_PART_IMG" ]; then
+    rm "$FAT32_PART_IMG"
 fi
+$DD if=/dev/zero of="$FAT32_PART_IMG" bs=$FAT32_PART_SIZE count=1
+$MFORMAT -F -i "$FAT32_PART_IMG" ::
+$MCOPY -i "$FAT32_PART_IMG" "$KERNEL_IMG" ::
+$MCOPY -i "$FAT32_PART_IMG" $KERNEL_RESOURCES/* ::
 
 # ───────────────────────────────────────────────
 # ASSEMBLE BOOTSECTOR (make change in boot.asm to reflect)
@@ -158,8 +177,8 @@ if file_changed "$BOOTSECT_SRC"; then
     echo "[*] Assembling bootsector..."
     $NASM -fbin "$BOOTSECT_SRC" -o "$BOOTSECT_BIN"
     BOOTSECTOR_SRC_CHANGED=true
+    update_checksum "$BOOTSECT_SRC"
 fi
-update_checksum "$BOOTSECT_SRC"
 
 # ───────────────────────────────────────────────
 # ASSEMBLE BOOTLOADER (ABP)
@@ -182,12 +201,12 @@ find "${BOOTLOADER_loader_aex_SRC}" -type f -name "*.asm" | while read -r SRC; d
     if ! file_changed "$SRC"; then
         continue
     fi
-    update_checksum "$SRC"
     BOOTLOADER_SRC_CHANGED=true
 
     mkdir -p "$(dirname "$OBJ")"
     echo " -> $SRC"
     $NASM $NASMFLAGS "$SRC" -o "$OBJ"
+    update_checksum "$SRC"
 done
 # for each C file, compile it
 find "${BOOTLOADER_loader_aex_SRC}" -type f -name "*.c" | while read -r SRC; do
@@ -196,12 +215,12 @@ find "${BOOTLOADER_loader_aex_SRC}" -type f -name "*.c" | while read -r SRC; do
     if ! file_changed "$SRC"; then
         continue
     fi
-    update_checksum "$SRC"
     BOOTLOADER_SRC_CHANGED=true
 
     mkdir -p "$(dirname "$OBJ")"
     echo " -> $SRC"
     $CROSS_GCC -c "$SRC" -o "$OBJ" $CCFLAGS_KERNEL
+    update_checksum "$SRC"
 done
 BOOTLOADER_loader_aex_OBJECTS=$(find "$BUILD_DIR/$BOOTLOADER_loader_aex_SRC" -type f -name "*.o")
 # link the bootloader
@@ -221,9 +240,9 @@ if [ "$KERNEL_DIR_SRC_CHANGED" = true ] || [ "$BOOTSECTOR_SRC_CHANGED" = true ] 
     $DD if=/dev/zero of="$ISO_IMG" bs=512 count=1
     $DD if="$BOOTSECT_BIN" of="$ISO_IMG" conv=notrunc bs=512 seek=0 count=1
     $DD if="$BOOTLOADER_BIN" of="$ISO_IMG" conv=notrunc seek=1 bs=512
-    SEEK=$(($(($(wc -c < $ISO_IMG)))512))
+    SEEK=$(($(($(wc -c < $ISO_IMG)))/512))
     echo BOOTLOADER SIZE: $(($SEEK - 1))
-    $DD if='/Users/3024492/Downloads/disk.img' of="$ISO_IMG" conv=notrunc bs=512 seek=$SEEK
+    $DD if="$FAT32_PART_IMG" of="$ISO_IMG" conv=notrunc bs=512 seek=$SEEK
     # $DD if="$KERNEL_IMG" of="$ISO_IMG" conv=notrunc bs=512 seek=$SEEK
 
     $MV "$ISO_IMG" "$FINAL_ISO"
@@ -237,5 +256,5 @@ echo "[✔] ISO built at: $FINAL_ISO"
 
 if [[ "$1" == "run" ]]; then
     echo "[*] Launching QEMU..."
-    $QEMU $QEMUFLAGS -hda "$FINAL_ISO"
+    $QEMU $QEMUFLAGS -drive file="$FINAL_ISO,format=raw,index=0,media=disk"
 fi

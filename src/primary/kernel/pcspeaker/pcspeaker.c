@@ -37,6 +37,16 @@ void beep() {
     // set_PIT_2(old_frequency);
 }
 
+void pcs_play_8bit(u8 *data, u32 length) {
+    for (u32 i = 0; i < length; i++) {
+        sleep(1);
+        u8 bit = data[i] & 0b01111111;
+        outportb(0x43, 0xb0);
+        outportb(0x42, bit);
+        outportb(0x43, 0);
+    }
+}
+
 void pcs_init() {
     // connect the pc speaker to the PIT
     outportb(0x61, inportb(0x61) | 3);

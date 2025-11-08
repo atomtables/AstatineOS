@@ -70,24 +70,26 @@ static void timer_set(int hz) {
 
 u64 timer_get() { return state.ticks; }
 
+static u8 local_ticks = 0;
+
 static void timer_handler(struct registers* regs) {
-    state.ticks += 2;
+    state.ticks += 1;
     if (sleep_state.active) {
-        if (state.ticks >= sleep_state.end) {
+        if ((u32)state.ticks >= (u32)sleep_state.end) {
             sleep_state.active = false;
         }
     }
-    for (int i = 0; i < 256; i++) {
-        if (process_wait_states[i].start != (u64)-1 && state.ticks >= process_wait_states[i].end) {
-            process_wait_states[i].ret();
-            process_wait_states[i].start = (u64)-1;
-            process_wait_states[i].end = (u64)-1;
-            process_wait_states[i].ret = null;
-        }
-        if (((u32)state.ticks) % 1000 == 0 && every_second_handlers[i] != null) {
-            every_second_handlers[i]();
-        }
-    }
+    // for (int i = 0; i < 256; i++) {
+    //     if (process_wait_states[i].start != (u64)-1 && state.ticks >= process_wait_states[i].end) {
+    //         process_wait_states[i].ret();
+    //         process_wait_states[i].start = (u64)-1;
+    //         process_wait_states[i].end = (u64)-1;
+    //         process_wait_states[i].ret = null;
+    //     }
+    //     if (((u32)state.ticks) % 1000 == 0 && every_second_handlers[i] != null) {
+    //         every_second_handlers[i]();
+    //     }
+    // }
 }
 
 void sleep(int ms) {
@@ -113,6 +115,7 @@ void timer_init() {
     }
 
     const u64 freq = REAL_FREQ_OF_FREQ(TIMER_TPS);
+    display.printf("PIT frequency set to %u Hz\n", freq);
     state.frequency = freq;
     state.divisor = DIV_OF_FREQ(freq);
     state.ticks = 0;

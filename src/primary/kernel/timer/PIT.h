@@ -21,7 +21,7 @@
 #define REAL_FREQ_OF_FREQ(_f) (FREQ_OF_DIV(DIV_OF_FREQ((_f))))
 
 // number chosen to be integer divisor of PIC frequency
-#define TIMER_TPS 500
+#define TIMER_TPS 16000
 
 typedef struct {
     u64 start;

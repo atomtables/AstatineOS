@@ -7,6 +7,8 @@
 
 #include <modules/modules.h>
 
+#define NULL null
+
 typedef struct StrtokA {
     char** ret;
     int count;

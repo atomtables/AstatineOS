@@ -230,6 +230,16 @@ void outportw(u16 port, u16 data) {
     asm ("outw %1, %0" : : "dN" (port), "a" (data));
 }
 
+u32 inportd(u16 port) {
+    u32 r;
+    asm ("inl %1, %0" : "=a" (r) : "dN" (port));
+    return r;
+}
+
+void outportd(u16 port, u32 data) {
+    asm ("outl %1, %0" : : "dN" (port), "a" (data));
+}
+
 static u32 rseed = 1;
 
 void seed(u32 s) {
@@ -251,6 +261,47 @@ u32 rand() {
     t = x ^ (x << 11);
     x = y; y = z; z = w;
     return w = w ^ (w >> 19) ^ t ^ (t >> 8);
+}
+
+/// All credit goes to the Berkeley Software Distribution (BSD) for this function
+/// "the regents of the university of california"
+int memcmp(const char* s1, const char* s2, u32 t) {
+    if (t == 0)
+        return (0);
+    do {
+        if (*s1 != *s2++)
+            return (*(unsigned char *)s1 - *(unsigned char *)--s2);
+        if (*s1++ == 0)
+            break;
+    } while (--t != 0);
+    return (0);
+}
+
+void insw(u32 reg, u16 *buffer, i32 words)
+{
+    int index;
+    for(index = 0; index < words; index++)
+    {
+        buffer[index] = inportw(reg);
+    }
+}
+
+void outsw(u32 reg, u16 *buffer, i32 words)
+{
+    int index;
+    for(index = 0; index < words; index++)
+    {
+        outportw(reg, buffer[index]);
+    }
+}
+
+void insd(u32 reg, u32 *buffer, i32 quads)
+{
+    int index;
+    for(index = 0; index < quads; index++)
+    {
+        buffer[index] = inportd(reg);
+    }
 }
 
 char* num_to_bin(u8 num, char* buf) {

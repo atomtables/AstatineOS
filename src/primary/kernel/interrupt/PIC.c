@@ -2,7 +2,7 @@
 // Created by Adithiya Venkatakrishnan on 27/07/2024.
 //
 
-#include "pic.h"
+#include "PIC.h"
 
 #include <interrupt/idt.h>
 #include <interrupt/isr.h>

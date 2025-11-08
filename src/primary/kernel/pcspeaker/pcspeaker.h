@@ -135,6 +135,7 @@ void pwm_tick();
 
 void pcs_init();
 void beep();
+void pcs_play_8bit(u8 *data, u32 length);
 
 inline void pc_speaker_on() {
     u8 speaker_state = inportb(PCSPEAKER);
