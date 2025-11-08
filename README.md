@@ -31,10 +31,13 @@ learning about that responsibility and how to live up to it is really really coo
 ## How? (can you demo this yourself)?
 Build it yourself using all the dependencies above. 
 
-Or, download an ISO from the releases section below and test it out yourself on [https://copy.sh/v86] (i tried using copy.sh but i don't think it likes the format of the disk or maybe its being corrupted by my internet, so you can also demo with qemu-system-i386 or qemu-system-x86_64).
+Or, download an ISO from the releases section below and test it out yourself on
+
+ [https://copy.sh/v86] (works 100% with latest release)
 
 ## it works on real hardware bro trust me
 source: this video
-![https://github.com/user-attachments/assets/6a99789c-01c5-4923-ba64-a16864090a6a](https://github.com/user-attachments/assets/6a99789c-01c5-4923-ba64-a16864090a6a)
+https://github.com/user-attachments/assets/2a29ba96-8f2c-4b28-846f-bb0438e4ea46
+[https://github.com/user-attachments/assets/2a29ba96-8f2c-4b28-846f-bb0438e4ea46](https://github.com/user-attachments/assets/2a29ba96-8f2c-4b28-846f-bb0438e4ea46)
 
 Thanks and have a nice day !!!!!!
