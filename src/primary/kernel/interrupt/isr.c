@@ -167,12 +167,33 @@ static void exception_handler(struct registers *regs) {
     interrupt_panic(regs->int_no, (char*) exceptions[regs->int_no], regs);
 }
 
+#define ISR_PRESENT 0b10000000
+#define ISR_RING0   0b00000000
+#define ISR_RING3   0b01100000
+#define ISR_TYPE_TASK 0b00000101
+#define ISR_TYPE_INTERRUPT_16 0b00000110
+#define ISR_TYPE_INTERRUPT_32 0b00001110
+#define ISR_TYPE_TRAP_16 0b00000111
+#define ISR_TYPE_TRAP_32 0b00001111
+
 void isr_init() {
     for (u32 i = 0; i < NUM_ISRS; i++) {
         isrs[i].index = i;
         isrs[i].stub = stubs[i];
-        idt_set(isrs[i].index, isrs[i].stub, 0x08, 0x8E);
+        idt_set(
+            isrs[i].index, 
+            isrs[i].stub, 
+            0x08, 
+            ISR_PRESENT | ISR_RING0 | ISR_TYPE_INTERRUPT_32
+        );
     }
+
+    idt_set(
+        isrs[48].index, 
+        isrs[48].stub, 
+        0x08,
+        ISR_PRESENT | ISR_RING3 | ISR_TYPE_INTERRUPT_32
+    );
 
     for (u32 i = 0; i < 32; i++) {
         isr_install(i, exception_handler);

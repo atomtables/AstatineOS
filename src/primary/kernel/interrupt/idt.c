@@ -7,11 +7,11 @@
 #include <modules/modules.h>
 
 struct IDTEntry {
-    u16 offset_low;
-    u16 selector;
-    u8 __ignored;
-    u8 type;
-    u16 offset_high;
+    u16     offset_low;
+    u16     selector;
+    u8      reserved; // keep zero
+    u8      type;
+    u16     offset_high;
 } PACKED;
 
 struct IDTPointer {
@@ -32,8 +32,8 @@ void idt_set(u8 index, void(* base)(struct registers*), u16 selector, u8 flags) 
         .offset_low = (u32) base & 0xFFFF,
         .offset_high = (u32) base >> 16 & 0xFFFF,
         .selector = selector,
-        .type = flags | 0x60,
-        .__ignored = 0
+        .type = flags,
+        .reserved = 0
     };
 }
 

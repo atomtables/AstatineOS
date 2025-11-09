@@ -14,22 +14,95 @@
 #include <timer/PIT.h>
 #include <fat32/fat32.h>
 #include <disk/disk.h>
+#include <stdarg.h>
 
 typedef struct Command {
     char* name;
     void(* function)(int, char**);
 } Command;
 
+
+void syscall(u32 num, u32 arg1) {
+    __asm__ volatile (
+        "movl %0, %%eax\n"
+        "movl %1, %%ebx\n"
+        "int $0x30\n"
+        : 
+        : "r"(num), "r"(arg1)
+        : "eax", "ebx"
+    );
+}
+
+u8 buf[11] = {0};
+
+void printf_user(const char* fmt, ...) {
+    va_list args;
+    va_start(args, 0);
+
+    for (int i = 0; fmt[i] != '\0'; i++) {
+        if (fmt[i] == '%') {
+            i++;
+            switch (fmt[i]) {
+            case 'd': {
+                char* digits = itoa_signed(va_arg(args, i32), &buf[0]);
+                syscall(1, (u32)digits);
+                break;
+            }
+            case 'x': {
+                char* digits = xtoa(va_arg(args, u32), &buf[0]);
+                syscall(1, (u32)digits);
+                break;
+            }
+            case 'p': {
+                syscall(1, (u32)"0x");
+                char* digits = xtoa_padded(va_arg(args, u32), &buf[0]);
+                syscall(1, (u32)digits);
+                break;
+            }
+            case 's': {
+                syscall(1, (u32)va_arg(args, char*));
+                break;
+            }
+            case 'c': {
+                char arg = va_arg(args, i32);
+                syscall(0, arg);
+                break;
+            }
+            case 'u': {
+                char* digits = itoa(va_arg(args, u32), &buf[0]);
+                syscall(1, (u32)digits);
+                break;
+            }
+            default: {
+                syscall(0, '%');
+                syscall(0, fmt[i]);
+                break;
+            }
+            }
+        }
+        else if (fmt[i] == '\n') { syscall(0, '\n'); }
+        else if (fmt[i] == 0x08) { syscall(0, 0x08); }
+        else { syscall(0, fmt[i]); }
+    }
+
+    va_end(args);
+}
+
+
 void echo(int argc, char** argv) {
     for (int i = 0; i < argc; i++) {
-        display.printf("%s ", argv[i]);
+        printf_user("%s ", argv[i]);
     }
-    display.printf("\n");
+    printf_user("\n");
 }
 
 void onesecond() {
     sleep(1000);
-    display.printf("1 second has passed\n");
+    printf_user("1 second has passed\n");
+}
+
+void sti() {
+    __asm__ volatile ("sti");
 }
 
 void clear(int argc, char** argv) {
@@ -45,7 +118,7 @@ void playmusiccmd() {
     File file;
     int err = fat_file_open(&file, "/primary/musictrack", FAT_READ);
     if (err) {
-        display.printf("Failed to open file '%s', error code %d\n", "/primary/musictrack", err);
+        printf_user("Failed to open file '%s', error code %d\n", "/primary/musictrack", err);
         return;
     }
     int cnt = 0;
@@ -54,7 +127,7 @@ void playmusiccmd() {
     uint8_t buf[512];
     while (1) {
         if (err) {
-            display.printf("Failed to read file '%s', error code %d\n", "/primary/musictrack", err);
+            printf_user("Failed to read file '%s', error code %d\n", "/primary/musictrack", err);
             return;
         }
         err = fat_file_read(&file, buf, 512, &cnt);
@@ -63,13 +136,13 @@ void playmusiccmd() {
         if (cnt != 512)
             break;
     } 
-    display.printf("\n");
+    printf_user("\n");
     err = fat_file_close(&file);
     if (err) {
-        display.printf("Failed to close file '%s', error code %d\n", "/primary/musictrack", err);
+        printf_user("Failed to close file '%s', error code %d\n", "/primary/musictrack", err);
     }
     u8* musictrack = (u8*)0x200000;
-    display.printf("loaded song data, playing...\n");
+    printf_user("loaded song data, playing...\n");
     pcs_play_8bit(musictrack, totalcnt);
 }
 
@@ -87,26 +160,26 @@ bool read(u8* buf, long unsigned int sect) {
 static Fat fat;
 
 void mount() {
-    display.printf("Mounting current filesystem...\n");
+    printf_user("Mounting current filesystem...\n");
     DiskOps ops = {
         .read = read,
         .write = write,
     };
     int err = fat_probe(&ops, 1);
     if (err != 0) {
-        display.printf("Failed to probe the partition for a FAT32 drive, error code %d.\n", err);
+        printf_user("Failed to probe the partition for a FAT32 drive, error code %d.\n", err);
         return;
     }
     if ((err = fat_mount(&ops, 1, &fat, "primary")) != 0) {
-        display.printf("Failed to mount the FAT32 filesystem, error code %d.\n", err);
+        printf_user("Failed to mount the FAT32 filesystem, error code %d.\n", err);
         return;
     }
-    display.printf("Mounted with prefix '/primary'.\n");
+    printf_user("Mounted with prefix '/primary'.\n");
 }
 
 void cat(int argc, char** argv) {
     if (argc < 1) {
-        display.printf("Usage: cat <filename>\n");
+        printf_user("Usage: cat <filename>\n");
         return;
     }
     char* filename = argv[0];
@@ -114,26 +187,26 @@ void cat(int argc, char** argv) {
     File file;
     int err = fat_file_open(&file, filename, FAT_READ);
     if (err) {
-        display.printf("Failed to open file '%s', error code %d\n", filename, err);
+        printf_user("Failed to open file '%s', error code %d\n", filename, err);
         return;
     }
     int cnt = 0;
     uint8_t buf[81];
     while (1) {
         if (err) {
-            display.printf("Failed to read file '%s', error code %d\n", filename, err);
+            printf_user("Failed to read file '%s', error code %d\n", filename, err);
             return;
         }
         err = fat_file_read(&file, buf, 80, &cnt);
         buf[cnt] = '\0';
-        display.printf("%s\n", buf);
+        printf_user("%s\n", buf);
         if (cnt != 80)
             break;
     } 
-    display.printf("\n");
+    printf_user("\n");
     err = fat_file_close(&file);
     if (err) {
-        display.printf("Failed to close file '%s', error code %d\n", filename, err);
+        printf_user("Failed to close file '%s', error code %d\n", filename, err);
     }
 }
 
@@ -149,17 +222,22 @@ static Command commands[] = {
     {"crash", div0},
     {"mount", mount},
     {"cat", cat},
-    {"playmusic", playmusiccmd}
+    {"playmusic", playmusiccmd},
+    {"sti", sti}
 };
 
 void ahsh() {
-    display.printf("\n");
+    // for now, avoid syscall and crap because 
+    // ts is not worth it atp
+    __asm__ volatile ("int $48");
+    printf_user("\n");
 
     // code doesn't have to be good, just functional
+    // this code is neither btw
 
     while (1) {
         char* prompt = malloc(64);
-        display.printf("-ahsh %p> ", prompt);
+        printf_user("-ahsh %p> ", prompt);
         prompt = input(prompt, 64);
         StrtokA prompt_s = strtok_a(prompt, " ");
         for (u32 i = 0; i < sizeof(commands) / sizeof(Command); i++) {
@@ -170,7 +248,7 @@ void ahsh() {
                 goto complete;
             }
         }
-        display.printf("%p %s Command not found...\n", prompt_s.ret, prompt_s.ret[0]);
+        printf_user("%p %s Command not found...\n", prompt_s.ret, prompt_s.ret[0]);
 
         complete:
             free(prompt_s.ret, prompt_s.size);

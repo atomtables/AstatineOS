@@ -108,7 +108,7 @@ init_32bit:                 ; we are now using 32-bit instructions
     mov     fs, ax
     mov     gs, ax
 
-    mov     ebp, 0x90000    ; 6. update the stack right at the top of the free space
+    mov     ebp, 0x10000    ; 6. update the stack right at the top of the free space
     mov     esp, ebp
 
     mov     eax, [0x500+PART_START_SECTOR]    ; we need to get the lba

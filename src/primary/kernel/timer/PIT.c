@@ -73,7 +73,8 @@ u64 timer_get() { return state.ticks; }
 static u8 local_ticks = 0;
 
 static void timer_handler(struct registers* regs) {
-    if (local_ticks++ == 16) {
+    // should be set to 1 but QEMU's PIT is inaccurate
+    if (local_ticks++ == 1) {
         local_ticks = 0;
         state.ticks += 1;
     }

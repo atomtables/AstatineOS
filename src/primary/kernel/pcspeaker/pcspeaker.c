@@ -13,15 +13,15 @@ static volatile bool done = false;
 void play_sound(u32 nFrequence) {
     // Set the PIT to the desired frequency
     const u32 Div = PIT_HZ / nFrequence;
-    outportb(PIT_CONTROL, 0b10110110);
-    outportb(PIT_C, Div);
-    outportb(PIT_C, Div >> 8);
+    // outportb(PIT_CONTROL, 0b10110110);
+    // outportb(PIT_C, Div);
+    // outportb(PIT_C, Div >> 8);
 
-    // And play the sound using the PC speaker
-    const u8 tmp = inportb(PCSPEAKER);
-    if (tmp != (tmp | 3)) {
-        outportb(PCSPEAKER, tmp | 3);
-    }
+    // // And play the sound using the PC speaker
+    // const u8 tmp = inportb(PCSPEAKER);
+    // if (tmp != (tmp | 3)) {
+    //     outportb(PCSPEAKER, tmp | 3);
+    // }
 }
 
 // make it shut up

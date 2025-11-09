@@ -9,6 +9,8 @@
 #include <ps2/controller.h>
 #include <timer/PIT.h>
 #include <disk/disk.h>
+#include <gdt/gdt.h>
+#include <systemcalls/syscall.h>
 
 #include "display/simple/display.h"
 
@@ -19,11 +21,8 @@
 
 // YO THIS GUY ONLINE WAS ACT LEGIT :skull:
 
-void handler(struct registers* regs) {
-    display.printf("int48\n");
-}
-
 extern void ahsh();
+extern void entryuser32();
 
 // only blocking thread.
 int main() {
@@ -34,6 +33,9 @@ int main() {
     u32 mem2 = *((u16*)0x8002) * 64000;
     u32 mem3 = mem1 + mem2;
     display.printf("%u MB of memory detected\n", mem3);
+
+    gdt_init();
+    display.printf("Target complete: gdt\n");
 
     idt_init();
     isr_init();
@@ -75,12 +77,9 @@ int main() {
     u32 buffer[128];
     display.printf("after: %p\n", *buffer);
 
-    sleep(1000);
-    play_sound(NOTE_D5);
-    sleep(500);
-    nosound();
+    syscall_install();
 
-    ahsh();
+    entryuser32();
 
-    while(1);
+    reboot();
 }

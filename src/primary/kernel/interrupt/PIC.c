@@ -37,7 +37,7 @@ static void stub(struct registers *regs) {
         }
     }
 
-    // send EOI
+    // send EOI (acknowledge that we did it)
     if (regs->int_no >= 0x40) outportb(PIC2, PIC_EOI);
     outportb(PIC1, PIC_EOI);
 }
@@ -51,9 +51,9 @@ static void PIC_remap() {
     outportb(PIC2, 0x11);
     PIC_WAIT();
 
-    outportb(PIC1_DATA, 0x20); // int 32-39
+    outportb(PIC1_DATA, 0x20); // int 32-39 (0x20-0x27)
     PIC_WAIT();
-    outportb(PIC2_DATA, 0x28); // int 40-47
+    outportb(PIC2_DATA, 0x28); // int 40-47 (0x28-0x2F)
     PIC_WAIT();
 
     outportb(PIC1_DATA, 0x04); // PIC2 is connected at IRQ2
