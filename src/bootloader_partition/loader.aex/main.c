@@ -21,13 +21,13 @@ bool read(uint8_t* buf, uint32_t sect) {
     return true;
 }
 
+// for debug
 void print(char* buf) {
     for (int i = 0; buf[i] != 0; i++) {
         volatile char* mem = (char*)(0xb8000+1024+(i*2));
         *(mem) = buf[i];
     }
 }
-
 void printn(char* buf, int x) {
     for (int i = 0; i < x; i++) {
         volatile char* mem = (char*)(0xb8000+1024+(i*2));

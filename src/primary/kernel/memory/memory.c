@@ -1,117 +1,101 @@
-//
-// Created by Adithiya Venkatakrishnan on 23/07/2024.
-//
-
-#include <modules/modules.h>
 #include "memory.h"
-
+#include "malloc.h"
+#include "paging.h"
+#include <modules/modules.h>
 #include <display/simple/display.h>
 #include <exception/exception.h>
 
-// Memory is between 0x100000 and 0x1fffff
-// we will absolutely reduce this "heap" size later
-// but for now this is enough
+// Similar to how Linux does it,
+// we can keep track of free memory pages
+// based on memory maps.
 
-//
+// These are the datas provided by the BIOS
+// Notable exclusion is the 0xA0000-0xFFFFF region
+// which is usually reserved for MMIO like VGA, ACPI, etc.
+// Only bytes marked specifically as usable RAM should be used.
+typedef struct SMAP_entry {
+	u32 BaseL; // base address uint64_t
+	u32 BaseH;
+	u32 LengthL; // length uint64_t
+	u32 LengthH;
+	u32 Type; // entry Type
+	u32 ACPI; // extended
+}__attribute__((packed)) SMAP_entry;
 
-struct mem_bounds {
-    u32 start;
-    u32 end;
-    u8  memfree[8192];
-} mem;
+SMAP_entry* smap = (SMAP_entry*)0x2004;
+u32 smap_count;
+
+// simple bump allocator for frames
+u32 next_frame_addr = 0;
+
+u32 look_for_usable_frame(int after) {
+    for (u32 i = 0; i < smap_count; i++) {
+        SMAP_entry* entry = &smap[i];
+        if (entry->Type == 1) { // usable RAM
+            u64 base = ((u64)entry->BaseH << 32) | entry->BaseL;
+            u64 length = ((u64)entry->LengthH << 32) | entry->LengthL;
+
+            // align base to next 4KB boundary
+            u64 aligned_base = (base + 0xFFF) & ~0xFFF;
+            // align length to 4KB boundary
+            u64 aligned_length = length - (aligned_base - base);
+            aligned_length &= ~0xFFF;
+
+            for (u64 addr = aligned_base; addr < aligned_base + aligned_length; addr += 0x1000) {
+                if (addr >= after) {
+                    return addr;
+                }
+            }
+        }
+    }
+}
+
+void init_frame_alloc() {
+    // let's look for the first memory address after 0x400000 that's ok to use
+    next_frame_addr = look_for_usable_frame(0x400000);
+    if (next_frame_addr == 0) panic("Out of memory while allocating page");
+}
+
+u32 alloc_frame() {
+    u32 frame = next_frame_addr;
+    next_frame_addr = look_for_usable_frame(next_frame_addr + 0x1000);
+    if (next_frame_addr == 0) panic("Out of memory while allocating page");
+    return frame;
+}
+
+void free_frame() {}
 
 void init_mem() {
-    mem.start = MEM_BLOCK_START;
-    mem.end = MEM_BLOCK_END;
-}
+    // set up paging first obv.
+    paging_init();
 
-/**
- * funnily enough all the code below was an APCSA collegeboard problem lmao
- */
-int laughable = 1;
+    // we have free pages, but to allocate them, we need kmalloc
+    // to have open space in the dymem region. This region is from
+    // 0x100000 to 0x3FFFFF which is about 3MB. 
+    kmalloc_init((void*)MEM_BLOCK_START, MEM_BLOCK_END - MEM_BLOCK_START);
 
-bool is_block_free(const int block) {
-    // since the one bit is stored in a byte, we need to divide by 8
-    const int byte = block / 8;
-    const int bit = block % 8;
-    return !BIT_GET(mem.memfree[byte], bit);
-}
+    // the BIOS should have dumped the memory map at 0x2000
+    // so let's allocate memory so it's not going to get overwritten.
+    smap_count = *(u32*)0x2000;
+    SMAP_entry* smap_copy = kmalloc(sizeof(SMAP_entry) * smap_count);
+    memcpy(smap_copy, smap, sizeof(SMAP_entry) * smap_count);
+    smap = smap_copy;
 
-void free_block(const int block) {
-    const int byte = block / 8;
-    const int bit = block % 8;
-    mem.memfree[byte] = BIT_SET(mem.memfree[byte], bit, 0);
-}
-
-void reserve_block(const int block) {
-    const int byte = block / 8;
-    const int bit = block % 8;
-    mem.memfree[byte] = BIT_SET(mem.memfree[byte], bit, 1);
-}
-
-/// FUNCTION: malloc
-/// very rudimentary/alpha, will be improved at some point in the future.
-void* malloc(const int bytes) {
-    int blocks;
-    if (bytes % MEM_BLOCK_BYTE_SIZE == 0) {
-        blocks = bytes / MEM_BLOCK_BYTE_SIZE;
-    } else {
-        blocks = bytes / MEM_BLOCK_BYTE_SIZE + 1;
-    }
-
-    // find the first block of memory that is free
-    int block = 0; int other_block = 0; int length = 0;
-    while (block < 65536) {
-        if (is_block_free(other_block)) {
-            length++;
-            if (length == blocks) {
-                // we have enough blocks to allocate, now we can reserve blocks
-                for (int i = block; i < block + length; i++) {
-                    reserve_block(i);
-                }
-                return (void*)(block * MEM_BLOCK_BYTE_SIZE + MEM_BLOCK_START);
-            }
-        } else {
-            block = other_block + 1; // start from the next block
-            length = 0;
+    u32 total_mem = 0;
+    for (u32 i = 0; i < smap_count; i++) {
+        SMAP_entry* entry = &smap[i];
+        if (entry->Type == 1) { // usable RAM
+            u64 base = ((u64)entry->BaseH << 32) | entry->BaseL;
+            u64 length = ((u64)entry->LengthH << 32) | entry->LengthL;
+            total_mem += (u32)length;
+            printf("Usable RAM: Base 0x%x Length 0x%x\n", (u32)base, (u32)length);
         }
-        other_block++;
     }
+    printf("Total Usable RAM: %d MiB\n", total_mem / 1024 / 1024);
 
-    // at this point, we have no memory to allocate
-    // TODO: handle heap full
-    panic("no more mem");
-    return null;
+    // Final thing we need is a frame address allocator
+    // that can give out 4KB aligned physical addresses
+    // for paging purposes.
+    // We use the SMAP to avoid reserved regions.
+    init_frame_alloc();
 }
-
-void* calloc(const int bytes) {
-    void* ptr = malloc(bytes);
-    memset(ptr, 0, bytes);
-    return ptr;
-}
-
-void* realloc(void* ptr, u32 oldsize, u32 bytes) {
-    void* new_addr = malloc(bytes);
-
-    memcpy(new_addr, ptr, bytes);
-    free(ptr, oldsize);
-
-    return new_addr;
-}
-
-/// FUNCTION: free
-void free(void* ptr, const int bytes) {
-    int blocks;
-    if (bytes % MEM_BLOCK_BYTE_SIZE == 0) {
-        blocks = bytes / MEM_BLOCK_BYTE_SIZE;
-    } else {
-        blocks = bytes / MEM_BLOCK_BYTE_SIZE + 1;
-    }
-
-    int block = ((u32)ptr - MEM_BLOCK_START) / MEM_BLOCK_BYTE_SIZE;
-    for (int i = block; i < block + blocks; i++) {
-        free_block(i);
-    }
-}
-
-/// someone else do me a favor and implement a freemem function

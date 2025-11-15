@@ -80,18 +80,18 @@ char* input(char* buffer, u32 size) {
         }
         if (buffer[i] == KEY_BS) {
             if (i > 0) {
-                display.printf("%c", buffer[i]);
+                printf("%c", buffer[i]);
                 buffer[i] = 0;
                 i--;
                 buffer[i] = 0;
             }
             continue;
         }
-        display.printf("%c", buffer[i]);
+        printf("%c", buffer[i]);
         i++;
     }
     buffer[i] = 0;
-    display.printf("\n");
+    printf("\n");
     return buffer;
 }
 
@@ -110,40 +110,40 @@ void keyboard_handler(struct registers* regs) {
 
     keyboard.keys[KEY_SCANCODE(scancode)] = KEY_PRESSED(scancode);
     keyboard.chars[KEY_CHAR(scancode)] = KEY_PRESSED(scancode);
-    if (DEBUG) display.printf("scancode: %x\n", scancode);
+    if (DEBUG) printf("scancode: %x\n", scancode);
 
     if (KEY_PRESSED(scancode)) {
         switch (KEY_SCANCODE(scancode)) {
         case KEY_LCTRL:
             simple_state.ctrl = true;
             keyboard.ctrl = true;
-            if (DEBUG) display.printf("ctrl was pressed\n");
+            if (DEBUG) printf("ctrl was pressed\n");
             break;
         case KEY_LSHIFT:
         case KEY_RSHIFT:
             simple_state.shift = true;
             keyboard.shift = true;
-            if (DEBUG) display.printf("shift was pressed\n");
+            if (DEBUG) printf("shift was pressed\n");
             break;
         case KEY_LALT:
             simple_state.alt = true;
             keyboard.alt = true;
-            if (DEBUG) display.printf("alt was pressed\n");
+            if (DEBUG) printf("alt was pressed\n");
             break;
         case KEY_CAPS_LOCK:
             simple_state.caps_lock = !simple_state.caps_lock;
             keyboard.caps_lock = !keyboard.caps_lock;
-            if (DEBUG) display.printf("caps lock was pressed\n");
+            if (DEBUG) printf("caps lock was pressed\n");
             break;
         case KEY_SCROLL_LOCK:
             simple_state.scroll_lock = !simple_state.scroll_lock;
             keyboard.scroll_lock = !keyboard.scroll_lock;
-            if (DEBUG) display.printf("scroll lock was pressed\n");
+            if (DEBUG) printf("scroll lock was pressed\n");
             break;
         case KEY_NUM_LOCK:
             simple_state.num_lock = !simple_state.num_lock;
             keyboard.num_lock = !keyboard.num_lock;
-            if (DEBUG) display.printf("num lock was pressed\n");
+            if (DEBUG) printf("num lock was pressed\n");
             break;
         case KEY_UP:
         case KEY_DOWN:
@@ -171,18 +171,18 @@ void keyboard_handler(struct registers* regs) {
         case KEY_LCTRL:
             simple_state.ctrl = false;
             keyboard.ctrl = false;
-            if (DEBUG) display.printf("ctrl was released\n");
+            if (DEBUG) printf("ctrl was released\n");
             break;
         case KEY_LSHIFT:
         case KEY_RSHIFT:
             simple_state.shift = false;
             keyboard.shift = false;
-            if (DEBUG) display.printf("shift was released\n");
+            if (DEBUG) printf("shift was released\n");
             break;
         case KEY_LALT:
             simple_state.alt = false;
             keyboard.alt = false;
-            if (DEBUG) display.printf("alt was released\n");
+            if (DEBUG) printf("alt was released\n");
             break;
         default:
             // simple_state.current_char = 0;

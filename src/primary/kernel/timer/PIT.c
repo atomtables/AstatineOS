@@ -78,11 +78,6 @@ static void timer_handler(struct registers* regs) {
         local_ticks = 0;
         state.ticks += 1;
     }
-    if (sleep_state.active) {
-        if ((u32)state.ticks >= (u32)sleep_state.end) {
-            sleep_state.active = false;
-        }
-    }
     // need a better solution than this.
     for (int i = 0; i < 256; i++) {
         if (process_wait_states[i].start != (u64)-1 && state.ticks >= process_wait_states[i].end) {
@@ -104,9 +99,9 @@ void sleep(int ms) {
     sleep_state.start = ticks;
     sleep_state.end = ticks + ms;
     while (1) {
-        asm ("nop");
-        if (!sleep_state.active)
+        if ((timer_get() >= sleep_state.end))
             break;
+        __asm__("hlt");
     }
 }
 
@@ -120,7 +115,7 @@ void timer_init() {
     }
 
     const u64 freq = REAL_FREQ_OF_FREQ(TIMER_TPS);
-    display.printf("PIT frequency set to %u Hz\n", freq);
+    printf("PIT frequency set to %u Hz\n", freq);
     state.frequency = freq;
     state.divisor = DIV_OF_FREQ(freq);
     state.ticks = 0;

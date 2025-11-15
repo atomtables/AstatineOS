@@ -7,6 +7,7 @@
 #include <display/advanced/graphics.h>
 #include <display/simple/display.h>
 #include <memory/memory.h>
+#include <memory/malloc.h>
 #include <modules/strings.h>
 #include <pcspeaker/pcspeaker.h>
 #include <ps2/keyboard.h>
@@ -35,7 +36,7 @@ static struct {
     u32 barrier;
     u32 page;
 
-    int selected;
+    u32 selected;
 
     note* notes;
     u32 size_notes;
@@ -49,13 +50,13 @@ static struct {
     bool showPrompt;
     char* pquestion;
     char* pbuffer;
-    int pindex;
+    u32 pindex;
     void (*paction)(void);
 } data = {.firstRun = false, .selected = 0, .page = 0};
 
 static void init_note(note* n) {
-    n->title = malloc(128);
-    n->content = malloc(2048); // 78 * 19
+    n->title = kmalloc(128);
+    n->content = kmalloc(2048); // 78 * 19
     memset(n->content, ' ', 2048);
 
     n->position = 0;
@@ -70,7 +71,7 @@ static void create_note(void) {
 
     data.count_notes++;
     if (data.count_notes > data.size_notes) {
-        data.notes = realloc(data.notes, sizeof(note) * data.size_notes, sizeof(note) * data.size_notes * 2);
+        data.notes = krealloc(data.notes, sizeof(note) * data.size_notes);
         data.size_notes *= 2;
     }
 
@@ -93,17 +94,17 @@ static void create_sample_notes() {
             "and saves on exit until you restart."
         },
         (char*[]){"I'm confused", "computer science is too hard idk what im doing."},
-        (char*[]){"What's the point", "\n\n\n\n\n            insert sample mental breakdown here"},
+        (char*[]){"What's the pou32", "\n\n\n\n\n            insert sample mental breakdown here"},
     };
 
-    for (int i = 0; i < 4; i++) {
+    for (u32 i = 0; i < 4; i++) {
         note* n = &data.notes[i];
         init_note(n);
         strcpy(n->title, selections[i][0]);
         // only the creation of sample notes needs parsing
-        int k = 0;
-        int nl = 0;
-        for (int j = 0; selections[i][1][j] != 0; j++, k++) {
+        u32 k = 0;
+        u32 nl = 0;
+        for (u32 j = 0; selections[i][1][j] != 0; j++, k++) {
             // if newline, write until the end of 78 characters
             if (selections[i][1][j] == '\n') {
                 do {
@@ -136,7 +137,7 @@ static void setup() {
     data.shouldQuit = false;
 
     if (!data.firstRun) {
-        data.notes = calloc(sizeof(note) * 10);
+        data.notes = kcalloc(sizeof(note) * 10);
         data.size_notes = 10;
         data.count_notes = 0;
         create_sample_notes();
@@ -147,52 +148,52 @@ static void setup() {
     data.selected = 0;
     data.showPrompt = false;
 
-    data.pbuffer = malloc(64);
+    data.pbuffer = kmalloc(64);
     data.pindex = 0;
 }
 
 static void render_prompt(char* question, char* buffer) {
-    for (int i = 0; i < 51; i++) {
+    for (u32 i = 0; i < 51; i++) {
         draw_char_with_color(X_MIDDLE - 25 + i, Y_MIDDLE - 5, '\xB0', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLACK));
     }
-    for (int i = 0; i < 51; i++) {
+    for (u32 i = 0; i < 51; i++) {
         draw_char_with_color(X_MIDDLE - 25 + i, Y_MIDDLE + 5, '\xB0', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLACK));
     }
-    for (int i = 0; i < 11; i++) {
+    for (u32 i = 0; i < 11; i++) {
         draw_char_with_color(X_MIDDLE - 25, Y_MIDDLE - 5 + i, '\xB0', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLACK));
     }
-    for (int i = 0; i < 11; i++) {
+    for (u32 i = 0; i < 11; i++) {
         draw_char_with_color(X_MIDDLE + 25, Y_MIDDLE - 5 + i, '\xB0', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLACK));
     }
 
-    for (int i = 0; i < 49; i++) {
+    for (u32 i = 0; i < 49; i++) {
         draw_char_with_color(X_MIDDLE - 24 + i, Y_MIDDLE - 4, '\xB1', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLACK));
     }
-    for (int i = 0; i < 49; i++) {
+    for (u32 i = 0; i < 49; i++) {
         draw_char_with_color(X_MIDDLE - 24 + i, Y_MIDDLE + 4, '\xB1', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLACK));
     }
-    for (int i = 0; i < 9; i++) {
+    for (u32 i = 0; i < 9; i++) {
         draw_char_with_color(X_MIDDLE - 24, Y_MIDDLE - 4 + i, '\xB1', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLACK));
     }
-    for (int i = 0; i < 9; i++) {
+    for (u32 i = 0; i < 9; i++) {
         draw_char_with_color(X_MIDDLE + 24, Y_MIDDLE - 4 + i, '\xB1', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLACK));
     }
 
-    for (int i = 0; i < 47; i++) {
+    for (u32 i = 0; i < 47; i++) {
         draw_char_with_color(X_MIDDLE - 23 + i, Y_MIDDLE - 3, '\xB2', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLACK));
     }
-    for (int i = 0; i < 47; i++) {
+    for (u32 i = 0; i < 47; i++) {
         draw_char_with_color(X_MIDDLE - 23 + i, Y_MIDDLE + 3, '\xB2', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLACK));
     }
-    for (int i = 0; i < 7; i++) {
+    for (u32 i = 0; i < 7; i++) {
         draw_char_with_color(X_MIDDLE - 23, Y_MIDDLE - 3 + i, '\xB2', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLACK));
     }
-    for (int i = 0; i < 7; i++) {
+    for (u32 i = 0; i < 7; i++) {
         draw_char_with_color(X_MIDDLE + 23, Y_MIDDLE - 3 + i, '\xB2', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLACK));
     }
 
-    for (int i = 0; i < 5; i++) {
-        for (int j = 0; j < 45; j++) {
+    for (u32 i = 0; i < 5; i++) {
+        for (u32 j = 0; j < 45; j++) {
             draw_char_with_color(X_MIDDLE - 22 + j, Y_MIDDLE - 2 + i, '\x00', VGA_TEXT_COLOR(COLOR_BLACK, COLOR_WHITE));
         }
     }
@@ -207,7 +208,7 @@ static void draw_outline() {
         "\xC9\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBB");
     draw_string(0, VGA_TEXT_HEIGHT - 1,
                 "\xC8\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBC");
-    for (int i = 1; i < VGA_TEXT_HEIGHT - 1; i++) {
+    for (u32 i = 1; i < VGA_TEXT_HEIGHT - 1; i++) {
         draw_char(0, i, '\xBA');
         draw_char(VGA_TEXT_WIDTH - 1, i, '\xBA');
     }
@@ -239,9 +240,9 @@ static void render_menu() {
 }
 
 static void render_selection() {
-    for (int i = 0, y = 2; i < data.count_notes; i++, y++) {
+    for (u32 i = 0, y = 2; i < data.count_notes; i++, y++) {
         if (i == data.selected) {
-            for (int x = 2; x < VGA_TEXT_WIDTH - 2; x++) {
+            for (u32 x = 2; x < VGA_TEXT_WIDTH - 2; x++) {
                 draw_color(x, y, VGA_TEXT_COLOR(COLOR_BLACK, COLOR_LIGHT_GREY));
             }
             draw_string_with_color(3, y, data.notes[i].title, VGA_TEXT_COLOR(COLOR_BLACK, COLOR_LIGHT_GREY));
@@ -284,7 +285,7 @@ static void render() {
     if (data.page == 1) render_note();
 }
 
-void debug(char* c) { for (int i = 0; c[i] != 0; i++) { outportb(0xE9, c[i]); } }
+void debug(char* c) { for (u32 i = 0; c[i] != 0; i++) { outportb(0xE9, c[i]); } }
 
 static void keysin_note(u8 c) {
     if (c == 0) { return; }
@@ -295,7 +296,7 @@ static void keysin_note(u8 c) {
         }
         else if (data.current_note->location.y > 3) {
             bool ignore = false;
-            for (int i = 0; i < 76; i++) {
+            for (u32 i = 0; i < 76; i++) {
                 if (data.current_note->content[data.current_note->position - i] != ' ') {
                     data.current_note->location.x = 76 - i + 3;
                     data.current_note->location.y--;
@@ -315,7 +316,7 @@ static void keysin_note(u8 c) {
     }
     if (c == '\n') {
         // if there is content from the current position to the end of the line then return
-        for (int i = data.current_note->position % 76; i < 76; i++) {
+        for (u32 i = data.current_note->position % 76; i < 76; i++) {
             if (data.current_note->content[data.current_note->position + i] != ' ') {
                 beep();
                 return;
@@ -438,11 +439,11 @@ static void keysin() {
 
 static void quit() {
     disable_double_buffering();
-    display.clear_screen();
+    clear_screen();
     enable_vga_cursor();
-    display.printf("endall\n");
+    printf("endall\n");
 
-    free(data.pbuffer, 64);
+    kfree(data.pbuffer);
 
     data.shouldQuit = true;
 }

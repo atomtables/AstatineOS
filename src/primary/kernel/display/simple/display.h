@@ -40,16 +40,12 @@
 
 #include <modules/modules.h>
 
-typedef struct {
-    void(* clear_screen)(void);
-    void(* change_screen_color)(u8 color);
-    void(* print)(char* str);
-    void(* print_color)(char* str, u8 color);
-    void(* println)(char* str);
-    void(* println_color)(char* str, u8 color);
-    void(* printf)(const char* fmt, ...);
-} PDisplay;
-
-extern PDisplay display;
+void clear_screen(void);
+void change_screen_color(u8 color);
+void print(char* str);
+void print_color(char* str, u8 color);
+void println(char* str);
+void println_color(char* str, u8 color);
+void printf(const char* fmt, ...);
 
 #endif //DISPLAY_H

@@ -267,21 +267,21 @@ u8 ide_print_error(u32 drive, u8 err) {
     if (err == 0)
         return err;
 
-    display.printf("IDE:");
-    if (err == 1) {display.printf("- Device Fault\n     "); err = 19;}
+    printf("IDE:");
+    if (err == 1) {printf("- Device Fault\n     "); err = 19;}
     else if (err == 2) {
         u8 st = ide_read(ide_devices[drive].channel, ATA_REG_ERROR);
-        if (st & ATA_ER_AMNF)   {display.printf("- No Address Mark Found\n     ");   err = 7;}
-        if (st & ATA_ER_TK0NF)   {display.printf("- No Media or Media Error\n     ");   err = 3;}
-        if (st & ATA_ER_ABRT)   {display.printf("- Command Aborted\n     ");      err = 20;}
-        if (st & ATA_ER_MCR)   {display.printf("- No Media or Media Error\n     ");   err = 3;}
-        if (st & ATA_ER_IDNF)   {display.printf("- ID mark not Found\n     ");      err = 21;}
-        if (st & ATA_ER_MC)   {display.printf("- No Media or Media Error\n     ");   err = 3;}
-        if (st & ATA_ER_UNC)   {display.printf("- Uncorrectable Data Error\n     ");   err = 22;}
-        if (st & ATA_ER_BBK)   {display.printf("- Bad Sectors\n     ");       err = 13;}
-    } else  if (err == 3)           {display.printf("- Reads Nothing\n     "); err = 23;}
-        else  if (err == 4)  {display.printf("- Write Protected\n     "); err = 8;}
-    display.printf("- [%s %s] %s\n",
+        if (st & ATA_ER_AMNF)   {printf("- No Address Mark Found\n     ");   err = 7;}
+        if (st & ATA_ER_TK0NF)   {printf("- No Media or Media Error\n     ");   err = 3;}
+        if (st & ATA_ER_ABRT)   {printf("- Command Aborted\n     ");      err = 20;}
+        if (st & ATA_ER_MCR)   {printf("- No Media or Media Error\n     ");   err = 3;}
+        if (st & ATA_ER_IDNF)   {printf("- ID mark not Found\n     ");      err = 21;}
+        if (st & ATA_ER_MC)   {printf("- No Media or Media Error\n     ");   err = 3;}
+        if (st & ATA_ER_UNC)   {printf("- Uncorrectable Data Error\n     ");   err = 22;}
+        if (st & ATA_ER_BBK)   {printf("- Bad Sectors\n     ");       err = 13;}
+    } else  if (err == 3)           {printf("- Reads Nothing\n     "); err = 23;}
+        else  if (err == 4)  {printf("- Write Protected\n     "); err = 8;}
+    printf("- [%s %s] %s\n",
         (const char *[]){"Primary", "Secondary"}[ide_devices[drive].channel], // Use the channel as an index into the array
         (const char *[]){"Master", "Slave"}[ide_devices[drive].drive], // Same as above, using the drive
         ide_devices[drive].model);
@@ -383,7 +383,7 @@ void ide_initialize(u32 BAR0, u32 BAR1, u32 BAR2, u32 BAR3, u32 BAR4) {
     // 4- Print Summary:
     for (i = 0; i < 4; i++)
         if (ide_devices[i].reserved == 1) {
-            display.printf(" Found %s Drive %dGB - %s\n",
+            printf(" Found %s Drive %dGB - %s\n",
                 (const char *[]){"ATA", "ATAPI"}[ide_devices[i].type],         /* Type */
                 ide_devices[i].size / 1024 / 1024 / 2,               /* Size */
                 ide_devices[i].model);

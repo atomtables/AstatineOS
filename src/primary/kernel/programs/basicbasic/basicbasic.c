@@ -7,6 +7,7 @@
 #include <display/advanced/graphics.h>
 #include <display/simple/display.h>
 #include <memory/memory.h>
+#include <memory/malloc.h>
 #include <modules/strings.h>
 #include <ps2/keyboard.h>
 #include <ps2/manualkeyboard.h>
@@ -54,16 +55,16 @@ static void setup() {
 
     memset(state.buffer, ' ', 78*22);
 
-    basic.program = malloc(sizeof(struct program) * 50);
+    basic.program = kmalloc(sizeof(struct program) * 50);
     basic.program_maxlen = 50;
 }
 
 static void quit() {
     disable_double_buffering();
-    display.clear_screen();
+    clear_screen();
     enable_vga_cursor();
 
-    free(basic.program, sizeof(struct program) * basic.program_maxlen);
+    kfree(basic.program);
     state.end = true;
 }
 
@@ -79,7 +80,7 @@ static void draw_outline() {
         "\xC9\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBB");
     draw_string(0, VGA_TEXT_HEIGHT - 1,
                 "\xC8\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBC");
-    for (int i = 1; i < VGA_TEXT_HEIGHT - 1; i++) {
+    for (u32 i = 1; i < VGA_TEXT_HEIGHT - 1; i++) {
         draw_char(0, i, '\xBA');
         draw_char(VGA_TEXT_WIDTH - 1, i, '\xBA');
     }
@@ -89,7 +90,7 @@ static void draw_outline() {
 
 static void render_command() {
     // history
-    for (int i = 0, x = 1, y = 1; i < 78*22; i++) {
+    for (u32 i = 0, x = 1, y = 1; i < 78*22; i++) {
         draw_char(x, y, state.buffer[i]);
         x++;
         if (x == 79) {
@@ -101,7 +102,7 @@ static void render_command() {
     // command
     if (!basic.running) {
         draw_string(1, 23, "] ");
-        for (int i = 0; i < state.input_length; i++) {
+        for (u32 i = 0; i < state.input_length; i++) {
             draw_char(i + 3, 23, state.input[i]);
         }
         enable_vga_cursor();
@@ -125,7 +126,7 @@ char* remove_spaces(char* s) {
     return r;
 }
 
-static int eval(char* exp) {
+static u32 eval(char* exp) {
     exp = remove_spaces(exp);
     StrtokA cmd = strtok_a(exp, "+-*/");
 
@@ -133,13 +134,13 @@ static int eval(char* exp) {
         return atoi(exp);
     }
 
-    int num1;
+    u32 num1;
     if (cmd.ret[0][0] >= 'a' && cmd.ret[0][0] <= 'z') {
         num1 = basic.variables[cmd.ret[0][0] - 'a'];
     } else {
         num1 = atoi(cmd.ret[0]);
     }
-    int num2;
+    u32 num2;
     if (cmd.ret[1][0] >= 'a' && cmd.ret[1][0] <= 'z') {
         num2 = basic.variables[cmd.ret[1][0] - 'a'];
     } else {
@@ -170,89 +171,89 @@ static bool commit_instruction(StrtokA cmd, char* line) {
             append_buffer("?RUNNING ERROR");
         }
         basic.running = true;
-        free(line, strlen(line) + 1);
+        kfree(line);
         return true;
     }
     if (!strcmp(cmd.ret[0], "end")) {
         basic.running = false;
-        free(line, strlen(line) + 1);
+        kfree(line);
         return true;
     }
     if (!strcmp(cmd.ret[0], "goto")) {
         u32 ln = atoi(cmd.ret[1]);
-        for (int i = 0; i < basic.program_length; i++) {
+        for (u32 i = 0; i < basic.program_length; i++) {
             if (basic.program[i].ln == ln) {
                 basic.current_line_number = i;
                 if (basic.running) basic.goto_performed = true;
                 basic.running = true;
-                free(line, strlen(line) + 1);
+                kfree(line);
                 return true;
             }
         }
         beep();
         append_buffer("?LINE ERROR");
-        free(line, strlen(line) + 1);
+        kfree(line);
         return false;
     }
-    if (!strcmp(cmd.ret[0], "print")) {
+    if (!strcmp(cmd.ret[0], "pru32")) {
         char* str = strlwr(line + 5);
         if (str[0] == '\"') {
             str++;
             str[strlen(str) - 1] = 0;
             append_buffer(str);
-            free(line, strlen(line) + 1);
+            kfree(line);
             return true;
         }
         if (str[0] >= 'a' && str[0] <= 'z' && str[1] == 0) {
-            char* buf = itoa(basic.variables[str[0] - 'a'], malloc(11));
+            char* buf = itoa(basic.variables[str[0] - 'a'], kmalloc(11));
             append_buffer(buf);
-            free(buf, 11);
-            free(line, strlen(line) + 1);
+            kfree(buf);
+            kfree(line);
             return true;
         }
         beep();
         append_buffer("?SYNTAX ERROR");
-        free(line, strlen(line) + 1);
+        kfree(line);
         return false;
     }
     if (!strcmp(cmd.ret[0], "cls")) {
         memset(state.buffer, ' ', 78*22);
-        free(line, strlen(line) + 1);
+        kfree(line);
         return true;
     }
     if (line[0] >= 'a' && line[0] <= 'z' && (line[1] == '=') ) {
         basic.variables[line[0] - 'a'] = eval(line + 2);
-        free(line, strlen(line) + 1);
+        kfree(line);
         return true;
     }
     if (!strcmp(cmd.ret[0], "list")) {
-        for (int i = 0; i < basic.program_length; i++) {
-            char* num = itoa(basic.program[i].ln, malloc(11));
-            int bytes = strlen(basic.program[i].line) + 12;
-            char* buf = malloc(bytes);
-            int j = 0;
+        for (u32 i = 0; i < basic.program_length; i++) {
+            char* num = itoa(basic.program[i].ln, kmalloc(11));
+            u32 bytes = strlen(basic.program[i].line) + 12;
+            char* buf = kmalloc(bytes);
+            u32 j = 0;
             for (j = 0; num[j] != 0; j++) {
                 buf[j] = num[j];
             }
             buf[j++] = ' ';
-            for (int k = j; buf[j - k] != 0; j++) {
+            for (u32 k = j; buf[j - k] != 0; j++) {
                 buf[j] = basic.program[i].line[j - k];
             }
-            free(buf, bytes);
+            kfree(buf);
             append_buffer(buf);
         }
         append_buffer(itoa(basic.current_line_number, "          "));
-        free(line, strlen(line) + 1);
+        kfree(line);
         return true;
     }
     if (!strcmp(cmd.ret[0], "quit")) {
         quit();
-        free(line, strlen(line) + 1);
+        kfree(line);
         return true;
     }
     beep();
     append_buffer("?SYNTAX ERROR");
-    free(line, strlen(line) + 1);
+    kfree(line);
     return false;
 }
 
@@ -281,19 +282,19 @@ static void continue_program() {
     }
 }
 
-static void interpret_basic() {
+static void u32erpret_basic() {
     StrtokA cmd = strtok_a(state.input, " ");
 
     cmd.ret[0] = strlwr(cmd.ret[0]);
 
     if (state.input[0] >= '0' && state.input[0] <= '9') {
         u32 ln = atoi(cmd.ret[0]);
-        for (int i = 0; i < basic.program_length; i++) {
+        for (u32 i = 0; i < basic.program_length; i++) {
             if (basic.program[i].ln < ln) {
                 continue;
             }
             if (basic.program[i].ln == ln) {
-                free(basic.program[i].line, strlen(basic.program[i].line) + 1);
+                kfree(basic.program[i].line);
                 basic.program[i].line = strdup(state.input + strlen(cmd.ret[0]) + 1);
                 goto complete;
             }
@@ -306,7 +307,7 @@ static void interpret_basic() {
         }
         // we have to append now
         if (basic.program_length == basic.program_maxlen) {
-            basic.program = realloc(basic.program, sizeof(struct program) * basic.program_maxlen, sizeof(struct program) * basic.program_maxlen * 2);
+            basic.program = krealloc(basic.program, sizeof(struct program) * basic.program_maxlen);
             basic.program_maxlen *= 2;
         }
         basic.program[basic.program_length].ln = ln;
@@ -317,14 +318,14 @@ static void interpret_basic() {
     }
 
     complete:
-    free(cmd.ret, cmd.size);
+    kfree(cmd.ret);
 }
 
 static void input_routine() {
     static bool tick = false;
 
     if (state.ready_for_input_init) {
-        state.input = calloc(64);
+        state.input = kcalloc(64);
         state.input_length = 0;
         state.ready_for_input_init = false;
         state.ready_for_next_input = true;
@@ -337,9 +338,9 @@ static void input_routine() {
 
             if (simple_state.current_char == KEY_LF) {
                 // push the input to the buffer
-                char* buffer = calloc(79);
+                char* buffer = kcalloc(79);
                 append_buffer(strcat(strcat(buffer, "] "), state.input));
-                free(buffer, 79);
+                kfree(buffer);
 
                 state.ready_for_processing = true;
                 state.ready_for_next_input = false;
@@ -356,8 +357,8 @@ static void input_routine() {
     }
 
     if (state.ready_for_processing) {
-        interpret_basic();
-        free(state.input, 64);
+        u32erpret_basic();
+        kfree(state.input);
         state.ready_for_input_init = true;
         state.ready_for_processing = false;
     }

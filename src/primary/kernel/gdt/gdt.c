@@ -123,7 +123,7 @@ void load_gdt(void* descriptor);
 // check on it. it's unknown to the kernel which is bad.
 // it's also likely to get overwritten.
 void gdt_init() {
-    gdt_entry* gdt = (void*)(0x1000);
+    gdt_entry* gdt = (void*)(0xFFC0);
     // reset the memory
     memset(gdt, 0, sizeof(gdt_entry) * 6);
 
@@ -165,10 +165,9 @@ void gdt_init() {
     static struct {
         u16 size;
         void* address;
-    } PACKED gdt_descriptor = {
-        .size = sizeof(gdt_entry) * 6 - 1,
-        .address = (void*)(0x1000)
-    };
+    } PACKED gdt_descriptor;
+    gdt_descriptor.size = sizeof(gdt_entry) * 6 - 1;
+    gdt_descriptor.address = gdt;
     load_gdt(&gdt_descriptor);
 
     flush_tss();

@@ -10,6 +10,7 @@
 
 #include <stdarg.h>
 #include <memory/memory.h>
+#include <memory/malloc.h>
 #include <modules/modules.h>
 
 // implementing double-buffering because flickering is a huge problem
@@ -188,7 +189,7 @@ void draw_sprite(sprite s, int x, int y) {
 }
 
 void draw_sprite_with_color(sprite s, int x, int y, ...) {
-    u8* colormap = malloc(s.colors + 1);
+    u8* colormap = kmalloc(s.colors + 1);
 
     va_list args;
     va_start(args, y);
@@ -204,7 +205,7 @@ void draw_sprite_with_color(sprite s, int x, int y, ...) {
         }
     }
 
-    free(colormap, s.colors);
+    kfree(colormap);
 
     va_end(args);
 }

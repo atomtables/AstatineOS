@@ -30,8 +30,9 @@ There's also a package available that you can just `./configure && make && make 
 - [ ] calculator app (wwdc2024)
 - [ ] usb stack
 - [ ] any sort of connectivity that doesn't involve a PATA hard drive in the first channel's master
-- [ ] paging
-- [ ] virtual memory
+- [X] paging
+- [X] virtual memory
+- [ ] long mode (64-bit)
 - [ ] libraries
 - [x] custom boot filesystem for loading boot image (instead of being sane and pulling a grub)
 - [ ] os-specific toolchain for building apps
@@ -42,6 +43,20 @@ There's also a package available that you can just `./configure && make && make 
 - [x] custom build system (hey if it works it works)
 - [x] kernelmode code execution
 - [ ] usermode applications
+
+## goals
+As far as (literally everyone) says, 32-bit is mostly doomed and you should go for a 64-bit kernel. For the
+most part, I think after a good development of usermode applications, it would be a good time to transition
+the kernel to 64-bit MBR. It would remove the added complexity of segmentation while providing infinitely
+more space for virtual addressing. Before going for the added complexity it's probably still better to learn
+how to do it simply.
+
+64-bit doesn't look too hard anyway, the bootloader and boot.aex would def change but the rest of the kernel 
+doesn't significantly look like it would need a full rewrite. I guess some additions like more modern hardware
+(remember our definition of modern is 2003) like the HPET and the APIC would be in order before a full
+conversion. It's not like I'm switching to arm anyways. It would also be pretty likely that some of the files 
+would be able to interconnect, so you could have an i686 build and a x86_64 build together.
+That's for WAY later me though.
 
 ## Why?
 Web development, app development, development for a specific platform is fun and all. But at some point, you

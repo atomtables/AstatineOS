@@ -8,6 +8,7 @@
 #include <display/advanced/graphics.h>
 #include <display/simple/display.h>
 #include <memory/memory.h>
+#include <memory/malloc.h>
 #include <modules/modules.h>
 #include <modules/strings.h>
 #include <pcspeaker/pcspeaker.h>
@@ -69,7 +70,7 @@ static struct {
     bool full;
     bool last_was_incorrect;
 
-    int handler;
+    u32 handler;
 
     enum {
         START,
@@ -89,7 +90,7 @@ static void draw_frame() {
         "\xC9\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBB");
     draw_string(0, VGA_TEXT_HEIGHT - 1,
                 "\xC8\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBC");
-    for (int i = 1; i < VGA_TEXT_HEIGHT - 1; i++) {
+    for (u32 i = 1; i < VGA_TEXT_HEIGHT - 1; i++) {
         draw_char(0, i, '\xBA');
         draw_char(VGA_TEXT_WIDTH - 1, i, '\xBA');
     }
@@ -116,7 +117,7 @@ static void setup() {
 
     state.lives = 3;
     state.level = 0;
-    state.input = calloc(9);
+    state.input = kcalloc(9);
     state.input_length = 0;
     state.input_index = 0;
 
@@ -170,8 +171,8 @@ static void render_instructions() {
         "and the user will throw their computer out the window. Good luck!\n\n"
         "Press ESC to exit the game at any time. Press return to start. \nPress tab to pause.";
 
-    int x = 6;
-    int y = Y_MIDDLE - (8 / 2);
+    u32 x = 6;
+    u32 y = Y_MIDDLE - (8 / 2);
     for (u32 i = 0; i < MIN(state.frame - state.starting_frame, (u32)strlen(instructions)); i++) {
         if (instructions[i] == '\n') goto newline;
         draw_char(x, y, instructions[i]);
@@ -249,10 +250,10 @@ static void render_game() {
     draw_string(2, 0, "Lives: ");
     draw_string(9, 0, itoa(state.lives, "         "));
 
-    for (int i = 5, j = 0; i < 76; i += 18, j++) {
+    for (u32 i = 5, j = 0; i < 76; i += 18, j++) {
         if (state.ops[j].active) {
-            char* num1 = itoa(state.ops[j].num1, malloc(11));
-            char* num2 = itoa(state.ops[j].num2, malloc(11));
+            char* num1 = itoa(state.ops[j].num1, kmalloc(11));
+            char* num2 = itoa(state.ops[j].num2, kmalloc(11));
 
             switch (state.ops[j].op) {
             case ADD:
@@ -287,19 +288,19 @@ static void render_game() {
 
             // draw_string(i + 3, 12, itoa(state.ops[j].ans, "0000000000"));
 
-            char* seconds = itoa((state.ops[j].end_frame - state.frame) / 60, malloc(11));
+            char* seconds = itoa((state.ops[j].end_frame - state.frame) / 60, kmalloc(11));
             draw_string(i + 3, 18, seconds);
             draw_string(i + 3 + strlen(seconds) + 1, 18, "seconds");
             draw_string(i + 3 + strlen(seconds), 19, " left");
-            free(seconds, 11);
+            kfree(seconds);
 
-            free(num1, 11);
-            free(num2, 11);
+            kfree(num1);
+            kfree(num2);
         }
     }
 
-    int x = 2;
-    int y = 23;
+    u32 x = 2;
+    u32 y = 23;
     for (u32 i = 0; i < MIN(state.frame - state.starting_frame, (u32)strlen(currentop)); i++) {
         draw_char(x, y, currentop[i]);
         x++;
@@ -332,14 +333,14 @@ static void game_logic() {
     // }
 
     static bool initial = false;
-    static int dialog_frame = 0;
+    static u32 dialog_frame = 0;
 
     if (!initial) {
         initial = true;
         dialog_frame = state.frame / 60;
     }
 
-    for (int i = 0; i < 4; i++) {
+    for (u32 i = 0; i < 4; i++) {
         if (state.ops[i].active && state.frame >= state.ops[i].end_frame) {
             state.lives--;
             currentop = timed_out();
@@ -347,7 +348,7 @@ static void game_logic() {
             state.op_length--;
 
             // cascade the operations
-            for (int j = i; j < 3; j++) {
+            for (u32 j = i; j < 3; j++) {
                 state.ops[j] = state.ops[j + 1];
             }
             state.ops[3].active = false;
@@ -373,7 +374,7 @@ static void game_logic() {
         dialog_frame = state.frame / 60;
         // etc. dialogue
         if (state.frame - state.starting_frame >= 600 && !state.has_been_full) {
-            static int current = 0;
+            static u32 current = 0;
             char* phrases[] = {
                 "Things have been quiet for some time...",
                 "Wow! You've managed to keep things under control...",
@@ -390,7 +391,7 @@ static void game_logic() {
             state.starting_frame = state.frame;
         }
     } else if ((state.frame / 60) - dialog_frame >= 10 && state.has_been_full && !state.full) {
-        static int current = 0;
+        static u32 current = 0;
         char* phrases[] = {
             "You got it back under control...",
             "Nice job, you're pretty good...",
@@ -415,7 +416,7 @@ static u8 c;
 
 static char* incorrect_phrase() {
     char* phrases[] = {
-        "Incorrect! Javascript floating point error...",
+        "Incorrect! Javascript floating pou32 error...",
         "Incorrect! You're not a real programmer...",
         "Incorrect! 9 + 10 = 21...",
         "Incorrect! Should've majored in English...",
@@ -566,7 +567,7 @@ static void generateop() {
         op.ans = op.num1 / op.num2;
     }
 
-    for (int i = 0; i < 4; i++) {
+    for (u32 i = 0; i < 4; i++) {
         if (!state.ops[i].active) {
             state.ops[i] = op;
             state.op_length++;
@@ -578,47 +579,47 @@ static void generateop() {
 }
 
 static void render_paused() {
-    for (int i = 0; i < 51; i++) {
+    for (u32 i = 0; i < 51; i++) {
         draw_char_with_color(X_MIDDLE - 25 + i, Y_MIDDLE - 5, '\xB0', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
-    for (int i = 0; i < 51; i++) {
+    for (u32 i = 0; i < 51; i++) {
         draw_char_with_color(X_MIDDLE - 25 + i, Y_MIDDLE + 5, '\xB0', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
-    for (int i = 0; i < 11; i++) {
+    for (u32 i = 0; i < 11; i++) {
         draw_char_with_color(X_MIDDLE - 25, Y_MIDDLE - 5 + i, '\xB0', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
-    for (int i = 0; i < 11; i++) {
+    for (u32 i = 0; i < 11; i++) {
         draw_char_with_color(X_MIDDLE + 25, Y_MIDDLE - 5 + i, '\xB0', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
 
-    for (int i = 0; i < 49; i++) {
+    for (u32 i = 0; i < 49; i++) {
         draw_char_with_color(X_MIDDLE - 24 + i, Y_MIDDLE - 4, '\xB1', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
-    for (int i = 0; i < 49; i++) {
+    for (u32 i = 0; i < 49; i++) {
         draw_char_with_color(X_MIDDLE - 24 + i, Y_MIDDLE + 4, '\xB1', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
-    for (int i = 0; i < 9; i++) {
+    for (u32 i = 0; i < 9; i++) {
         draw_char_with_color(X_MIDDLE - 24, Y_MIDDLE - 4 + i, '\xB1', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
-    for (int i = 0; i < 9; i++) {
+    for (u32 i = 0; i < 9; i++) {
         draw_char_with_color(X_MIDDLE + 24, Y_MIDDLE - 4 + i, '\xB1', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
 
-    for (int i = 0; i < 47; i++) {
+    for (u32 i = 0; i < 47; i++) {
         draw_char_with_color(X_MIDDLE - 23 + i, Y_MIDDLE - 3, '\xB2', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
-    for (int i = 0; i < 47; i++) {
+    for (u32 i = 0; i < 47; i++) {
         draw_char_with_color(X_MIDDLE - 23 + i, Y_MIDDLE + 3, '\xB2', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
-    for (int i = 0; i < 7; i++) {
+    for (u32 i = 0; i < 7; i++) {
         draw_char_with_color(X_MIDDLE - 23, Y_MIDDLE - 3 + i, '\xB2', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
-    for (int i = 0; i < 7; i++) {
+    for (u32 i = 0; i < 7; i++) {
         draw_char_with_color(X_MIDDLE + 23, Y_MIDDLE - 3 + i, '\xB2', VGA_TEXT_COLOR(COLOR_WHITE, COLOR_BLUE));
     }
 
-    for (int i = 0; i < 5; i++) {
-        for (int j = 0; j < 45; j++) {
+    for (u32 i = 0; i < 5; i++) {
+        for (u32 j = 0; j < 45; j++) {
             draw_char_with_color(X_MIDDLE - 22 + j, Y_MIDDLE - 2 + i, '\x00', VGA_TEXT_COLOR(COLOR_BLUE, COLOR_WHITE));
         }
     }
@@ -688,7 +689,7 @@ static void keysin() {
             current = 0;
             wait_and_do(2500, generateop);
 
-            free(state.input, 11);
+            kfree(state.input);
             setup();
         } else if (keyboard_char('\t')) {
             state.screen = START;
@@ -696,7 +697,7 @@ static void keysin() {
             current = 0;
             wait_and_do(2500, generateop);
 
-            free(state.input, 11);
+            kfree(state.input);
             setup();
         } else if (keyboard_char(KEY_ESC)) {
             quit();
@@ -721,11 +722,11 @@ static void stats() {
 static void quit() {
     stop_run_every_second(state.handler);
     nosound();
-    display.clear_screen();
+    clear_screen();
     disable_double_buffering();
-    free(state.input, 9);
+    kfree(state.input);
     enable_vga_cursor();
-    display.printf("Thank you for playing...\n");
+    printf("Thank you for playing...\n");
 }
 
 static void music() {
@@ -744,7 +745,7 @@ static void music() {
 }
 
 void fungame() {
-    display.printf("Loading...");
+    printf("Loading...");
     setup();
     sleep(500);
     u64 last_frame = 0;

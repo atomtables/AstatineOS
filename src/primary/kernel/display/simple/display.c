@@ -168,6 +168,7 @@ static void __set_vga_cursor_pos__(const int x, const int y) {
  * @param character The character to write.
  */
 static void __write_char__(const int x, int y, const char character) {
+    if (character == 0) return;
     if (x >= VGA_TEXT_WIDTH) return;
     // if y is greater than height, set y to height-1 and move lines 1-23 to 0-22 using memcpy
     if (y >= VGA_TEXT_HEIGHT) {
@@ -381,7 +382,7 @@ static void __append_backspace__() {
  * It also resets display_data and sets the VGA
  * cursor to 0, 0.
  */
-static void clear_screen() {
+void clear_screen() {
     __reset_displaydata__();
     __set_vga_cursor_pos__(0, 0);
     memset_step((void*)0xb8000, 0, VGA_TEXT_SIZE, 2);
@@ -394,7 +395,7 @@ static void clear_screen() {
  * the specified color.
  * @param color The color to change to.
  */
-static void change_screen_color(const u8 color) {
+void change_screen_color(const u8 color) {
     memset_step((void*)0xb8001, color, VGA_TEXT_SIZE, 2);
 }
 
@@ -402,7 +403,7 @@ static void change_screen_color(const u8 color) {
  * Print a char* to the screen.
  * @param str The char* to print.
  */
-static void print(char* str) { __append_string__(str); }
+void print(char* str) { __append_string__(str); }
 
 /**
  * Print a char* to the screen with
@@ -410,7 +411,7 @@ static void print(char* str) { __append_string__(str); }
  * @param str The char* to print.
  * @param color The color to print in.
  */
-static void print_color(char* str, const u8 color) {
+void print_color(char* str, const u8 color) {
     for (int i = 0; str[i] != '\0'; i++) { __append_char_color__(str[i], color); }
 }
 
@@ -419,7 +420,7 @@ static void print_color(char* str, const u8 color) {
  * extra line after.
  * @param str The char* to print.
  */
-static void println(char* str) {
+void println(char* str) {
     __append_string__(str);
     __append_newline__();
 }
@@ -430,7 +431,7 @@ static void println(char* str) {
  * @param str The char* to print.
  * @param color The color to print it in.
  */
-static void println_color(char* str, const u8 color) {
+void println_color(char* str, const u8 color) {
     __append_string_color__(str, color);
     __append_newline__();
 }
@@ -441,7 +442,7 @@ static void println_color(char* str, const u8 color) {
  * @param fmt The format char* to print.
  * @param ... The variadic arguments to print.
  */
-static void printf(const char* fmt, ...) {
+void printf(const char* fmt, ...) {
     va_list args;
     va_start(args, 0);
 
@@ -495,14 +496,3 @@ static void printf(const char* fmt, ...) {
 
     va_end(args);
 }
-
-// module.exports
-PDisplay display = {
-    .clear_screen = clear_screen,
-    .change_screen_color = change_screen_color,
-    .print = print,
-    .print_color = print_color,
-    .println = println,
-    .println_color = println_color,
-    .printf = printf
-};

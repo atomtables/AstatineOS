@@ -58,7 +58,7 @@ u8 read_configuration_byte() {
 void write_configuration_byte(u8 config) {
     sendcommandw(0x60, config);
     // Don't read response - there isn't one for this command
-    if (DEBUG) display.printf("current controller byte: 0x%x\n", read_configuration_byte());
+    if (DEBUG) printf("current controller byte: 0x%x\n", read_configuration_byte());
 }
 
 void ps2_controller_init() {

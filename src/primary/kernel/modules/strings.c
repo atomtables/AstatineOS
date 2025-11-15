@@ -5,6 +5,7 @@
 #include "strings.h"
 
 #include <memory/memory.h>
+#include <memory/malloc.h>
 
 #include "modules.h"
 
@@ -79,7 +80,7 @@ int strncmp(char* s1, char* s2, u32 t) {
 char* strdup(const char* str) {
     u32 len = strlen(str);
 
-    char* new_str = malloc(len + 1);
+    char* new_str = kmalloc(len + 1);
     strcpy(new_str, str);
 
     return new_str;
@@ -144,7 +145,7 @@ StrtokA strtok_a(char* s, const char* delim) {
     static char* last; // last is static so it can be used in multiple calls
 
     int size = 2, count = 0;
-    char** ret = malloc(sizeof(char*) * 2);
+    char** ret = kmalloc(sizeof(char*) * 2);
 
     char* str = strdup(s);
 
@@ -154,12 +155,12 @@ StrtokA strtok_a(char* s, const char* delim) {
         count++;
         if (count == size) {
             size += 2;
-            ret = realloc(ret, sizeof(char*) + (size-2), sizeof(char*) * size);
+            ret = krealloc(ret, sizeof(char*) + (size-2));
         }
 
     }
 
-    free(str, strlen(str)+1);
+    kfree(str);
 
     return (StrtokA){ret, count, size};
 }

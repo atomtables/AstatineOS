@@ -1,12 +1,24 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2025, Bjørn Brodtkorb. All rights reserved.
 
+// one bad thing with this is it's really meant for
+// embedded systems or something pretty non-speed-oriented
+// because it reads and writes single sectors at a time
+// needs rewrite
+
 #include "fat32.h"
 #include <modules/modules.h>
 #include <modules/strings.h>
 
+#define uint8_t  u8
+#define uint16_t u16
+#define uint32_t u32  
+#define int32_t  i32
+#define int64_t  i64
+#define bool     u8
+
 //------------------------------------------------------------------------------
-#define LIMIT(a, b) ((a) < (b) ? (a) : (b))
+#define LIMIT(a, b) (MIN(a,b))
 
 #define FSINFO_HEAD_SIG    0x41615252
 #define FSINFO_STRUCT_SIG  0x61417272
@@ -570,7 +582,7 @@ static bool sfn_is_last(Sfn* sfn)
 }
 
 //------------------------------------------------------------------------------
-static bool sfn_is_free(Sfn* sfn)
+static bool sfn_is_kfree(Sfn* sfn)
 {
   return sfn->name[0] == SFN_LAST || sfn->name[0] == SFN_FREE;
 }
@@ -742,7 +754,7 @@ static int dir_search(Dir* dir, const char* name, int len, Loc* loc)
     if (sfn_is_last(sfn))
       return FAT_ERR_EOF;
     
-    if (sfn_is_free(sfn))
+    if (sfn_is_kfree(sfn))
       continue;
 
     if (loc)
@@ -760,7 +772,7 @@ static int dir_search(Dir* dir, const char* name, int len, Loc* loc)
 
       sfn = dir_ptr(dir);
 
-      if (sfn_is_free(sfn) || sfn_is_lfn(sfn) || g_crc != get_crc(sfn->name))
+      if (sfn_is_kfree(sfn) || sfn_is_lfn(sfn) || g_crc != get_crc(sfn->name))
         return FAT_ERR_BROKEN;
 
       if (g_len == len && !memcmp(g_buf, name, len))
@@ -890,7 +902,7 @@ static int dir_add(Dir* dir, const char* name, int len, uint8_t attr, uint32_t c
       return err;
 
     Sfn* sfn = dir_ptr(dir);
-    if (eod || sfn_is_free(sfn))
+    if (eod || sfn_is_kfree(sfn))
     {
       if (cnt++ == 0)
       {
@@ -1214,7 +1226,7 @@ int fat_unlink(const char* path)
       if (sfn_is_last(sfn))
         break;
 
-      if (!sfn_is_free(sfn))
+      if (!sfn_is_kfree(sfn))
         return FAT_ERR_DENIED;
 
       err = dir_next(&tmp);
@@ -1623,7 +1635,7 @@ int fat_dir_read(Dir* dir, DirInfo* info)
     if (sfn_is_last(sfn))
       return FAT_ERR_EOF;
 
-    if (sfn_is_free(sfn))
+    if (sfn_is_kfree(sfn))
       continue;
 
     if (sfn_is_lfn(sfn))
@@ -1638,7 +1650,7 @@ int fat_dir_read(Dir* dir, DirInfo* info)
         return err;
       
       sfn = dir_ptr(dir);
-      if (sfn_is_free(sfn) || g_crc != get_crc(sfn->name))
+      if (sfn_is_kfree(sfn) || g_crc != get_crc(sfn->name))
         return FAT_ERR_BROKEN;
     }
     else

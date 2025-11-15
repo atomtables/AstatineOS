@@ -28,27 +28,73 @@ disk_error:
 done:
     jmp     $
 
+; use the INT 0x15, eax= 0xE820 BIOS function to get a memory map
+; note: initially di is 0, be sure to set it to a value so that the BIOS code will not be overwritten. 
+;       The consequence of overwriting the BIOS code will lead to problems like getting stuck in `int 0x15`
+; inputs: es:di -> destination buffer for 24 byte entries
+; outputs: bp = entry count, trashes all registers except esi
+[bits 16]
+mmap_ent equ 0x2000             ; the number of entries will be stored at 0x2000
+do_e820:
+    xor di, di
+    mov es, di
+    mov di, 0x2004          ; Set di to 0x8004. Otherwise this code will get stuck in `int 0x15` after some entries are fetched 
+	xor ebx, ebx		; ebx must be 0 to start
+	xor bp, bp		; keep an entry count in bp
+	mov edx, 0x534D4150	; Place "SMAP" into edx
+	mov eax, 0x0000e820
+	mov [es:di + 20], dword 1	; force a valid ACPI 3.X entry
+	mov ecx, 24		; ask for 24 bytes
+	int 0x15
+	jc short .failed	; carry set on first call means "unsupported function"
+	mov edx, 0x534D4150	; Some BIOSes apparently trash this register?
+	cmp eax, edx		; on success, eax must have been reset to "SMAP"
+	jne short .failed
+	test ebx, ebx		; ebx = 0 implies list is only 1 entry long (worthless)
+	je short .failed
+	jmp short .jmpin
+.e820lp:
+	mov eax, 0x0000e820		; eax, ecx get trashed on every int 0x15 call
+	mov [es:di + 20], dword 1	; force a valid ACPI 3.X entry
+	mov ecx, 24		; ask for 24 bytes again
+	int 0x15
+	jc short .e820f		; carry set means "end of list already reached"
+	mov edx, 0x0534D4150	; repair potentially trashed register
+.jmpin:
+	jcxz .skipent		; skip any 0 length entries
+	cmp cl, 20		; got a 24 byte ACPI 3.X response?
+	jbe short .notext
+	test byte [es:di + 20], 1	; if so: is the "ignore this data" bit clear?
+	je short .skipent
+.notext:
+	mov ecx, [es:di + 8]	; get lower uint32_t of memory region length
+	or ecx, [es:di + 12]	; "or" it with upper uint32_t to test for zero
+	jz .skipent		; if length uint64_t is 0, skip entry
+	inc bp			; got a good entry: ++count, move to next storage spot
+	add di, 24
+.skipent:
+	test ebx, ebx		; if ebx resets to 0, list is complete
+	jne short .e820lp
+.e820f:
+	mov [es:mmap_ent], bp	; store the entry count
+	clc			; there is "jc" on end of list to this point, so the carry must be cleared
+	ret
+.failed:
+    mov [es:mmap_ent], bp	; store the entry count
+	stc			; "function unsupported" error exit
+	ret
 [bits 16]
 switch_to_32bit:
     ; before all that, get memory
-    XOR CX, CX
-    XOR DX, DX
-    MOV AX, 0xE801
-    INT 0x15		; request upper memory size
-    JC disk_error
-    JCXZ .USEAX		; was the CX result invalid?
-
-    MOV AX, CX
-    MOV BX, DX
-    .USEAX:
-    ; AX = number of contiguous Kb, 1M to 16M
-    ; BX = contiguous 64Kb pages above 16M
-    mov     cx, ax
-    xor     ax, ax
-    mov     fs, ax
-    mov     word [fs:0x8000], cx
-    mov     word [fs:0x8002], bx
-
+    ; we want to get the memory map to store
+    ; for the later kernel use.
+    call   do_e820
+    mov di, 0x50
+    mov es, di
+    ; jmp     $
+    ; jc     disk_error
+    ; jc     disk_error ; if carry is set, error occurred
+    finished:
     ; if our drive isnt 0x80, then take precautionary measures
     mov     dl, [BOOT_DRIVE]
     ; cmp     dl, 0x80
@@ -89,12 +135,14 @@ strcmp32:
     push    edi
     push    esi
     repe    cmpsb
+    je      .match
     pop     esi
     pop     edi
-    je      .match
     xor     ax, ax
     ret
 .match:
+    pop     esi
+    pop     edi
     mov     ax, 1
     ret
 
@@ -121,6 +169,7 @@ init_32bit:                 ; we are now using 32-bit instructions
     inc     eax; load next partition
     mov     cl,  0x1    ; this command only reliably reads one sector
     add     edi, 512
+    ; jmp     $
     call    ata_lba_read; TODO: ssumption that we're booting off of 0x80
     found:
     ; the first file entry is at 0x200
@@ -134,7 +183,7 @@ init_32bit:                 ; we are now using 32-bit instructions
     push    esi
     mov     esi, match1+0x500
     ; DI should be at the aligned file name
-    mov     cx, 7
+    mov     ecx, 7
     call    strcmp32  ; compare the file name
     ; jmp     $
     cmp     ax, 1
@@ -146,7 +195,7 @@ init_32bit:                 ; we are now using 32-bit instructions
     push    esi
     ; now let's compare file extension
     mov     esi, match2+0x500
-    mov     cx, 3
+    mov     ecx, 3 ; stupid ahh code i hate programming
     call    strcmp32  ; compare the file extension
     cmp     eax, 1
     pop     esi

@@ -13,7 +13,7 @@ set -e
     DD=dd
     MV=mv
     MKDIR=mkdir
-    QEMU=qemu-system-i386-unsigned
+    QEMU=qemu-system-x86_64
     MKABP=mkabp
     XXD=xxd
 
@@ -21,8 +21,8 @@ set -e
     MCOPY=mcopy
 
     # TODO: MUST BE CHANGED FOR LOCAL COMPILATION
-    CROSS_GCC_INCLUDE=/Users/3024492/Applications/homebrew/Cellar/i686-elf-gcc/15.2.0/lib/gcc/i686-elf/15.2.0/include
-    CROSS_GCC_INCLUDE_FIXED=/Users/3024492/Applications/homebrew/Cellar/i686-elf-gcc/15.2.0/lib/gcc/i686-elf/15.2.0/include-fixed
+    CROSS_GCC_INCLUDE=/opt/homebrew/Cellar/i686-elf-gcc/15.2.0/lib/gcc/i686-elf/15.2.0/include
+    CROSS_GCC_INCLUDE_FIXED=/opt/homebrew/Cellar/i686-elf-gcc/15.2.0/lib/gcc/i686-elf/15.2.0/include-fixed
 
 # ───────────────────────────────────────────────
 # DIRECTORY STRUCTURE
@@ -50,8 +50,8 @@ set -e
 
     NASMFLAGS="-felf"
     LDFLAGS="-m elf_i386 -Ttext 0x10000 --oformat binary"
-    CCFLAGS_KERNEL="-m32 -std=c11 -O2 -g -Wall -Wextra -Wpedantic -Wstrict-aliasing \
-    -Wno-pointer-arith -Wno-unused-parameter \
+    CCFLAGS_KERNEL="-m32 -std=gnu11 -O2 -g -Wall -Wextra -Wpedantic -Wstrict-aliasing \
+    -Wno-pointer-arith -Wno-unused-parameter -fno-delete-null-pointer-checks \
     -nostdlib -nostdinc -ffreestanding -fno-pie -fno-stack-protector \
     -fno-builtin-function -fno-builtin
     -I${KERNEL_DIR} -I${CROSS_GCC_INCLUDE} -I${CROSS_GCC_INCLUDE_FIXED}"
