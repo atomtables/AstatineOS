@@ -73,9 +73,14 @@ Or, download an ISO from the releases section below and test it out yourself on
 
  [https://copy.sh/v86] (works 100% with latest release)
 
-## it works on real hardware bro trust me
+## it works on fake hardware bro trust me
 source: this video
-<video width="630" height="300" src="https://github.com/user-attachments/assets/2a29ba96-8f2c-4b28-846f-bb0438e4ea46"></video>
-[https://github.com/user-attachments/assets/2a29ba96-8f2c-4b28-846f-bb0438e4ea46](https://github.com/user-attachments/assets/2a29ba96-8f2c-4b28-846f-bb0438e4ea46)
+<video width="630" height="300" src="https://github.com/user-attachments/assets/60182f6f-5349-46db-a5db-970bb607fdee"></video>
+[https://github.com/user-attachments/assets/60182f6f-5349-46db-a5db-970bb607fdee](https://github.com/user-attachments/assets/60182f6f-5349-46db-a5db-970bb607fdee)
+
+
+
+
+
 
 Thanks and have a nice day !!!!!!
