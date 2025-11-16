@@ -25,6 +25,10 @@ set -e
     CROSS_GCC_INCLUDE_FIXED=/opt/homebrew/Cellar/i686-elf-gcc/15.2.0/lib/gcc/i686-elf/15.2.0/include-fixed
 
 # ───────────────────────────────────────────────
+# helper 
+# ───────────────────────────────────────────────
+
+# ───────────────────────────────────────────────
 # DIRECTORY STRUCTURE
 # ───────────────────────────────────────────────
 
@@ -197,6 +201,12 @@ if [ "$NO_BUILD" = false ]; then
     $LD -o "$KERNEL_IMG" $KERNEL_OBJECTS $LDFLAGS  
 
     # ───────────────────────────────────────────────
+    # we also quickly have to compile a test program
+    # ───────────────────────────────────────────────
+    echo "[*] Compiling test program..."
+    i686-astatine-gcc ./src/primary/programs/main.c -o "${BUILD_DIR}/atf.aex" 
+
+    # ───────────────────────────────────────────────
     # FORMAT FAT32 PARTITION
     # ───────────────────────────────────────────────
     echo "[*] Creating FAT32 partition..."
@@ -207,6 +217,7 @@ if [ "$NO_BUILD" = false ]; then
     $MFORMAT -F -i "$FAT32_PART_IMG" ::
     $MCOPY -i "$FAT32_PART_IMG" "$KERNEL_IMG" ::
     $MCOPY -i "$FAT32_PART_IMG" $KERNEL_RESOURCES/* ::
+    $MCOPY -i "$FAT32_PART_IMG" "${BUILD_DIR}/atf.aex" ::
 
     # ───────────────────────────────────────────────
     # ASSEMBLE BOOTSECTOR (make change in boot.asm to reflect)
