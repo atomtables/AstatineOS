@@ -21,12 +21,12 @@ void page_set_kernel(PageTableEntry* pt, u32 index) {
     pt[index].address = index; 
 }
 
-PageDirectoryEntry* pd = (PageDirectoryEntry*)0x0000;
+PageDirectoryEntry* pd = (PageDirectoryEntry*)0x1000;
 
 void paging_init() {
     CLI();
     // Ok so the smart (dumb) thing to do here is
-    // put our paging directory at 0x0000.
+    // put our paging directory at 0x1000.
     // Since we aren't going to use real-mode 
     // anymore.
     memset(&pd[0], 0, 4096);
@@ -37,14 +37,14 @@ void paging_init() {
     pd[0].present = true;
     pd[0].rw = true;
     pd[0].allowuser = false;
-    pd[0].table_addr = 0x1000 >> 12; // page table at 0x1000
+    pd[0].table_addr = 0x2000 >> 12; // page table at 0x1000
     pd[0].page_size = 0;
 
     // Our table address is at 0x1000, so we can set that up now.
-    PageTableEntry* pt = (PageTableEntry*)((u32)pd[0].table_addr << 12);
+    PageTableEntry* pt = (PageTableEntry*)(0x2000);
     memset(pt, 0, 4096);
 
-    page_set_kernel(pt, 0);      // 0x00000000 - 0x00000FFF
+    // page_set_kernel(pt, 0);      // 0x00000000 - 0x00000FFF
     page_set_kernel(pt, 1);      // 0x00001000 - 0x00001FFF
 
     // we also have to load our kernel address in page memory
@@ -57,6 +57,10 @@ void paging_init() {
         page_set_kernel(pt, index);
     }
 
+    // screw this this was a stupid idea to put
+    // the page directory at 0x0000
+    pt[0].present = false;
+
     // Our directory should be complete.
     // so we call the assembly helper.
     load_page_directory((u32)pd);
@@ -67,6 +71,7 @@ void paging_init() {
 // We allocate a new 4KB page at the given virtual address
 // mapping to the given physical address.
 void alloc_page(u32 virt_addr) {
+    // while(1);
     u32 phys_addr = alloc_frame();
 
     // Get the directory index and table index
@@ -76,8 +81,9 @@ void alloc_page(u32 virt_addr) {
     // check if the page directory entry is present
     if (!pd[pd_index].present) {
         // allocate a new page table
-        PageTableEntry* new_pt = (PageTableEntry*)kmalloc(4096);
-        memset(new_pt, 0, 4096);
+        PageTableEntry* new_pt = (PageTableEntry*)kmalloc_aligned(4096, 4096);
+        // *(int*)new_pt = 0;
+        memset(new_pt, 0, sizeof(PageTableEntry) * 1024);
 
         // set up the page directory entry
         pd[pd_index].present = true;

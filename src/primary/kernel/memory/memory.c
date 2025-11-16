@@ -4,6 +4,7 @@
 #include <modules/modules.h>
 #include <display/simple/display.h>
 #include <exception/exception.h>
+#include <timer/PIT.h>
 
 // Similar to how Linux does it,
 // we can keep track of free memory pages
@@ -28,7 +29,7 @@ u32 smap_count;
 // simple bump allocator for frames
 u32 next_frame_addr = 0;
 
-u32 look_for_usable_frame(int after) {
+u32 look_for_usable_frame(u32 after) {
     for (u32 i = 0; i < smap_count; i++) {
         SMAP_entry* entry = &smap[i];
         if (entry->Type == 1) { // usable RAM
@@ -48,32 +49,31 @@ u32 look_for_usable_frame(int after) {
             }
         }
     }
+    return 0; // out of memory
 }
 
 void init_frame_alloc() {
     // let's look for the first memory address after 0x400000 that's ok to use
-    next_frame_addr = look_for_usable_frame(0x400000);
-    if (next_frame_addr == 0) panic("Out of memory while allocating page");
+    next_frame_addr = 0x400000;//look_for_usable_frame(0x400000);
+    if (next_frame_addr == 0) {
+        // while(1);
+        panic("Out of memory while allocating frame");
+    }
 }
 
 u32 alloc_frame() {
     u32 frame = next_frame_addr;
     next_frame_addr = look_for_usable_frame(next_frame_addr + 0x1000);
-    if (next_frame_addr == 0) panic("Out of memory while allocating page");
+    if (next_frame_addr == 0) {
+        // while(1);
+        panic("Out of memory while allocating frame");
+    }
     return frame;
 }
 
 void free_frame() {}
 
 void init_mem() {
-    // set up paging first obv.
-    paging_init();
-
-    // we have free pages, but to allocate them, we need kmalloc
-    // to have open space in the dymem region. This region is from
-    // 0x100000 to 0x3FFFFF which is about 3MB. 
-    kmalloc_init((void*)MEM_BLOCK_START, MEM_BLOCK_END - MEM_BLOCK_START);
-
     // the BIOS should have dumped the memory map at 0x2000
     // so let's allocate memory so it's not going to get overwritten.
     smap_count = *(u32*)0x2000;
@@ -92,6 +92,18 @@ void init_mem() {
         }
     }
     printf("Total Usable RAM: %d MiB\n", total_mem / 1024 / 1024);
+
+    // set up paging first obv.
+    paging_init();
+
+    // we have free pages, but to allocate them, we need kmalloc
+    // to have open space in the dymem region. This region is from
+    // 0x100000 to 0x3FFFFF which is about 3MB. 
+    // Using my current crappy implementation of kmalloc, it should be
+    // autosetup.
+    // kmalloc_init((void*)MEM_BLOCK_START, MEM_BLOCK_END - MEM_BLOCK_START);
+
+    
 
     // Final thing we need is a frame address allocator
     // that can give out 4KB aligned physical addresses

@@ -16,6 +16,7 @@
 #include <fat32/fat32.h>
 #include <systemcalls/calls/calls.h>
 #include <memory/paging.h>
+#include <elfloader/elfloader.h>
 
 /* In our kernel, we can reserve memory
  * 0x100000-0x1FFFFF for the storage of heap data (like variables)
@@ -25,7 +26,6 @@
 // YO THIS GUY ONLINE WAS ACT LEGIT :skull:
 
 extern void ahsh();
-extern void entryuser32();
 
 static Fat fat;
 
@@ -95,6 +95,12 @@ int main() {
     }
     printf("Done\n");
 
+    // adds items to the 0x100000-0x3FFFFFF region
+    // to store paging files and memory management stuff.
+    init_mem();
+    STI();
+    printf("Target complete: memory\n");
+
     // now initialise disk
     ide_initialize(0x1F0, 0x3F6, 0x170, 0x376, 0x000);
     printf("Target complete: disk\n");
@@ -103,12 +109,14 @@ int main() {
         printf("Failed to mount primary partition, critical error.");
         return -1;
     }
-    
 
     syscall_install();
 
     // We are starting a new "process" now
     // Open the 3 file descriptors for stdin, stdout, stderr
+    open_fds[0].exists = true;
+    open_fds[1].exists = true;
+    open_fds[2].exists = true;
     open_fds[0].id = 0;
     open_fds[0].type = 0; // device
     open_fds[0].identifier = "/Devices/stdin";
@@ -119,21 +127,19 @@ int main() {
     open_fds[2].type = 0; // device
     open_fds[2].identifier = "/Devices/stderr";
 
-    init_mem();
-    printf("Target complete: memory\n");
+    printf("Ready to load elf, enter path: ");
+    char elf_path[127] = "/primary/atf.aex";
+    // input(elf_path, 127);
+    if (is_elf(elf_path) == 0) {
+        printf("ELF file detected, loading...\n");
+        if (elf_load_and_run(elf_path) != 0) {
+            printf("Failed to load and run ELF file.\n");
+        }
+    } else {
+        printf("The specified file is not a valid ELF file.\n");
+    }
 
-    printf("just testing virtual memory\n");
-    alloc_page(0xc0000000); // allocate a page at 1GB
-    u32* test = (u32*)0xc0000000;
-    printf("current val: %p", *test);
-    *test = 0x12345678;
-    printf(" new val: %p", *test);
-    free_page(0xc0000000);
-    sleep(1);
-    printf("\n\nfreed page at 0xc0000000: %p\n", *((u32*)0xc0000000));
-
-    while(1);
-    entryuser32();
+    sleep(2);
 
     reboot();
 }

@@ -92,10 +92,10 @@ isr_common:
     push gs
 
     mov ax, 0x10
-    mov ax, ds
-    mov ax, es
-    mov ax, fs
-    mov ax, gs
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
     cld
 
     push esp

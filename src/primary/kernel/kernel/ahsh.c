@@ -132,7 +132,7 @@ void playmusiccmd() {
             return;
         }
         err = fat_file_read(&file, buf, 512, &cnt);
-        memcpy((void*)0x200000 + times++ * 512, buf, cnt);
+        // memcpy((void*)0x200000 + times++ * 512, buf, cnt);
         totalcnt += cnt;
         if (cnt != 512)
             break;
@@ -142,9 +142,9 @@ void playmusiccmd() {
     if (err) {
         printf("Failed to close file '%s', error code %d\n", "/primary/musictrack", err);
     }
-    u8* musictrack = (u8*)0x200000;
+    // u8* musictrack = (u8*)0x200000;
     printf("loaded song data, playing...\n");
-    pcs_play_8bit(musictrack, totalcnt);
+    // pcs_play_8bit(musictrack, totalcnt);
 }
 
 extern void ata_lba_read(uint32_t lba, uint8_t sectors, void* buffer);

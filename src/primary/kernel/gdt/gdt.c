@@ -119,11 +119,13 @@ void set_kernel_stack(u32 stack) { // Used when an interrupt occurs
 void flush_tss(void);
 void load_gdt(void* descriptor);
 
+gdt_entry gdt_entries[6];
+
 // we already have a GDT but it's the bare minimum and we can't 
 // check on it. it's unknown to the kernel which is bad.
 // it's also likely to get overwritten.
 void gdt_init() {
-    gdt_entry* gdt = (void*)(0xFFC0);
+    gdt_entry* gdt = gdt_entries;
     // reset the memory
     memset(gdt, 0, sizeof(gdt_entry) * 6);
 

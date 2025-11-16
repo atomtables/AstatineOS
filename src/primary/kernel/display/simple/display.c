@@ -411,9 +411,7 @@ void print(char* str) { __append_string__(str); }
  * @param str The char* to print.
  * @param color The color to print in.
  */
-void print_color(char* str, const u8 color) {
-    for (int i = 0; str[i] != '\0'; i++) { __append_char_color__(str[i], color); }
-}
+void print_color(char* str, const u8 color) { __append_string_color__(str, color); }
 
 /**
  * Print a char* to the screen with an

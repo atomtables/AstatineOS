@@ -15,7 +15,7 @@ struct LBA {
     uint32_t high;
 };
 
-bool fake() {return 0;}
+bool fake() {return true;}
 bool read(uint8_t* buf, uint32_t sect) {
     ata_lba_read((uint32_t)sect, 1, buf);
     return true;
@@ -36,7 +36,7 @@ void printn(char* buf, int x) {
 }
 
 char* xtoa_padded(uint32_t number, char* str);
-void main() {
+int main() {
     print("started");
     DiskOps ops = {
         .read = read,
@@ -47,18 +47,18 @@ void main() {
     int err = fat_probe(&ops, 1);
     if (err != 0) {
         print("failed probe");
-        return;
+        return 0;
     }
     if ((err = fat_mount(&ops, 1, &fat, "mnt")) != 0) {
         print("failed mount");
-        return;
+        return 0;
     }
     err = fat_file_open(&file, "/mnt/kernel.bin", FAT_READ);
     if (err) {
         char buf[64];
         xtoa_padded(err, buf);
         print(buf);
-        return;
+        return 0;
     }
     int cnt = 0;
     int times = 0;
@@ -66,13 +66,17 @@ void main() {
     while (1) {
         if (err) {
             print("failed read");
-            return;
+            if (err == FAT_ERR_EOF) {
+              print("EOF");  
+            }
+            while(1);
         }
         err = fat_file_read(&file, buf, 512, &cnt);
         memcpy((void*)0x10000 + times++ * 512, buf, cnt);
         if (cnt != 512)
             break;
     }
+
     err = fat_file_close(&file);
     fat_umount(&fat);
 

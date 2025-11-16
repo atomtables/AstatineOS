@@ -13,7 +13,7 @@ set -e
     DD=dd
     MV=mv
     MKDIR=mkdir
-    QEMU=qemu-system-x86_64
+    QEMU=qemu-system-i386
     MKABP=mkabp
     XXD=xxd
 
@@ -49,7 +49,7 @@ set -e
 # ───────────────────────────────────────────────
 
     NASMFLAGS="-felf"
-    LDFLAGS="-m elf_i386 -Ttext 0x10000 --oformat binary"
+    LDFLAGS="-m elf_i386 -Ttext 0x10000 --oformat binary -Map kernel.map"
     CCFLAGS_KERNEL="-m32 -std=gnu11 -O2 -g -Wall -Wextra -Wpedantic -Wstrict-aliasing \
     -Wno-pointer-arith -Wno-unused-parameter -fno-delete-null-pointer-checks \
     -nostdlib -nostdinc -ffreestanding -fno-pie -fno-stack-protector \
@@ -85,12 +85,41 @@ set -e
     BOOTLOADER_SRC_CHANGED=false
 
 
+# ───────────────────────────────────────────────
+# Switches
+# ───────────────────────────────────────────────
+
 NO_BUILD=false
+RUN=false
+CLEAN=false
+WITH_GDB=
 for arg in "$@"; do
   if [ $arg = "--no-build" ]; then
       NO_BUILD=true
   fi
+  if [ $arg = "run" ]; then
+      RUN=true
+  fi
+  if [ $arg = "clean" ]; then
+      CLEAN=true
+  fi
+  if [ $arg = "--with-gdb" ]; then
+      WITH_GDB="-s -S"
+  fi
 done
+
+# ───────────────────────────────────────────────
+# CLEAN BUILD
+# ───────────────────────────────────────────────
+if [ "$CLEAN" = true ]; then
+    echo "[*] Cleaning build directory..."
+    rm -rf "$BUILD_DIR" "$PRODUCT_DIR"
+    exit 0
+fi
+
+# ───────────────────────────────────────────────
+# BUILD PROCESS
+# ───────────────────────────────────────────────
 
 if [ "$NO_BUILD" = false ]; then
     if [ -e ".build.log" ]; then
@@ -264,7 +293,7 @@ fi
 # RUN IN QEMU
 # ───────────────────────────────────────────────
 
-if [[ "$1" == "run" ]]; then
+if [ "$RUN" = true ]; then
     echo "[*] Launching QEMU..."
-    $QEMU $QEMUFLAGS -drive file="$FINAL_ISO,format=raw,index=0,media=disk"
+    $QEMU $QEMUFLAGS -drive file="$FINAL_ISO,format=raw,index=0,media=disk" $WITH_GDB
 fi

@@ -3,10 +3,14 @@
 
 #include <modules/modules.h>
 
-void kmalloc_init(void* start, u32 size);
+#define MEM_BLOCK_BYTE_SIZE 32
+#define MEM_BLOCK_START     0x100000
+#define MEM_BLOCK_END       0x3fffff
+
 void* kmalloc(u32 size);
+void* kmalloc_aligned(const u32 bytes, const u32 alignment);
 void kfree(void* ptr);
-void* kcalloc(const int bytes);
+void* kcalloc(const u32 bytes);
 void* krealloc(void* ptr, u32 bytes);
 
 #endif //MALLOC_H
