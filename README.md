@@ -20,6 +20,13 @@ the bootstrap code, if ran, will attempt to run a BOOT.AEX file.
 
 There's also a package available that you can just `./configure && make && make install` in releases
 
+## Toolchain and libc
+I don't feel like writing a compiler by myself (obviously) so there is an i686-gcc toolchain for AstatineOS and also a i686-libc courtesy of newlib.
+The specific versions that include the changes I made are below.
+- i686-astatine-binutils: (https://github.com/atomtables/i686-astatine-binutils)[https://github.com/atomtables/i686-astatine-binutils]
+- i686-astatine-gcc: (https://github.com/atomtables/i686-astatine-gcc)[https://github.com/atomtables/i686-astatine-gcc]
+- newlib-astatine: (https://github.com/atomtables/newlib_astatine)[https://github.com/atomtables/newlib_astatine]
+
 ## current features (more planned these are just the ones i can think of)
 - [x] bootloader
 - [x] splash screen
@@ -33,16 +40,17 @@ There's also a package available that you can just `./configure && make && make 
 - [X] paging
 - [X] virtual memory
 - [ ] long mode (64-bit)
-- [ ] libraries
+- [X] libraries (newlib)
 - [x] custom boot filesystem for loading boot image (instead of being sane and pulling a grub)
-- [ ] os-specific toolchain for building apps
+- [x] os-specific toolchain for building apps
 - [ ] libc or any functions to run apps that don't involve building them yourselves
 - [ ] sound support (technically exists but 1-bit sound is kinda sad even for 1995)
 - [ ] modular driver support
 - [ ] documentation
 - [x] custom build system (hey if it works it works)
 - [x] kernelmode code execution
-- [ ] usermode applications
+- [X] usermode applications (technically)
+- [ ] tele-type-writer mode (graphical text interface) (lowk the priority now)
 
 ## goals
 As far as (literally everyone) says, 32-bit is mostly doomed and you should go for a 64-bit kernel. For the
