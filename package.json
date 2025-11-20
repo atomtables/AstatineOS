@@ -1,0 +1,10 @@
+{
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/which": "^3.0.4"
+  },
+  "dependencies": {
+    "glob": "^13.0.0",
+    "which": "^6.0.0"
+  }
+}
