@@ -97,6 +97,7 @@ isr_common:
     mov fs, ax
     mov gs, ax
     cld
+    sti
 
     push esp
     call isr_handler

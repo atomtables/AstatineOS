@@ -301,9 +301,11 @@ void ide_initialize(u32 BAR0, u32 BAR1, u32 BAR2, u32 BAR3, u32 BAR4) {
     channels[ATA_SECONDARY].ctrl  = (BAR3 & 0xFFFFFFFC) + 0x376 * (!BAR3);
     channels[ATA_PRIMARY  ].bmide = (BAR4 & 0xFFFFFFFC) + 0; // Bus Master IDE
     channels[ATA_SECONDARY].bmide = (BAR4 & 0xFFFFFFFC) + 8; // Bus Master IDE
+
     // 2- Disable IRQs: (irqs are pain just poll esp because this driver is a singletasking driver.)
     ide_write(ATA_PRIMARY  , ATA_REG_CONTROL, 2);
     ide_write(ATA_SECONDARY, ATA_REG_CONTROL, 2);
+
     // 3- Detect ATA-ATAPI Devices:
     for (i = 0; i < 2; i++) // for each controller
         for (j = 0; j < 2; j++) { // for each drive
@@ -410,7 +412,8 @@ u8 ide_ata_access(u8 direction, u8 drive, u32 lba, u8 numsects, void* buffer) {
     ide_write(channel, ATA_REG_CONTROL, channels[channel].nIEN = (ide_irq_invoked = 0x0) + 0x02);
 
     // (I) Select one from LBA28, LBA48 or CHS;
-    if (lba >= 0x10000000) { // Sure Drive should support LBA in this case, or you are
+    if (ide_devices[drive].capabilities & 0x200 && lba >= 0x10000000) { 
+                             // Sure Drive should support LBA in this case, or you are
                              // giving a wrong LBA. (ig this guy's idea is that either the drive
                              // is broken or you're a dumbass if you give a large LBA when the
                              // drive doesn't support which is lowk valid.)

@@ -6,9 +6,10 @@
 // sample syscall handler to check out stuff
 void handler(struct registers* regs) {
     if (regs->eax < sizeof(syscall_handlers)) {
+        // so we just look for any syscall_handlers that are installed.
         syscall_handlers[regs->eax](regs);
     } else {
-        return;
+        return; //-1;
     }
 }
 

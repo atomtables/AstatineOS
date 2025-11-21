@@ -184,7 +184,7 @@ void isr_init() {
             isrs[i].index, 
             isrs[i].stub, 
             0x08, 
-            ISR_PRESENT | ISR_RING0 | ISR_TYPE_INTERRUPT_32
+            ISR_PRESENT | ISR_RING0 | ISR_TYPE_TRAP_32
         );
     }
 
@@ -192,7 +192,7 @@ void isr_init() {
         isrs[48].index, 
         isrs[48].stub, 
         0x08,
-        ISR_PRESENT | ISR_RING3 | ISR_TYPE_INTERRUPT_32
+        ISR_PRESENT | ISR_RING3 | ISR_TYPE_TRAP_32
     );
 
     for (u32 i = 0; i < 32; i++) {

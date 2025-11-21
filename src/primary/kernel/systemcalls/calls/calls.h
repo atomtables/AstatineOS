@@ -6,21 +6,33 @@
 
 // End execution of the current process
 // stubbed by crashing the system. 
-void abort(struct registers* regs);
+int abort(struct registers* regs);
 
 // Write to a file or device
-void write(struct registers* regs);
+int write(struct registers* regs);
+
+// Read from a file or device
+int read(struct registers* regs);
 
 // File descriptor structure
 struct fd {
-    u16     type;       // 0 = device, 1 = file
-    u8      exists;     // 1 if fd is open;
-    u32     id;         // fd number
-    u32     position;   // current position in the file
-    char*   identifier;
+    u8          exists;     // 1 if fd is open;
+    u8          mode;
+    u32         position;   // current position in file
+    void*       internal;   // driver specific data
+    struct fop* fops;
+};
+
+// File entry structure
+// This will pretty much be like an operation table
+struct fop {
+    int(* read)(struct fd* self, void* buffer, u32 size);
+    int(* write)(struct fd* self, const void* buffer, u32 size);
+    int(* open)(struct fd* self, char* identifier, u8 mode);
+    int(* close)(struct fd* self);
 };
 
 extern struct fd open_fds[256];
-extern void(* syscall_handlers[500])(struct registers* regs);
+extern int(* syscall_handlers[500])(struct registers* regs);
 
 #endif

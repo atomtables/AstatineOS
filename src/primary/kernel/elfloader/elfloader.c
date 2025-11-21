@@ -116,7 +116,7 @@ int elf_load_and_run(char* file_path) {
     alloc_page(highest_addr + 0x2000);
 
     printf("Loading usermode program in 2 seconds...");
-    sleep(2000);
+    // sleep(2000);
     clear_screen();
     printf("goodbye kernel! hello user!\n");
 

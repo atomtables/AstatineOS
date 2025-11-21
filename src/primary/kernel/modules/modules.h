@@ -37,8 +37,8 @@ typedef u8 bool;
 #define ret_if(_cond)   if (_cond) return
 
 #define _assert_0()         __error_illegal_macro__
-#define _assert_1(_e)       do { if (!(_e)) __asm__("int3"); } while (0)
-#define _assert_2(_e, _m)   do { if (!(_e)) __asm__("int3"); } while (0)
+#define _assert_1(_e)       do { if (!(_e)) panic("assertion failed " __LINE__ __FILE__); } while (0)
+#define _assert_2(_e, _m)   do { if (!(_e)) panic("assertion failed " __LINE__ __FILE__); } while (0)
 
 #define _assert(x, _e, _m, _f, ...) _f
 

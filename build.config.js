@@ -124,9 +124,10 @@ export default {
             depends: ["bootsector", "bootloader", "fat32"],
             build: [
                 "mkdir -p $PRODUCT",
-                "$DD bs=512 count=1 if=$BUILD/boot.bin of=$PRODUCT/AstatineOS.img conv=notrunc",
-                "$DD bs=512 if=$BUILD/abp.bin of=$PRODUCT/AstatineOS.img seek=1 conv=notrunc",
-                "$DD bs=512 if=$BUILD/fat32.img of=$PRODUCT/AstatineOS.img seek=$BOOTLOADER_FILE conv=notrunc"
+                "$DD bs=512 count=1 if=$BUILD/boot.bin of=$BUILD/AstatineOS.img conv=notrunc",
+                "$DD bs=512 if=$BUILD/abp.bin of=$BUILD/AstatineOS.img seek=1 conv=notrunc",
+                "$DD bs=512 if=$BUILD/fat32.img of=$BUILD/AstatineOS.img seek=$BOOTLOADER_FILE conv=notrunc",
+                "mv $BUILD/AstatineOS.img $PRODUCT/AstatineOS.img"
             ]
         }
     ],
@@ -142,6 +143,19 @@ export default {
             depends: ["image"],
             run: [
                 "$QEMU -monitor stdio -d int,in_asm -D qemu.log -audiodev coreaudio,id=audio0 -machine pcspk-audiodev=audio0 -debugcon file:qemu.log -no-reboot -no-shutdown -drive file=\"$PRODUCT/AstatineOS.img\",format=raw,index=0,media=disk -m 512M"
+            ]
+        },
+        {
+            name: "qemu-gdb",
+            require: {
+                tools: {
+                    "qemu-system-i386": "QEMU"
+                },
+                directories: {"product": "PRODUCT"}
+            },
+            depends: ["image"],
+            run: [
+                "$QEMU -s -S -monitor stdio -d int,in_asm -D qemu.log -audiodev coreaudio,id=audio0 -machine pcspk-audiodev=audio0 -debugcon file:qemu.log -no-reboot -no-shutdown -drive file=\"$PRODUCT/AstatineOS.img,format=raw,index=0,media=disk\" -m 512M"
             ]
         }
     ]

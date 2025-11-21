@@ -35,6 +35,15 @@ u32     listedCount;
 
 // no support for nested dirs rn
 int main(const int argc, char** argv) {
+    if (argc == 2 && argv != NULL) {
+        if (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "--version") == 0) {
+            printf("mkabp version 0.1.0\n");
+            return 0;
+        } else {
+            printf("Usage: mkabp <input directory> [output file]\n");
+            return 1;
+        }
+    }
     // we need the folder where all the files will be stored, so that should be the first positional argument
     if (argc > 1) inputDirName = argv[1];
     else {

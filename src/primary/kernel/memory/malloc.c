@@ -24,9 +24,9 @@ struct metadata {
     void*   address;
     u32     size;
     u32     start_block;
-} __attribute__((packed)) _items_arr[1024];
+} __attribute__((packed)) _items_arr[1];
 struct metadata* items = null;
-size_t items_size = 1024;
+size_t items_size = 0;
 size_t items_count = 0;
 
 /**
@@ -51,6 +51,17 @@ static void reserve_block(const int block) {
     const int byte = block / 8;
     const int bit = block % 8;
     mem.memfree[byte] = BIT_SET(mem.memfree[byte], bit, 1);
+}
+
+static void _alloc_items() {
+    items = &_items_arr[0];
+    items_size = 1;
+    struct metadata* new_items = kmalloc(sizeof(struct metadata) * 1024);
+    struct metadata last_item = items[0];
+    items = new_items;
+    items[0] = last_item;
+    items_size = 1024;
+    items_count = 1;
 }
 
 static void _realloc_items() {
@@ -88,8 +99,7 @@ void* kmalloc_aligned(const size_t bytes, const size_t alignment) {
                 for (int j = start; j < start + blocks; j++)
                     reserve_block(j);
                 if (!items) {
-                    items = &_items_arr[0];
-                    items_size = 1024;
+                    _alloc_items();
                 }
                 if (items_count >= items_size) {
                     // resize

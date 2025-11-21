@@ -210,18 +210,33 @@ async function configure() {
     await getBuildFiles();
 }
 
+// get last modified time of a file or directory
+async function getCreationDateOfPath(path: string): Promise<number> {
+    try {
+        let stat = await promisify(fs.stat)(path);
+        return stat.mtimeMs;
+    } catch {
+        return 0;
+    }
+}
+
 async function buildTarget() {
     console.log(`-> Starting build for target "${primaryTarget}"...`);
     // Step 0: create the build directory
     if (!fs.existsSync(projectConfiguration.build)) {
         fs.mkdirSync(projectConfiguration.build, { recursive: true });
     }
-    // Step 1: let's see what our target is.
+
     let target = projectConfiguration.targets.find((t: any) => t.name === primaryTarget);
+    // Step 1: let's see what our target is.
     if (!target) {
         console.error(`Error: Target "${primaryTarget}" not found.`);
         exit(1);
     }
+
+    // Step 1.5: see if the target is newer than its dependencies
+    // if so, we can skip the build entirely
+    let targetTime = await getCreationDateOfPath(escapeCommand(target.output, target.require || {}, "./"));
     // Step 2: let's find dependencies first and foremost.
     // these deps need to be built first.
     for (let dep of (target.depends || [])) {
@@ -245,8 +260,12 @@ async function buildTarget() {
                 // the build commands, replacing the escapes as needed.
                 if (buildFile.build && isIterable(buildFile.build)) {
                     for (let command of buildFile.build) {
+                        let promises = [];
                         if (command.type === "command") {
                             let commandStr = escapeCommand(command.command, buildFile.require || {}, dir);
+
+                            projectConfiguration.locations.find(({name}: any) => name === depLocation.name).wasModified = true;
+
                             if (command.prerequisites) {
                                 for (let [prereqCommand, prereqVar] of command.prerequisites as ([string, string])[]) {
                                     let escapedPrereq = escapeCommand(prereqCommand, buildFile.require || {}, dir);
@@ -258,12 +277,13 @@ async function buildTarget() {
                                     commandStr = commandStr.replaceAll(`$${prereqVar}`, prereqResult.stdout.trim());
                                 }
                             }
-                            console.misc(`   -> ${commandStr}`);
-                            await runCommand("bash", ["-c", commandStr]).catch(({ code, stdout, stderr }) => {
+                            promises.push(runCommand("bash", ["-c", commandStr]).then(() => {
+                                console.misc(`   -> ${commandStr}`); 
+                            }).catch(({ code, stdout, stderr }) => { 
                                 console.error(`   Error: Command failed with code ${code}`);
                                 console.info(stderr);
                                 exit(1);
-                            });
+                            }))
                         } else if (command.type === "foreach") {
                             let inputPattern = escapeCommand(command.input, buildFile.require || {}, dir);
                             let outputPattern = escapeCommand(command.output, buildFile.require || {}, dir);
@@ -284,6 +304,9 @@ async function buildTarget() {
                                     if (subcommand.type === "command") {
                                         let finalCommand = subcommand.command.replaceAll("$INPUT", inputFile).replaceAll("$OUTPUT", outputFile);
                                         finalCommand = escapeCommand(finalCommand, buildFile.require || {}, dir);
+
+                                        projectConfiguration.locations.find(({name}: any) => name === depLocation.name).wasModified = true;
+
                                         if (subcommand.prerequisites) {
                                             for (let [prereqCommand, prereqVar] of subcommand.prerequisites as ([string, string])[]) {
                                                 let escapedPrereq = escapeCommand(prereqCommand, buildFile.require || {}, dir);
@@ -295,16 +318,19 @@ async function buildTarget() {
                                                 finalCommand = finalCommand.replaceAll(`$${prereqVar}`, prereqResult.stdout.trim());
                                             }
                                         }
-                                        console.misc(`   -> ${finalCommand}`);
-                                        await runCommand("bash", ["-c", finalCommand]).catch(({ code, stdout, stderr }) => {
+                                        
+                                        promises.push(runCommand("bash", ["-c", finalCommand]).then(() => {
+                                            console.misc(`   -> ${finalCommand}`);
+                                        }).catch(({ code, stdout, stderr }) => {
                                             console.error(`   Error: Command failed with code ${code}`);
                                             console.info(stderr);
                                             exit(1);
-                                        });
+                                        }))
                                     }
                                 }
                             }
                         }
+                        await Promise.all(promises);
                     }
                 }
                 // finally, we collect the installed files
@@ -325,31 +351,41 @@ async function buildTarget() {
                 }
             }
         }
-        let nextCommands = depLocation.build(collectedFiles);
-        for (let command of nextCommands) {
-            let commandStr = escapeCommand(command, depLocation.require, "./");
-            if (command.prerequisites) {
-                for (let [prereqCommand, prereqVar] of command.prerequisites as ([string, string])[]) {
-                    let escapedPrereq = escapeCommand(prereqCommand, command.require || {}, "./");
-                    let prereqResult = await runCommand("bash", ["-c", escapedPrereq]).catch(({ code, stdout, stderr }) => {
-                        console.error(`   Error: Prerequisite command failed with code ${code}`);
-                        console.info(stderr);
-                        exit(1);
-                    });
-                    commandStr = commandStr.replaceAll(`$${prereqVar}`, prereqResult.stdout.trim());
+        if (projectConfiguration.locations.find(({name}: any) => name === depLocation.name).wasModified) {
+            projectConfiguration.targets.find(({name}: any) => name === primaryTarget).wasModified = true;
+
+            let nextCommands = depLocation.build(collectedFiles);
+            for (let command of nextCommands) {
+                let commandStr = escapeCommand(command, depLocation.require, "./");
+                if (command.prerequisites) {
+                    for (let [prereqCommand, prereqVar] of command.prerequisites as ([string, string])[]) {
+                        let escapedPrereq = escapeCommand(prereqCommand, command.require || {}, "./");
+                        let prereqResult = await runCommand("bash", ["-c", escapedPrereq]).catch(({ code, stdout, stderr }) => {
+                            console.error(`   Error: Prerequisite command failed with code ${code}`);
+                            console.info(stderr);
+                            exit(1);
+                        });
+                        commandStr = commandStr.replaceAll(`$${prereqVar}`, prereqResult.stdout.trim());
+                    }
                 }
+                console.misc(`   -> ${commandStr}`);
+                await runCommand("bash", ["-c", commandStr]).catch(({ code, stdout, stderr }) => {
+                    console.error(`   Error: Command failed with code ${code}`);
+                    console.info(stderr);
+                    exit(1);
+                });
             }
-            console.misc(`   -> ${commandStr}`);
-            await runCommand("bash", ["-c", commandStr]).catch(({ code, stdout, stderr }) => {
-                console.error(`   Error: Command failed with code ${code}`);
-                console.info(stderr);
-                exit(1);
-            });
+        } else {
+            console.misc(`   -> Using cached build for "${depLocation.name}"`);
         }
     }
     // Step 3: We built all the dependencies to the target
     // so now we build the actual target
     // very simple since targets are assumed to be commands only with no dynamics
+    if (!projectConfiguration.targets.find(({name}: any) => name === primaryTarget).wasModified) {
+        console.misc(`   -> Using cached build for target "${primaryTarget}"`);
+        return;
+    }
     let targetPrerequisites: any = {};
     if (target.prerequisites) {
         for (let [prereqCommand, prereqVar] of target.prerequisites as ([string, string])[]) {
@@ -364,7 +400,7 @@ async function buildTarget() {
     }
     for (let command of target.build) {
         let commandStr = escapeCommand(command, target.require, "./");
-        for (let [prereqVar, prereqValue] of Object.entries(targetPrerequisites)) {
+        for (let [prereqVar, prereqValue] of Object.entries(targetPrerequisites) as [string, string][]) {
             commandStr = commandStr.replaceAll(`$${prereqVar}`, prereqValue);
         }
         console.misc(`   -> ${commandStr}`);
@@ -394,6 +430,7 @@ async function main() {
             primaryTarget = dep;
             await buildTarget();
         }
+        await new Promise(resolve => setTimeout(resolve, 1000));
         console.info(`-> Starting debug target "${debugTargetName}"...`);
         for (let command of debugTarget.run) {
             let commandStr = escapeCommand(command, debugTarget.require, "./");

@@ -17,6 +17,7 @@
 #include <systemcalls/calls/calls.h>
 #include <memory/paging.h>
 #include <elfloader/elfloader.h>
+#include <terminal/terminal.h>
 
 /* In our kernel, we can reserve memory
  * 0x100000-0x1FFFFF for the storage of heap data (like variables)
@@ -114,32 +115,22 @@ int main() {
 
     // We are starting a new "process" now
     // Open the 3 file descriptors for stdin, stdout, stderr
-    open_fds[0].exists = true;
-    open_fds[1].exists = true;
-    open_fds[2].exists = true;
-    open_fds[0].id = 0;
-    open_fds[0].type = 0; // device
-    open_fds[0].identifier = "/Devices/stdin";
-    open_fds[1].id = 1;
-    open_fds[1].type = 0; // device
-    open_fds[1].identifier = "/Devices/stdout";
-    open_fds[2].id = 2;
-    open_fds[2].type = 0; // device
-    open_fds[2].identifier = "/Devices/stderr";
+    terminal_install();
 
-    printf("Ready to load elf, enter path: ");
-    char elf_path[127] = "/primary/atf.aex";
-    // input(elf_path, 127);
-    if (is_elf(elf_path) == 0) {
-        printf("ELF file detected, loading...\n");
-        if (elf_load_and_run(elf_path) != 0) {
-            printf("Failed to load and run ELF file.\n");
+    while(1) {
+        clear_screen();
+        printf("Ready to load elf, enter path: ");
+        char elf_path[127] = "";
+        input(elf_path, 127);
+        if (is_elf(elf_path) == 0) {
+            printf("ELF file detected, loading...\n");
+            if (elf_load_and_run(elf_path) != 0) {
+                printf("Failed to load and run ELF file.\n");
+            }
+        } else {
+            printf("The specified file is not a valid ELF file.\n");
         }
-    } else {
-        printf("The specified file is not a valid ELF file.\n");
     }
-
-    sleep(2);
 
     reboot();
 }

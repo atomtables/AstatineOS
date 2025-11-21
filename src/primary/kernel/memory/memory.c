@@ -103,8 +103,6 @@ void init_mem() {
     // autosetup.
     // kmalloc_init((void*)MEM_BLOCK_START, MEM_BLOCK_END - MEM_BLOCK_START);
 
-    
-
     // Final thing we need is a frame address allocator
     // that can give out 4KB aligned physical addresses
     // for paging purposes.

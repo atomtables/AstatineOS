@@ -23,9 +23,15 @@ void page_set_kernel(PageTableEntry* pt, u32 index) {
 
 PageDirectoryEntry* pd = (PageDirectoryEntry*)0x1000;
 
+u16* page_directory_counts;
+
 void paging_init() {
-    CLI();
-    // Ok so the smart (dumb) thing to do here is
+    // let's keep count of page tables to dynamically allocate and
+    // free them as necessary.
+    page_directory_counts = (u16*)kmalloc(sizeof(u16) * 1024);
+    memset(page_directory_counts, 0, sizeof(u16) * 1024);
+
+    // Ok so the smart thing to do here is
     // put our paging directory at 0x1000.
     // Since we aren't going to use real-mode 
     // anymore.
@@ -55,6 +61,7 @@ void paging_init() {
     for (u32 i = 0x0000; i < 0x400000; i += 0x1000) {
         u32 index = i >> 12;
         page_set_kernel(pt, index);
+        page_directory_counts[0]++;
     }
 
     // screw this this was a stupid idea to put
@@ -64,8 +71,6 @@ void paging_init() {
     // Our directory should be complete.
     // so we call the assembly helper.
     load_page_directory((u32)pd);
-
-    STI();
 }
 
 // We allocate a new 4KB page at the given virtual address
@@ -103,6 +108,8 @@ void alloc_page(u32 virt_addr) {
     pt[pt_index].allowuser = true; // allow user programs
     pt[pt_index].address = phys_addr >> 12;
 
+    page_directory_counts[pd_index]++;
+
     FLUSH_TLB(virt_addr);
 }
 void free_page(u32 virt_addr) {
@@ -124,18 +131,12 @@ void free_page(u32 virt_addr) {
     // clear the page table entry
     memset(&pt[pt_index], 0, sizeof(PageTableEntry));
 
+    page_directory_counts[pd_index]--;
+
     FLUSH_TLB(virt_addr);
 
-    bool empty = true;
-    // check from both ends towards the middle
-    for (u32 i = 0; i < 512; i++) {
-        if (pt[i].present || pt[1023 - i].present) {
-            empty = false;
-            break;
-        }
-    }
-
-    if (empty) {
+    // if the page table is now empty, free it
+    if (page_directory_counts[pd_index] == 0) {
         kfree(pt);
         memset(&pd[pd_index], 0, sizeof(pd[pd_index]));
         FLUSH_TLB(virt_addr);

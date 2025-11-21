@@ -8,9 +8,6 @@
 #include <memory/memory.h>
 #include <memory/malloc.h>
 #include <modules/strings.h>
-#include <programs/basicbasic/basicbasic.h>
-#include <programs/fungame/fungame.h>
-#include <programs/netnotes/netnotes.h>
 #include <ps2/keyboard.h>
 #include <timer/PIT.h>
 #include <fat32/fat32.h>
@@ -186,9 +183,6 @@ static Command commands[] = {
     {"echo", echo},
     {"beep", beep},
     {"sleep", onesecond},
-    {"fungame", fungame},
-    {"netnotes", netnotes},
-    {"basicbasic", basicbasic},
     {"clear", clear},
     {"reboot", reboot},
     {"crash", div0},

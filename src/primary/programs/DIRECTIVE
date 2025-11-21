@@ -1,6 +1,0 @@
-OUTPUT atf.aex
-INCLUDE fat32
-REQUIRE i686-astatine-gcc HOSTED_GCC
-BUILD_START
-$HOSTED_GCC main.c -o atf.aex
-BUILD_END
