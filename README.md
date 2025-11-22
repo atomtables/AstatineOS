@@ -5,12 +5,15 @@ Do `./build.sh` to compile, `./build.sh run` to compile and run. Before running,
 ## Dependencies
 - `nasm`
 - `i686-elf` toolchain, including `gcc` and `ld`
+- `i686-astatine` and `newlib-astatine` toolchain, see below
 - `dd`
 - `qemu` for use of `qemu-system-i386` or `qemu-system-x86_64`
 - general gnu tools like `xxd` and `autotools`
 
 ## Compilation support
 macos and linux only. when windows fixes their operating system i'll include support.
+### Build System
+uses my custom build system that's built in typescript and javascript. why? because i'd really like a completely modular build system. Cmake's good but its really restricted and doesn't work well for my needs. GNU-Make is also good but it's not nearly as modular (as far as I know I could have missed a feature) and I found that honestly a build.sh script worked better for me. Autotools probably works best with actual C executables but I haven't figured out the black magic required to get it working for this and honestly the JS system isn't THAT slow, it runs all the build commands in parallel when possible even if there's more overhead associated with running a build command compared to a .sh file.
 
 ## mkabp
 `mkabp` is a utility to create an AstatineOS Boot partition using a folder. It will create a bootable partition image, where 
@@ -83,11 +86,8 @@ Or, download an ISO from the releases section below and test it out yourself on
 
 ## it works on fake hardware bro trust me
 source: this video
-<video width="630" height="300" src="https://github.com/user-attachments/assets/9206c7fb-cbbe-4df0-9756-4d84c56ae654"></video>
-[https://github.com/user-attachments/assets/9206c7fb-cbbe-4df0-9756-4d84c56ae654](https://github.com/user-attachments/assets/9206c7fb-cbbe-4df0-9756-4d84c56ae654)
-
-
-
+<video width="630" height="300" src="https://github.com/user-attachments/assets/f21405e0-0d3d-49d5-85b6-a3b6b5fd4df3"></video>
+[https://github.com/user-attachments/assets/f21405e0-0d3d-49d5-85b6-a3b6b5fd4df3](https://github.com/user-attachments/assets/f21405e0-0d3d-49d5-85b6-a3b6b5fd4df3)
 
 
 
