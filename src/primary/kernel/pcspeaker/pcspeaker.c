@@ -33,8 +33,14 @@ void nosound() {
 // Make a beep
 void beep() {
     play_sound(587);
-    wait_and_do(50, nosound);
-    // set_PIT_2(old_frequency);
+    u32 tick = timer_get();
+    while(1) {
+        if (timer_get() - tick > 100) {
+            nosound();
+            break;
+        }
+        HLT();
+    }
 }
 
 void pcs_play_8bit(u8 *data, u32 length) {

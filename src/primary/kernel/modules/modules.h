@@ -42,6 +42,8 @@ typedef u8 bool;
 
 #define _assert(x, _e, _m, _f, ...) _f
 
+#define HLT()          asm ( "hlt" )
+
 #define assert(...) \
     _assert(,##__VA_ARGS__,\
     _assert_2(__VA_ARGS__),\

@@ -104,6 +104,7 @@ switch_to_32bit:
     ; call    READ_BIOS_KERNEL
     
     .continue:
+    call    set_graphics_mode
     call    enable_a20          ; 0. enable A20 line
     cli                         ; 1. disable interrupts
     nop                         ; 1.1. some CPUs require a delay after cli
@@ -260,6 +261,7 @@ init_32bit:                 ; we are now using 32-bit instructions
     ; hold onto the value of bx so we can read again later
     jmp     check_name
 
+%include "src/bootloader_partition/boot.aex/graphicsmode.asm"
 %include "src/bootloader_partition/boot.aex/a20.asm"
 %include "src/bootloader_partition/boot.aex/gdt.asm"
 %include "src/bootloader_partition/boot.aex/read.asm"

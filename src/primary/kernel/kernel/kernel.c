@@ -18,6 +18,7 @@
 #include <memory/paging.h>
 #include <elfloader/elfloader.h>
 #include <terminal/terminal.h>
+#include <driver_base/driver_base.h>
 
 /* In our kernel, we can reserve memory
  * 0x100000-0x1FFFFF for the storage of heap data (like variables)
@@ -116,6 +117,46 @@ int main() {
     // We are starting a new "process" now
     // Open the 3 file descriptors for stdin, stdout, stderr
     terminal_install();
+
+    clear_screen();
+    printf("Ready to load driver, enter path: ");
+    char elf_path[127] = "/primary/textmode.adv";
+    if (is_elf(elf_path) == 0) {
+        printf("ELF file detected, loading...\n");
+        File file;
+        if (fat_file_open(&file, elf_path, FAT_READ) != 0) {
+            printf("Failed to open ELF file: %s\n", elf_path);
+            char* x = "Failed to load ELF file.";
+            for (u32 i = 0; x[i] != 0x00; i++) {
+                *((u8*)0xb8000 + i * 2) = x[i];
+            }
+            reboot();
+        }
+        char* x = "loaded";
+        for (u32 i = 0; x[i] != 0x00; i++) {
+            *((u8*)0xb8000 + i * 2) = x[i];
+        }
+        if (attempt_install_driver(&file) != 0) {
+            printf("Failed to load and run ELF file.\n");
+            char* x = "Failed to load and run ELF file.";
+            for (u32 i = 0; x[i] != 0x00; i++) {
+                *((u8*)0xb8000 + i * 2) = x[i];
+            }
+            reboot();
+        }
+    } else {
+        printf("The specified file is not a valid ELF file.\n");
+        char* x = "not an elf.";
+        for (u32 i = 0; x[i] != 0x00; i++) {
+            *((u8*)0xb8000 + i * 2) = x[i];
+        }
+        reboot();
+    }
+
+    char* x = "loaded";
+    for (u32 i = 0; x[i] != 0x00; i++) {
+        *((u8*)0xb8000 + i * 2) = x[i];
+    }
 
     while(1) {
         clear_screen();

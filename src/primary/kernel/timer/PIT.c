@@ -24,42 +24,6 @@ static struct sleep_state {
     volatile bool active;
 } sleep_state;
 
-process_wait_state process_wait_states[256];
-
-void(* every_second_handlers[256])() = {null};
-
-int add_process_wait_state(u64 start, u64 end, void(* ret)()) {
-    for (int i = 0; i < 256; i++) {
-        if (process_wait_states[i].start == (u64)-1) {
-            process_wait_states[i].start = start;
-            process_wait_states[i].end = end;
-            process_wait_states[i].ret = ret;
-            return i;
-        }
-    }
-    return -1;
-}
-
-int run_every_second(void(* ret)()) {
-    for (int i = 0; i < 256; i++) {
-        if (every_second_handlers[i] == null) {
-            every_second_handlers[i] = ret;
-            return i;
-        }
-    }
-    return -1;
-}
-
-void stop_run_every_second(int i) {
-    every_second_handlers[i] = null;
-}
-
-int wait_and_do(const u64 ms, void(* ret)()) {
-    const u64 start = timer_get();
-    const u64 end = start + ms;
-    return add_process_wait_state(start, end, ret);
-}
-
 static void timer_set(int hz) {
     outportb(PIT_CONTROL, PIT_SET);
 
@@ -78,18 +42,6 @@ static void timer_handler(struct registers* regs) {
         local_ticks = 0;
         state.ticks += 1;
     }
-    // need a better solution than this.
-    for (int i = 0; i < 256; i++) {
-        if (process_wait_states[i].start != (u64)-1 && state.ticks >= process_wait_states[i].end) {
-            process_wait_states[i].ret();
-            process_wait_states[i].start = (u64)-1;
-            process_wait_states[i].end = (u64)-1;
-            process_wait_states[i].ret = null;
-        }
-        if (((u32)state.ticks) % 1000 == 0 && every_second_handlers[i] != null) {
-            every_second_handlers[i]();
-        }
-    }
 }
 
 void sleep(int ms) {
@@ -106,14 +58,6 @@ void sleep(int ms) {
 }
 
 void timer_init() {
-    // initialise the process wait storage
-    for (int i = 0; i < 256; i++) {
-        process_wait_states[i].start = -1;
-        process_wait_states[i].end = -1;
-        process_wait_states[i].ret = null;
-        every_second_handlers[i] = null;
-    }
-
     const u64 freq = REAL_FREQ_OF_FREQ(TIMER_TPS);
     printf("PIT frequency set to %u Hz\n", freq);
     state.frequency = freq;

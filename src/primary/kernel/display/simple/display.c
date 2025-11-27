@@ -12,8 +12,9 @@
 
 #include "display.h"
 #include <modules/modules.h>
+#include <driver_base/teletype/teletype.h>
 
-// module.exports
+static struct TeletypeMode mode;
 
 /**
  * Used as a temporary buffer for storing results
@@ -116,13 +117,8 @@ static u16 __get_vga_cursor_pos__() {
  * @param y The Y coordinate to set the cursor to
  */
 static void __set_vga_cursor_pos__(const int x, const int y) {
-    const u16 pos = y * VGA_TEXT_WIDTH + x;
-
-    outportb(0x3D4, 0x0F);
-    outportb(0x3D5, (u8)(pos & 0xFF));
-
-    outportb(0x3D4, 0x0E);
-    outportb(0x3D5, (u8)((pos >> 8) & 0xFF));
+    if (active_teletype_driver == null) return;
+    active_teletype_driver->set_cursor_position(x, y);
 }
 
 /**
@@ -168,23 +164,45 @@ static void __set_vga_cursor_pos__(const int x, const int y) {
  * @param character The character to write.
  */
 static void __write_char__(const int x, int y, const char character) {
-    if (character == 0) return;
-    if (x >= VGA_TEXT_WIDTH) return;
-    // if y is greater than height, set y to height-1 and move lines 1-23 to 0-22 using memcpy
-    if (y >= VGA_TEXT_HEIGHT) {
-        y = VGA_TEXT_HEIGHT - 1;
-        for (int i = 0; i < VGA_TEXT_HEIGHT - 1; i++) {
-            memcpy((void*)0xb8000 + i * VGA_TEXT_WIDTH * 2, (void*)0xb8000 + (i + 1) * VGA_TEXT_WIDTH * 2, VGA_TEXT_WIDTH * 2);
+    if (active_teletype_driver == null) return;
+    if (mode.width == 0) active_teletype_driver->get_mode(&mode);
+
+    if (mode.cells_valid) {
+        if (character == 0) return;
+        if (x >= mode.width) return;
+        // if y is greater than height, set y to height-1 and move lines 1-23 to 0-22 using memcpy
+        if (y >= mode.height) {
+            y = mode.height - 1;
+            for (int i = 0; i < mode.height - 1; i++) {
+                memcpy((void*)mode.cells + i * mode.width * 2, (void*)mode.cells + (i + 1) * mode.width * 2, mode.width * 2);
+            }
+            memset_step((void*)mode.cells + (mode.height - 1) * mode.width * 2, 0, mode.width, 2);
         }
-        memset_step((void*)0xb8000 + (VGA_TEXT_HEIGHT - 1) * VGA_TEXT_WIDTH * 2, 0, VGA_TEXT_WIDTH, 2);
+
+        u8* cell = (u8*)(mode.cells + y * mode.width * 2 + x * 2);
+        *cell = character;
+
+        __set_displaydata__(x, y);
+        __set_vga_cursor_pos__(x, y);
+    } else {
+        if (character == 0) return;
+        if (x >= mode.width) return;
+        // if y is greater than height, set y to height-1 and move lines 1-23 to 0-22 using memcpy
+        if (y >= mode.height) {
+            y = mode.height - 1;
+            for (int i = 0; i < mode.height - 1; i++) {
+                for (int j = 0; j < mode.width; j++) {
+                    active_teletype_driver->set_char(j, i, active_teletype_driver->get_char(j, i + 1) >> 8, active_teletype_driver->get_char(j, i + 1) & 0xff);
+                }
+            }
+            for (int j = 0; j < mode.width; j++) {
+                active_teletype_driver->set_char(j, mode.height - 1, 0, 0x0f);
+            }
+        }
+        active_teletype_driver->set_char(x, y, character, 0x0f);
+        __set_displaydata__(x, y);
+        __set_vga_cursor_pos__(x, y);
     }
-
-    volatile char* vga = (char*)0xb8000;
-    vga += y * VGA_TEXT_WIDTH * 2 + x * 2;
-    *vga = character;
-
-    __set_displaydata__(x, y);
-    __set_vga_cursor_pos__(x, y);
 }
 
 /**
@@ -200,22 +218,46 @@ static void __write_char__(const int x, int y, const char character) {
  * @param color The color to write
  */
 static void __write_char_color__(const int x, int y, const char character, const u8 color) {
-    if (x >= VGA_TEXT_WIDTH) return;
-    if (y >= VGA_TEXT_HEIGHT) {
-        y = VGA_TEXT_HEIGHT - 1;
-        for (int i = 0; i < VGA_TEXT_HEIGHT - 1; i++) {
-            memcpy((void*)0xb8000 + i * VGA_TEXT_WIDTH * 2, (void*)0xb8000 + (i + 1) * VGA_TEXT_WIDTH * 2, VGA_TEXT_WIDTH * 2);
+    if (active_teletype_driver == null) return;
+    if (mode.width == 0) active_teletype_driver->get_mode(&mode);
+
+    if (mode.cells_valid) {
+        if (character == 0) return;
+        if (x >= mode.width) return;
+        // if y is greater than height, set y to height-1 and move lines 1-23 to 0-22 using memcpy
+        if (y >= mode.height) {
+            y = mode.height - 1;
+            for (int i = 0; i < mode.height - 1; i++) {
+                memcpy((void*)mode.cells + i * mode.width * 2, (void*)mode.cells + (i + 1) * mode.width * 2, mode.width * 2);
+            }
+            memset_step((void*)mode.cells + (mode.height - 1) * mode.width * 2, 0, mode.width, 2);
         }
-        memset_step((void*)0xb8000 + (VGA_TEXT_HEIGHT - 1) * VGA_TEXT_WIDTH * 2, 0, VGA_TEXT_WIDTH, 2);
+
+        u8* cell = (u8*)(mode.cells + y * mode.width * 2 + x * 2);
+        *cell = character;
+        *(cell + 1) = color;
+
+        __set_displaydata__(x, y);
+        __set_vga_cursor_pos__(x, y);
+    } else {
+        if (character == 0) return;
+        if (x >= mode.width) return;
+        // if y is greater than height, set y to height-1 and move lines 1-23 to 0-22 using memcpy
+        if (y >= mode.height) {
+            y = mode.height - 1;
+            for (int i = 0; i < mode.height - 1; i++) {
+                for (int j = 0; j < mode.width; j++) {
+                    active_teletype_driver->set_char(j, i, active_teletype_driver->get_char(j, i + 1) >> 8, active_teletype_driver->get_char(j, i + 1) & 0xff);
+                }
+            }
+            for (int j = 0; j < mode.width; j++) {
+                active_teletype_driver->set_char(j, mode.height - 1, 0, 0x0f);
+            }
+        }
+        active_teletype_driver->set_char(x, y, character, color);
+        __set_displaydata__(x, y);
+        __set_vga_cursor_pos__(x, y);
     }
-
-    volatile char* vga = (char*)0xb8000;
-    vga += y * VGA_TEXT_WIDTH * 2 + x * 2;
-    *vga = character;
-    *(vga + 1) = (char)color;
-
-    __set_displaydata__(x, y);
-    __set_vga_cursor_pos__(x, y);
 }
 
 /**
@@ -231,18 +273,44 @@ static void __write_char_color__(const int x, int y, const char character, const
  * @param color The color to write.
  */
 static void __write_color__(const int x, int y, const u8 color) {
-    if (x >= VGA_TEXT_WIDTH) return;
-    if (y >= VGA_TEXT_HEIGHT) {
-        y = VGA_TEXT_HEIGHT - 1;
-        for (int i = 0; i < VGA_TEXT_HEIGHT - 1; i++) {
-            memcpy((void*)0xb8000 + i * VGA_TEXT_WIDTH * 2, (void*)0xb8000 + (i + 1) * VGA_TEXT_WIDTH * 2, VGA_TEXT_WIDTH * 2);
-        }
-        memset_step((void*)0xb8000 + (VGA_TEXT_HEIGHT - 1) * VGA_TEXT_WIDTH * 2, 0, VGA_TEXT_WIDTH, 2);
-    }
+    if (active_teletype_driver == null) return;
+    if (mode.width == 0) active_teletype_driver->get_mode(&mode);
 
-    volatile char* vga = (char*)0xb8000;
-    vga += y * VGA_TEXT_WIDTH * 2 + x * 2;
-    *(vga + 1) = (char)color;
+    if (mode.cells_valid) {
+        if (x >= mode.width) return;
+        // if y is greater than height, set y to height-1 and move lines 1-23 to 0-22 using memcpy
+        if (y >= mode.height) {
+            y = mode.height - 1;
+            for (int i = 0; i < mode.height - 1; i++) {
+                memcpy((void*)mode.cells + i * mode.width * 2, (void*)mode.cells + (i + 1) * mode.width * 2, mode.width * 2);
+            }
+            memset_step((void*)mode.cells + (mode.height - 1) * mode.width * 2, 0, mode.width, 2);
+        }
+
+        u8* cell = (u8*)(mode.cells + y * mode.width * 2 + x * 2 + 1);
+        *cell = color;
+
+        __set_displaydata__(x, y);
+        __set_vga_cursor_pos__(x, y);
+    } else {
+        if (x >= mode.width) return;
+        // if y is greater than height, set y to height-1 and move lines 1-23 to 0-22 using memcpy
+        if (y >= mode.height) {
+            y = mode.height - 1;
+            for (int i = 0; i < mode.height - 1; i++) {
+                for (int j = 0; j < mode.width; j++) {
+                    active_teletype_driver->set_char(j, i, active_teletype_driver->get_char(j, i + 1) >> 8, active_teletype_driver->get_char(j, i + 1) & 0xff);
+                }
+            }
+            for (int j = 0; j < mode.width; j++) {
+                active_teletype_driver->set_char(j, mode.height - 1, 0, 0x0f);
+            }
+        }
+        u8 current_char = active_teletype_driver->get_char(x, y) >> 8;
+        active_teletype_driver->set_char(x, y, current_char, color);
+        __set_displaydata__(x, y);
+        __set_vga_cursor_pos__(x, y);
+    }
 }
 
 /**
@@ -345,18 +413,28 @@ static void __append_string_color__(char* str, const u8 color) {
  * built in.
  */
 static void __append_newline__() {
-    display_data.y++;
-    if (display_data.y > VGA_TEXT_HEIGHT) {
-        display_data.y = VGA_TEXT_HEIGHT - 1;
-        for (int i = 0; i < VGA_TEXT_HEIGHT - 1; i++) {
-            memcpy((void*)0xb8000 + i * VGA_TEXT_WIDTH * 2, (void*)0xb8000 + (i + 1) * VGA_TEXT_WIDTH * 2, VGA_TEXT_WIDTH * 2);
-        }
-        // clear the last line
-        memset_step((void*)0xb8000 + (VGA_TEXT_HEIGHT - 1) * VGA_TEXT_WIDTH * 2, 0, VGA_TEXT_WIDTH, 2);
-    }
+    if (active_teletype_driver == null) return;
+    if (mode.width == 0) active_teletype_driver->get_mode(&mode);
     display_data.x = 0;
-
-    __set_vga_cursor_pos__(display_data.x, display_data.y);
+    display_data.y++;
+    if (display_data.y >= mode.height) {
+        display_data.y = mode.height - 1;
+        if (mode.cells_valid) {
+            for (int i = 0; i < mode.height - 1; i++) {
+                memcpy((void*)mode.cells + i * mode.width * 2, (void*)mode.cells + (i + 1) * mode.width * 2, mode.width * 2);
+            }
+            memset_step((void*)mode.cells + (mode.height - 1) * mode.width * 2, 0, mode.width, 2);
+        } else {
+            for (int i = 0; i < mode.height - 1; i++) {
+                for (int j = 0; j < mode.width; j++) {
+                    active_teletype_driver->set_char(j, i, active_teletype_driver->get_char(j, i + 1) >> 8, active_teletype_driver->get_char(j, i + 1) & 0xff);
+                }
+            }
+            for (int j = 0; j < mode.width; j++) {
+                active_teletype_driver->set_char(j, mode.height - 1, 0, 0x0f);
+            }
+        }
+    }
 }
 
 static void __append_backspace__() {
@@ -370,7 +448,7 @@ static void __append_backspace__() {
         display_data.x = 0;
     }
 
-    __write_char__(display_data.x, display_data.y, 0);
+    __write_char__(display_data.x, display_data.y, ' ');
 }
 
 /**
@@ -383,10 +461,10 @@ static void __append_backspace__() {
  * cursor to 0, 0.
  */
 void clear_screen() {
+    if (active_teletype_driver == null) return;
+    active_teletype_driver->clear_screen(0x0f);
     __reset_displaydata__();
     __set_vga_cursor_pos__(0, 0);
-    memset_step((void*)0xb8000, 0, VGA_TEXT_SIZE, 2);
-    memset_step((void*)0xb8001, 0x0f, VGA_TEXT_SIZE, 2);
 }
 
 
@@ -396,7 +474,18 @@ void clear_screen() {
  * @param color The color to change to.
  */
 void change_screen_color(const u8 color) {
-    memset_step((void*)0xb8001, color, VGA_TEXT_SIZE, 2);
+    if (active_teletype_driver == null) return;
+    if (mode.width == 0) active_teletype_driver->get_mode(&mode);
+    if (mode.cells_valid) {
+        memset_step((void*)mode.cells + 1, color, mode.width * mode.height, 2);
+    } else {
+        for (u32 y = 0; y < mode.height; y++) {
+            for (u32 x = 0; x < mode.width; x++) {
+                u8 current_char = active_teletype_driver->get_char(x, y) >> 8;
+                active_teletype_driver->set_char(x, y, current_char, color);
+            }
+        }
+    }
 }
 
 /**

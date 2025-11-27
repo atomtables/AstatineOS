@@ -94,7 +94,10 @@ typedef struct PageTableEntry {
 
 void paging_init();
 
-void alloc_page(u32 virt_addr);
+bool alloc_page(u32 virt_addr);
 void free_page(u32 virt_addr);
+
+void allow_null_page_read();
+void disallow_null_page();
 
 #endif

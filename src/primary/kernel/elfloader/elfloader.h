@@ -83,6 +83,42 @@ typedef struct ELF_Program_Header {
     u32 alignment;
 } PACKED ELF_Program_Header;
 
+enum ShT_Types {
+    SHT_NULL    = 0,   // Null section
+    SHT_PROGBITS= 1,   // Program information
+    SHT_SYMTAB  = 2,   // Symbol table
+    SHT_STRTAB  = 3,   // String table
+    SHT_RELA    = 4,   // Relocation (w/ addend)
+    SHT_NOBITS  = 8,   // Not present in file, just zeroes
+    SHT_REL     = 9,   // Relocation (no addend)
+};
+
+typedef struct ELF_Section_Header {
+    // String for header (we use this to compare)
+    // Another point of interest is that the sh_name field does 
+    // not point directly to a string, instead it gives the offset 
+    // of a string in the section name string table
+    u32 name;
+    // ShT_Types
+    u32 type;
+    // 0x01: writable, 0x02: alloc, 0x04: executable
+    u32 flags;
+    // actual location of what we need
+    u32 addr;
+    // file offset
+    u32 offset;
+    // size of section
+    u32 size;
+    // link to another section
+    u32 link;
+    // extra info
+    u32 info;
+    // alignment
+    u32 addr_align;
+    // size of entries if section has a table
+    u32 entry_size;
+} PACKED ELF_Section_Header;
+
 int is_elf(char* file_path);
 int elf_load_and_run(char* file_path);
 

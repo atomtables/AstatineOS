@@ -102,6 +102,7 @@ function escapeCommand(command: string, require: any, directory: string): string
     }
     escaped = escaped.replaceAll(`$DIR`, directory);
     escaped = escaped.replaceAll(`$BUILD`, projectConfiguration.build);
+    escaped = escaped.replaceAll(`$PROJECT`, process.cwd());
     return escaped;
 }
 
@@ -280,7 +281,7 @@ async function buildTarget() {
                             promises.push(runCommand("bash", ["-c", commandStr]).then(() => {
                                 console.misc(`   -> ${commandStr}`); 
                             }).catch(({ code, stdout, stderr }) => { 
-                                console.error(`   Error: Command failed with code ${code}`);
+                                console.error(`   Error: Command ${commandStr} failed with code ${code}`);
                                 console.info(stderr);
                                 exit(1);
                             }))

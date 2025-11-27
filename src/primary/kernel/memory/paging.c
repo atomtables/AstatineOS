@@ -75,8 +75,7 @@ void paging_init() {
 
 // We allocate a new 4KB page at the given virtual address
 // mapping to the given physical address.
-void alloc_page(u32 virt_addr) {
-    // while(1);
+bool alloc_page(u32 virt_addr) {
     u32 phys_addr = alloc_frame();
 
     // Get the directory index and table index
@@ -101,6 +100,11 @@ void alloc_page(u32 virt_addr) {
     // get the page table
     PageTableEntry* pt = (PageTableEntry*)((u32)(pd[pd_index].table_addr << 12));
 
+    if (pt[pt_index].present) {
+        // already allocated
+        return false;
+    }
+
     // set up the page table entry
     pt[pt_index].present = true;
     pt[pt_index].rw = true;
@@ -111,6 +115,7 @@ void alloc_page(u32 virt_addr) {
     page_directory_counts[pd_index]++;
 
     FLUSH_TLB(virt_addr);
+    return true;
 }
 void free_page(u32 virt_addr) {
     // Get the directory index and table index
@@ -141,4 +146,28 @@ void free_page(u32 virt_addr) {
         memset(&pd[pd_index], 0, sizeof(pd[pd_index]));
         FLUSH_TLB(virt_addr);
     }
+}
+
+void allow_null_page_read() {
+    // for the sake of data that might only be stored
+    // in the first 4kb of memory,
+    // the first page table entry will be present
+    // but read only including for kernel.
+    PageTableEntry* pt = (PageTableEntry*)((u32)(pd[0].table_addr << 12));
+    pt[0].present = true;
+    pt[0].rw = false;
+    pt[0].allowuser = false;
+    pt[0].address = 0x0 >> 12;
+    page_directory_counts[0]++;
+    FLUSH_TLB(0x0);
+}
+
+void disallow_null_page() {
+    // for the sake of data that might only be stored
+    // in the first 4kb of memory,
+    // the first page table entry will be not present
+    PageTableEntry* pt = (PageTableEntry*)((u32)(pd[0].table_addr << 12));
+    pt[0].present = false;
+    page_directory_counts[0]--;
+    FLUSH_TLB(0x0);
 }
