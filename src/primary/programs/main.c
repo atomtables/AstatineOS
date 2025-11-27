@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 void main() {
+    setvbuf(stdout, NULL, _IONBF, 0);
     int x = 5;
 
     printf("Hello, World (from user mode ofc)!\n");

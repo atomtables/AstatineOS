@@ -11,12 +11,13 @@ int terminal_read(struct fd* self, void* buffer, u32 size) {
     static char item[2];
     for (i = 0; i < size; i++) {
         ((char*)buffer)[i] = (char)wait_for_keypress();
+        item[0] = ((char*)buffer)[i];
         if (((char*)buffer)[i] == 0x08) {
             ((char*)buffer)[i] = '\0';
             ((char*)buffer)[i - 1] = '\0';
             i -= 2;
+            item[0] = ' ';
         }
-        item[0] = ((char*)buffer)[i];
         print(item);
         if (((char*)buffer)[i] == '\n') {
             break;
