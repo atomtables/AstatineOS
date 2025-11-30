@@ -1,4 +1,4 @@
-AC_INIT([mkabp], [1.1], [adithiya.venkatakrishnan@atomtables.dev])
+AC_INIT([mkabp], [1.2], [adithiya.venkatakrishnan@atomtables.dev])
 AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_FILES([Makefile])
 AC_PROG_CC

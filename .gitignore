@@ -16,3 +16,4 @@ out
 .DS*
 .build.log
 node_modules
+*.tar.gz
