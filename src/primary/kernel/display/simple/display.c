@@ -14,6 +14,8 @@
 #include <modules/modules.h>
 #include <driver_base/teletype/teletype.h>
 
+#define ATD active_teletype_driver
+
 static struct TeletypeMode mode;
 
 /**
@@ -118,7 +120,7 @@ static u16 __get_vga_cursor_pos__() {
  */
 static void __set_vga_cursor_pos__(const int x, const int y) {
     if (active_teletype_driver == null) return;
-    active_teletype_driver->set_cursor_position(x, y);
+    ATD->functions.set_cursor_position(ATD, x, y);
 }
 
 /**
@@ -165,7 +167,7 @@ static void __set_vga_cursor_pos__(const int x, const int y) {
  */
 static void __write_char__(const int x, int y, const char character) {
     if (active_teletype_driver == null) return;
-    if (mode.width == 0) active_teletype_driver->get_mode(&mode);
+    if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
 
     if (mode.cells_valid) {
         if (character == 0) return;
@@ -192,14 +194,14 @@ static void __write_char__(const int x, int y, const char character) {
             y = mode.height - 1;
             for (int i = 0; i < mode.height - 1; i++) {
                 for (int j = 0; j < mode.width; j++) {
-                    active_teletype_driver->set_char(j, i, active_teletype_driver->get_char(j, i + 1) >> 8, active_teletype_driver->get_char(j, i + 1) & 0xff);
+                    ATD->functions.set_char(ATD, j, i, ATD->functions.get_char(ATD, j, i + 1) >> 8, ATD->functions.get_char(ATD, j, i + 1) & 0xff);
                 }
             }
             for (int j = 0; j < mode.width; j++) {
-                active_teletype_driver->set_char(j, mode.height - 1, 0, 0x0f);
+                ATD->functions.set_char(ATD, j, mode.height - 1, 0, 0x0f);
             }
         }
-        active_teletype_driver->set_char(x, y, character, 0x0f);
+        ATD->functions.set_char(ATD, x, y, character, 0x0f);
         __set_displaydata__(x, y);
         __set_vga_cursor_pos__(x, y);
     }
@@ -219,7 +221,7 @@ static void __write_char__(const int x, int y, const char character) {
  */
 static void __write_char_color__(const int x, int y, const char character, const u8 color) {
     if (active_teletype_driver == null) return;
-    if (mode.width == 0) active_teletype_driver->get_mode(&mode);
+    if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
 
     if (mode.cells_valid) {
         if (character == 0) return;
@@ -247,14 +249,14 @@ static void __write_char_color__(const int x, int y, const char character, const
             y = mode.height - 1;
             for (int i = 0; i < mode.height - 1; i++) {
                 for (int j = 0; j < mode.width; j++) {
-                    active_teletype_driver->set_char(j, i, active_teletype_driver->get_char(j, i + 1) >> 8, active_teletype_driver->get_char(j, i + 1) & 0xff);
+                    ATD->functions.set_char(ATD, j, i, ATD->functions.get_char(ATD, j, i + 1) >> 8, ATD->functions.get_char(ATD, j, i + 1) & 0xff);
                 }
             }
             for (int j = 0; j < mode.width; j++) {
-                active_teletype_driver->set_char(j, mode.height - 1, 0, 0x0f);
+                ATD->functions.set_char(ATD, j, mode.height - 1, 0, 0x0f);
             }
         }
-        active_teletype_driver->set_char(x, y, character, color);
+        ATD->functions.set_char(ATD, x, y, character, color);
         __set_displaydata__(x, y);
         __set_vga_cursor_pos__(x, y);
     }
@@ -274,7 +276,7 @@ static void __write_char_color__(const int x, int y, const char character, const
  */
 static void __write_color__(const int x, int y, const u8 color) {
     if (active_teletype_driver == null) return;
-    if (mode.width == 0) active_teletype_driver->get_mode(&mode);
+    if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
 
     if (mode.cells_valid) {
         if (x >= mode.width) return;
@@ -299,15 +301,15 @@ static void __write_color__(const int x, int y, const u8 color) {
             y = mode.height - 1;
             for (int i = 0; i < mode.height - 1; i++) {
                 for (int j = 0; j < mode.width; j++) {
-                    active_teletype_driver->set_char(j, i, active_teletype_driver->get_char(j, i + 1) >> 8, active_teletype_driver->get_char(j, i + 1) & 0xff);
+                    ATD->functions.set_char(ATD, j, i, ATD->functions.get_char(ATD, j, i + 1) >> 8, ATD->functions.get_char(ATD, j, i + 1) & 0xff);
                 }
             }
             for (int j = 0; j < mode.width; j++) {
-                active_teletype_driver->set_char(j, mode.height - 1, 0, 0x0f);
+                ATD->functions.set_char(ATD, j, mode.height - 1, 0, 0x0f);
             }
         }
-        u8 current_char = active_teletype_driver->get_char(x, y) >> 8;
-        active_teletype_driver->set_char(x, y, current_char, color);
+        u8 current_char = ATD->functions.get_char(ATD, x, y) >> 8;
+        ATD->functions.set_char(ATD, x, y, current_char, color);
         __set_displaydata__(x, y);
         __set_vga_cursor_pos__(x, y);
     }
@@ -414,7 +416,7 @@ static void __append_string_color__(char* str, const u8 color) {
  */
 static void __append_newline__() {
     if (active_teletype_driver == null) return;
-    if (mode.width == 0) active_teletype_driver->get_mode(&mode);
+    if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
     display_data.x = 0;
     display_data.y++;
     if (display_data.y >= mode.height) {
@@ -427,11 +429,11 @@ static void __append_newline__() {
         } else {
             for (int i = 0; i < mode.height - 1; i++) {
                 for (int j = 0; j < mode.width; j++) {
-                    active_teletype_driver->set_char(j, i, active_teletype_driver->get_char(j, i + 1) >> 8, active_teletype_driver->get_char(j, i + 1) & 0xff);
+                    ATD->functions.set_char(ATD, j, i, ATD->functions.get_char(ATD, j, i + 1) >> 8, ATD->functions.get_char(ATD, j, i + 1) & 0xff);
                 }
             }
             for (int j = 0; j < mode.width; j++) {
-                active_teletype_driver->set_char(j, mode.height - 1, 0, 0x0f);
+                ATD->functions.set_char(ATD, j, mode.height - 1, 0, 0x0f);
             }
         }
     }
@@ -462,7 +464,7 @@ static void __append_backspace__() {
  */
 void clear_screen() {
     if (active_teletype_driver == null) return;
-    active_teletype_driver->clear_screen(0x0f);
+    ATD->functions.clear_screen(ATD, 0x0f);
     __reset_displaydata__();
     __set_vga_cursor_pos__(0, 0);
 }
@@ -475,14 +477,14 @@ void clear_screen() {
  */
 void change_screen_color(const u8 color) {
     if (active_teletype_driver == null) return;
-    if (mode.width == 0) active_teletype_driver->get_mode(&mode);
+    if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
     if (mode.cells_valid) {
         memset_step((void*)mode.cells + 1, color, mode.width * mode.height, 2);
     } else {
         for (u32 y = 0; y < mode.height; y++) {
             for (u32 x = 0; x < mode.width; x++) {
-                u8 current_char = active_teletype_driver->get_char(x, y) >> 8;
-                active_teletype_driver->set_char(x, y, current_char, color);
+                u8 current_char = ATD->functions.get_char(ATD, x, y) >> 8;
+                ATD->functions.set_char(ATD, x, y, current_char, color);
             }
         }
     }

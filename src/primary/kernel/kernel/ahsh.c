@@ -11,7 +11,7 @@
 #include <ps2/keyboard.h>
 #include <timer/PIT.h>
 #include <fat32/fat32.h>
-#include <disk/disk.h>
+#include <disk/pata/disk.h>
 #include <stdarg.h>
 
 typedef struct Command {

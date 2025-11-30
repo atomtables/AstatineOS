@@ -9,7 +9,7 @@
 #include <pcspeaker/pcspeaker.h>
 #include <ps2/controller.h>
 #include <timer/PIT.h>
-#include <disk/disk.h>
+#include <disk/pata/disk.h>
 #include <gdt/gdt.h>
 #include <systemcalls/syscall.h>
 #include <display/simple/display.h>
@@ -19,6 +19,8 @@
 #include <elfloader/elfloader.h>
 #include <terminal/terminal.h>
 #include <driver_base/driver_base.h>
+#include <basedevice/devicelogic.h>
+#include <basedevice/discovery/discovery.h>
 
 /* In our kernel, we can reserve memory
  * 0x100000-0x1FFFFF for the storage of heap data (like variables)
@@ -103,6 +105,8 @@ int main() {
     STI();
     printf("Target complete: memory\n");
 
+    discover_isa_devices();
+
     // now initialise disk
     ide_initialize(0x1F0, 0x3F6, 0x170, 0x376, 0x000);
     printf("Target complete: disk\n");
@@ -132,10 +136,10 @@ int main() {
             }
             reboot();
         }
-        char* x = "loaded";
-        for (u32 i = 0; x[i] != 0x00; i++) {
-            *((u8*)0xb8000 + i * 2) = x[i];
-        }
+        // char* x = "loaded";
+        // for (u32 i = 0; x[i] != 0x00; i++) {
+        //     *((u8*)0xb8000 + i * 2) = x[i];
+        // }
         if (attempt_install_driver(&file) != 0) {
             printf("Failed to load and run ELF file.\n");
             char* x = "Failed to load and run ELF file.";

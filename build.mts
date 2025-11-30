@@ -454,6 +454,17 @@ if (import.meta.main === true) {
     }
     projectConfiguration = (await import(`./build.config.js`)).default;
 
+    if (process.argv.length > 2) {
+        if (process.argv[2] === "clean") {
+            console.info("-> Cleaning build directory...");
+            if (fs.existsSync(projectConfiguration.build)) {
+                fs.rmSync(projectConfiguration.build, { recursive: true, force: true });
+            }
+            console.info("-> Cleaned build directory.");
+            exit(0);
+        }
+    }
+
     primaryTarget = process.argv.at(2) || projectConfiguration.targets.find((t: any) => t.default)?.name;
     if (!primaryTarget) {
         console.error("Error: No target specified and no default target set.");
