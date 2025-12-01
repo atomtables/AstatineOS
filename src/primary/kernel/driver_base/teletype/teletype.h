@@ -8,6 +8,6 @@
 extern TeletypeDriver* teletype_drivers;
 extern TeletypeDriver* active_teletype_driver;
 
-int register_teletype_driver(AstatineDriverBase* driver, Device* device);
+int register_teletype_driver(AstatineDriverFile* driver, Device* device);
 
 #endif

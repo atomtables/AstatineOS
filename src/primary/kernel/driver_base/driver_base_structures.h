@@ -36,17 +36,17 @@ typedef struct AstatineDriver {
     u32     driver_type;
     u32     device_type;
     // if not null, then driver is initialised
-    Device* device;
+    struct Device* device;
     struct KernelFunctionPointers* kfp;
 
     // Some drivers will want to discover their own devices
     // like ISA drivers that don't use plug-and-play.
     // or other legacy hardware like the pcspk.
-    bool    (*probe)(Device* device, struct KernelFunctionPointers* kfp);
+    bool    (*probe)(struct Device* device, struct KernelFunctionPointers* kfp);
 
     // Other drivers will rather just get the list of devices
     // and look for ones that they can manage.
-    bool    (*check)(Device* device, struct KernelFunctionPointers* kfp);
+    bool    (*check)(struct Device* device, struct KernelFunctionPointers* kfp);
 
     // Assuming a device that this can manage has been found,
     // it means we can add that device to the global list,
@@ -62,7 +62,7 @@ typedef struct AstatineDriver {
     // display drivers can set pixels, etc.
 } AstatineDriver;
 
-// This AstatineDriverBase is the base struct
+// This AstatineDriverFile is the base struct
 // for reading a driver from an ELF file.
 // This is loaded from the .astatine_driver section
 // and installs all related properties such as functions.
@@ -72,7 +72,7 @@ typedef struct AstatineDriver {
 // That way, when a new device has been detected, the
 // driver can pick it up and create a new instance for it.
 // That new instance will be of the type AstatineDriver.
-typedef struct AstatineDriverBase {
+typedef struct AstatineDriverFile {
     u32     size;
     // "ASTATINE"
     char    sig[8]; 
@@ -97,12 +97,11 @@ typedef struct AstatineDriverBase {
     // Some drivers will want to discover their own devices
     // like ISA drivers that don't use plug-and-play.
     // or other legacy hardware like the pcspk.
-    bool    (*probe)(Device* device, struct KernelFunctionPointers* kfp);
+    bool    (*probe)(struct Device* device, struct KernelFunctionPointers* kfp);
 
     // Other drivers will rather just get the list of devices
     // and look for ones that they can manage.
-    bool    (*check)(Device* device, struct KernelFunctionPointers* kfp);
-
+    bool    (*check)(struct Device* device, struct KernelFunctionPointers* kfp);
     // Assuming a device that this can manage has been found,
     // it means we can add that device to the global list,
     // and initialise the driver for that device.
@@ -115,6 +114,6 @@ typedef struct AstatineDriverBase {
     // Other functions are determined by the driver handler
     // so teletype-drivers will have the ability to draw characters,
     // display drivers can set pixels, etc.
-} AstatineDriverBase;
+} AstatineDriverFile;
 
 #endif

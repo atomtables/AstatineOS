@@ -156,12 +156,6 @@ int main() {
         }
         reboot();
     }
-
-    char* x = "loaded";
-    for (u32 i = 0; x[i] != 0x00; i++) {
-        *((u8*)0xb8000 + i * 2) = x[i];
-    }
-
     while(1) {
         clear_screen();
         printf("Ready to load elf, enter path: ");

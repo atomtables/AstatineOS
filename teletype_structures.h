@@ -60,7 +60,7 @@ struct TeletypeDriverFunctions {
     bool(*  set_cursor_position)(struct TeletypeDriver* self, u32 x, u32 y);
 };
 struct TeletypeDriverFile {
-    AstatineDriverBase base;
+    AstatineDriverFile base;
     TeletypeDriverFunctions functions;
 };
 struct TeletypeDriver {

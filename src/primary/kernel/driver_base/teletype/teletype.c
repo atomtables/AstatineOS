@@ -20,7 +20,7 @@ int teletype_driver_count = 0;
 //      manage that device
 // This assumes that there is an active device, and the location of that device
 // is passed to the driver registration function.
-int register_teletype_driver(AstatineDriverBase* driver1, Device* device) {
+int register_teletype_driver(AstatineDriverFile* driver1, Device* device) {
     if (driver1->device_type != DEVICE_TYPE_TTYPE) {
         return -2;
     }
@@ -43,6 +43,7 @@ int register_teletype_driver(AstatineDriverBase* driver1, Device* device) {
 
     device->owned = true;
     device->name = driver->base.name;
+    device->attached_driver = (AstatineDriver*)teletype_driver;
 
     teletype_driver_count++;
     if (teletype_drivers == null) {

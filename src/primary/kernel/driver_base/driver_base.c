@@ -13,6 +13,8 @@
 #include <basedevice/discovery/discovery.h>
 #include <basedevice/devicelogic.h>
 
+#define COOKED(x) for (u32 i = 0; x[i] != 0x00; i++) *((u8*)0xb8000 + i * 2) = x[i];
+
 int verify_driver(u8 items[128]) {
     if (((u64*)(items))[0] != (u64)0xDEADBEEFDEADBEEFl) {
         return 0;
@@ -32,7 +34,7 @@ struct KernelFunctionPointers* get_kernel_function_pointers() {
     return &kfp;
 }
 
-AstatineDriverBase** available_drivers;
+AstatineDriverFile** available_drivers;
 u32 available_driver_count = 0;
 static u32 available_driver_size = 0;
 
@@ -43,6 +45,36 @@ int attempt_install_driver(File* file) {
     if (fat_file_read(file, &header, sizeof(ELF_Header), &temp) != 0) {
         printf("Failed to read the ELF header.\n");
         return 2;
+    }
+
+    // For position-independent drivers, we choose where to load them.
+    // First, find the extent of the ELF (lowest and highest virtual addresses)
+    u32 elf_low = 0xFFFFFFFF;
+    u32 elf_high = 0;
+    ELF_Program_Header ph_temp;
+    for (u32 i = 0; i < header.program_entry_count; i++) {
+        fat_file_seek(file, header.program_header_offset + i * sizeof(ELF_Program_Header), FAT_SEEK_START);
+        if (fat_file_read(file, &ph_temp, sizeof(ELF_Program_Header), &temp) != 0) continue;
+        if (ph_temp.type != ELF_PT_LOAD) continue;
+        if (ph_temp.virtual_addr < elf_low) elf_low = ph_temp.virtual_addr;
+        if (ph_temp.virtual_addr + ph_temp.size_mem > elf_high) 
+            elf_high = ph_temp.virtual_addr + ph_temp.size_mem;
+    }
+    
+    // get the size of our elf so we can use it for alignment
+    u32 elf_size = (elf_high - elf_low + 0xFFF) & ~0xFFF;
+    
+    // Determine if this is a position-independent driver or fixed-address
+    // If elf_low is 0, it's position-independent and we choose the address
+    // If elf_low is non-zero, the driver expects to load at that address
+    i32 load_offset;
+    if (elf_low == 0) {
+        // Position-independent: we choose where to load
+        u32 load_base = alloc_page(PAGEF_NOUSER);
+        load_offset = (i32)load_base - (i32)elf_low;
+    } else {
+        // Fixed address: load at the address specified in the ELF
+        load_offset = 0;
     }
 
     // Now we should go through the list of 
@@ -75,30 +107,40 @@ int attempt_install_driver(File* file) {
             goto cleanup;
         }
 
+        // Calculate the actual load address (original + offset)
+        u32 actual_addr = current_header.virtual_addr + load_offset;
+
         // we should allocate virtual memory for this segment
-        // at the address they want us to.
-        for (u32 addr = current_header.virtual_addr;
-             addr < current_header.virtual_addr + current_header.size_mem;
+        // at the address WE choose (not what the ELF says).
+        bool first = true;
+        for (u32 addr = actual_addr;
+             addr < actual_addr + current_header.size_mem;
              addr += 0x1000) {
             addrs[addrs_count++] = addr;
             if (addrs_count > addrs_size) {
                 addrs = krealloc(addrs, sizeof(u32) * addrs_size * 2);
                 addrs_size *= 2;
             }
-            if (!alloc_page(addr)) {
-                printf("Failed to allocate page for ELF segment at address %x.\n", addr);
-                goto cleanup;
+            // If this is not the first page or this is NOT relocatable,
+            // we can allocate it normally.
+            // This is because we allocate the first page up there.
+            if (!first || load_offset == 0) {
+                if (!alloc_page_at_addr(addr, PAGEF_NOUSER)) {
+                    printf("Failed to allocate page for ELF segment at address %x.\n", addr);
+                    goto cleanup;
+                }
+                first = false;
             }
         }
-        // Now we should read the segment data from the file
+        // Now we should read the segment data from the file at our chosen address
         fat_file_seek(file, current_header.offset_in_file, FAT_SEEK_START);
-        if (fat_file_read(file, (void*)current_header.virtual_addr, current_header.size_file, &temp) != 0) {
+        if (fat_file_read(file, (void*)actual_addr, current_header.size_file, &temp) != 0) {
             printf("Failed to read segment data.\n");
             goto cleanup;
         }
 
         // zero out the rest of the memory (elf spec)
-        memset((void*)(current_header.virtual_addr + current_header.size_file),
+        memset((void*)(actual_addr + current_header.size_file),
                 0,
                 current_header.size_mem - current_header.size_file
         );
@@ -110,6 +152,13 @@ int attempt_install_driver(File* file) {
     if (fat_file_read(file, section_headers, header.section_entry_size * header.section_entry_count, &temp) != 0) {
         printf("Failed to read section headers.\n");
         goto cleanup;
+    }
+    
+    // Adjust section addresses by load_offset so relocations work correctly
+    for (u32 i = 0; i < header.section_entry_count; i++) {
+        if (section_headers[i].addr != 0) {
+            section_headers[i].addr += load_offset;
+        }
     }
 
     // For relocatable objects, we need to load symbol table and relocation
@@ -274,7 +323,7 @@ int attempt_install_driver(File* file) {
             // ok so this is a driver
             // let's check which type
             // driver should be included in the data segment already
-            AstatineDriverBase* driver_base = (AstatineDriverBase*)section_headers[i].addr;
+            AstatineDriverFile* driver_base = (AstatineDriverFile*)section_headers[i].addr;
             if (!verify_driver(driver_base->verification)) {
                 printf("Driver verification failed for %s v%s by %s\n",
                         driver_base->name,
@@ -294,7 +343,7 @@ int attempt_install_driver(File* file) {
             
             available_drivers[available_driver_count - 1] = driver_base;
 
-            int postregister_driver(AstatineDriverBase* driver);
+            int postregister_driver(AstatineDriverFile* driver);
             postregister_driver(driver_base);
             printf("Successfully registered driver: %s v%s by %s\n",
                     driver_base->name,
@@ -322,12 +371,25 @@ int attempt_install_driver(File* file) {
     return 0;
 }
 
-int postregister_driver(AstatineDriverBase* driver) {
+static int initialise_driver_with_subsystem(AstatineDriverFile* driver, Device* device) {
+    // depending on the driver type, we can call the relevant
+    // registration function
+    switch (driver->device_type) {
+        case DEVICE_TYPE_TTYPE:
+            return register_teletype_driver(driver, device);
+        default:
+            printf("Driver type %u not supported for auto-registration.\n",
+                    driver->driver_type);
+            return -1;
+    }
+}
+
+int postregister_driver(AstatineDriverFile* driver) {
     // for any given driver we will need to probe the system
     // in the case that it needs to detect some hardware that
     // can otherwise not be detected
-    Device* device = kmalloc(sizeof(Device*));
-    if (driver->probe && driver->probe(device, get_kernel_function_pointers())) {
+    Device probe_device;
+    if (driver->probe && driver->probe(&probe_device, get_kernel_function_pointers())) {
         printf("Driver %s probed and found its device.\n", driver->name);
         // We don't register here because either way the register_driver function
         // does that. It's somewhat inefficient but it means that 
@@ -337,14 +399,13 @@ int postregister_driver(AstatineDriverBase* driver) {
         // fucking device anyway 
         // and when we search for the driver for a device WE STILL HAVE BOTH OF
         // THE FUCKING DEVICES TS CAN NOT BE REAL
-        Device* temp = register_device(device);
-        device = temp;
-        goto success;
+        Device* device = register_device(device);
+        initialise_driver_with_subsystem(driver, device);
     }
     // During post-registration, we use the base to probe
     // all devices on the system that match the device type.
     for (int i = 0; i < device_count; i++) {
-        device = devices[i];
+        Device* device = devices[i];
         if (device->type != driver->device_type) {
             continue;
         }
@@ -359,37 +420,11 @@ int postregister_driver(AstatineDriverBase* driver) {
             // This driver base is able to manage this device
             // so we can create an instance of the driver
             // through the driver's manager registration. (like register_teletype_driver)
-            goto success;
+            initialise_driver_with_subsystem(driver, device);
         }
     }
 
-    char* x = "No device iunfortunately.";
-    for (u32 i = 0; x[i] != 0x00; i++) {
-        *((u8*)0xb8000 + i * 2) = x[i];
-    }
+    COOKED("No more devices to check.\n");
 
-    kfree(device);
-    return -1;
-
-    success:
-    if (driver->device_type == DEVICE_TYPE_TTYPE && register_teletype_driver(driver, device) >= 0) {
-        char* x = "Success install.";
-        for (u32 i = 0; x[i] != 0x00; i++) {
-            *((u8*)0xb8000 + i * 2) = x[i];
-        }
-        printf("Successfully initialised teletype driver for device %s (ID %x)\n",
-                device->name,
-                device->id);
-        kfree(device);
-        return 0;
-    } else {
-        char* x = "Driver type not supported for auto-registration.";
-        for (u32 i = 0; x[i] != 0x00; i++) {
-            *((u8*)0xb8000 + i * 2) = x[i];
-        }
-        printf("Driver type %u not supported for auto-registration.\n",
-                driver->driver_type);
-        kfree(device);
-        return -2;
-    }
+    return 0;
 }

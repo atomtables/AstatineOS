@@ -3,6 +3,9 @@
 
 #include <modules/modules.h>
 
+#define PAGEF_NOUSER 0x1
+#define PAGEF_READONLY 0x2
+
 /*
 Translation of a virtual address into a physical address 
 first involves dividing the virtual address into three parts: 
@@ -94,7 +97,10 @@ typedef struct PageTableEntry {
 
 void paging_init();
 
-bool alloc_page(u32 virt_addr);
+// allocates any single page and returns its virtual address
+u32 alloc_page(u32 flags);
+// allocates a page at the given virtual address
+bool alloc_page_at_addr(u32 virt_addr, u32 flags);
 void free_page(u32 virt_addr);
 
 void allow_null_page_read();

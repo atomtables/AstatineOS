@@ -107,7 +107,7 @@ int elf_load_and_run(char* file_path) {
                 addrs = krealloc(addrs, sizeof(u32) * addrs_size * 2);
                 addrs_size *= 2;
             }
-            if (!alloc_page(addr)) {
+            if (!alloc_page_at_addr(addr, 0)) {
                 printf("Failed to allocate page for ELF segment at address %x.\n", addr);
                 fat_file_close(&file);
                 goto cleanup;
@@ -150,7 +150,7 @@ int elf_load_and_run(char* file_path) {
     u32 heap_base = (highest_addr + 0x1000) & ~0xFFF; // page-align
     u32 heap_pages = 64; // 256KB of heap
     for (u32 i = 0; i < heap_pages; i++) {
-        alloc_page(heap_base + i * 0x1000);
+        alloc_page_at_addr(heap_base + i * 0x1000, 0);
         addrs[addrs_count++] = heap_base + i * 0x1000;
         if (addrs_count > addrs_size) {
             addrs = krealloc(addrs, sizeof(u32) * addrs_size * 2);
@@ -162,7 +162,7 @@ int elf_load_and_run(char* file_path) {
     // Place stack at a high address (e.g., 0x08200000) with 16 pages (64KB).
     u32 stack_base = 0x08200000;
     for (u32 i = 0; i < 16; i++) {
-        alloc_page(stack_base + i * 0x1000);
+        alloc_page_at_addr(stack_base + i * 0x1000, 0);
         addrs[addrs_count++] = stack_base + i * 0x1000;
         if (addrs_count > addrs_size) {
             addrs = krealloc(addrs, sizeof(u32) * addrs_size * 2);

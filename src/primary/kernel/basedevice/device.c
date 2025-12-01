@@ -40,7 +40,7 @@ void unregister_device(u32 id) {
     }
 }
 
-bool search_for_supported_device(AstatineDriverBase* driver, Device* * out_device) {
+bool search_for_supported_device(AstatineDriverFile* driver, Device* * out_device) {
     if (!driver->check) {
         return false;
     }

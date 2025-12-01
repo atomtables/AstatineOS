@@ -15,6 +15,13 @@
 #include "device.h"
 #endif
 
+#if __has_include (<driver_base/driver_base_structures.h>)
+#include <driver_base/driver_base_structures.h>
+#endif
+#if __has_include ("drivers.h")
+#include "drivers.h"
+#endif
+
 enum IsaDevices {
     ISA_DEVICE_VGA_TEXT = 0,
     ISA_DEVICE_OTHER = 1
@@ -60,6 +67,7 @@ typedef struct Device {
     u32     size;
 
     bool    owned;
+    struct AstatineDriver* attached_driver;
 } Device;
 
 // Legacy devices without a specific bus type

@@ -73,9 +73,60 @@ void paging_init() {
     load_page_directory((u32)pd);
 }
 
+static void allocate_a_page_directory_entry(u32 pd_index) {
+    // allocate a new page table
+    PageTableEntry* new_pt = (PageTableEntry*)kmalloc_aligned(4096, 4096);
+    // *(int*)new_pt = 0;
+    memset(new_pt, 0, sizeof(PageTableEntry) * 1024);
+
+    // set up the page directory entry
+    pd[pd_index].present = true;
+    pd[pd_index].rw = true;
+    pd[pd_index].allowuser = true; // allow user programs
+    pd[pd_index].table_addr = ((u32)new_pt) >> 12;
+    pd[pd_index].page_size = 0;
+}
+
+u32 alloc_page(u32 flags) {
+    u32 phys_addr = alloc_frame();
+
+    // Find a free virtual address
+    u32 virt_addr = 0;
+    while(1) {
+        u32 pd_index = rand() % 1024;
+        u32 pt_index = rand() % 1024;
+
+        // If the pd is not present, then it means 
+        if (!pd[pd_index].present) {
+            allocate_a_page_directory_entry(pd_index);
+        } else {
+            PageTableEntry* pt = (PageTableEntry*)((u32)(pd[pd_index].table_addr << 12));
+            if (pt[pt_index].present) {
+                // already allocated
+                continue;
+            }
+        }
+        PageTableEntry* pt = (PageTableEntry*)((u32)(pd[pd_index].table_addr << 12));
+        pt[pt_index].present = true;
+        pt[pt_index].address = phys_addr >> 12;
+        pt[pt_index].rw = true;
+        pt[pt_index].allowuser = true;
+        if (flags && PAGEF_NOUSER) {
+            pt[pt_index].allowuser = false;
+        } else if (flags && PAGEF_READONLY) {
+            pt[pt_index].rw = false;
+        }
+        virt_addr = (pd_index << 22) | (pt_index << 12);
+        page_directory_counts[pd_index]++;
+        break;
+    }
+    FLUSH_TLB(virt_addr);
+    return virt_addr;
+}
+
 // We allocate a new 4KB page at the given virtual address
 // mapping to the given physical address.
-bool alloc_page(u32 virt_addr) {
+bool alloc_page_at_addr(u32 virt_addr, u32 flags) {
     u32 phys_addr = alloc_frame();
 
     // Get the directory index and table index
@@ -84,17 +135,7 @@ bool alloc_page(u32 virt_addr) {
 
     // check if the page directory entry is present
     if (!pd[pd_index].present) {
-        // allocate a new page table
-        PageTableEntry* new_pt = (PageTableEntry*)kmalloc_aligned(4096, 4096);
-        // *(int*)new_pt = 0;
-        memset(new_pt, 0, sizeof(PageTableEntry) * 1024);
-
-        // set up the page directory entry
-        pd[pd_index].present = true;
-        pd[pd_index].rw = true;
-        pd[pd_index].allowuser = true; // allow user programs
-        pd[pd_index].table_addr = ((u32)new_pt) >> 12;
-        pd[pd_index].page_size = 0;
+        allocate_a_page_directory_entry(pd_index);
     }
 
     // get the page table
@@ -111,6 +152,11 @@ bool alloc_page(u32 virt_addr) {
     pt[pt_index].global = false;
     pt[pt_index].allowuser = true; // allow user programs
     pt[pt_index].address = phys_addr >> 12;
+    if (flags && PAGEF_NOUSER) {
+        pt[pt_index].allowuser = false;
+    } else if (flags && PAGEF_READONLY) {
+        pt[pt_index].rw = false;
+    }
 
     page_directory_counts[pd_index]++;
 
