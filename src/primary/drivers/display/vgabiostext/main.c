@@ -72,6 +72,8 @@ int init(AstatineDriver* self) {
 void deinit(AstatineDriver* self) {
     // Will never be ran
     // BIOS does everything for us
+    self->device->owned = false;
+    self->device->attached_driver = null;
 }
 
 struct TeletypeMode mode = {

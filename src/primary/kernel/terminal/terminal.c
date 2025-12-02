@@ -31,7 +31,11 @@ int terminal_write(struct fd* self, const void* buffer, u32 size) {
     char temp[2] = {0};
     for (i = 0; i < size; i++) {
         temp[0] = ((char*)buffer)[i];
-        print(temp);
+        if ((int)(self->internal) == 2) {
+            print_color(temp, 0x4F); // red on white for stderr
+        } else {
+            print(temp);
+        }
     }
     return i;
 }
@@ -55,7 +59,7 @@ void terminal_install() {
     struct fd* stderr = &open_fds[2];
     stderr->exists = true;
     stderr->position = 0;
-    stderr->internal = null;
+    stderr->internal = (void*)2;
     stderr->fops = &terminal_fops;
 }
 

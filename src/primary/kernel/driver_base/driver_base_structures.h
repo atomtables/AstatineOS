@@ -77,9 +77,11 @@ typedef struct AstatineDriverFile {
     // "ASTATINE"
     char    sig[8]; 
     // redundant
-    u32     driver_type;
+    enum ConnectionType     
+            driver_type;
     // is this a PCI, ISA, etc. driver?
-    u32     device_type;
+    enum DeviceType     
+            device_type;
     // driver name
     char    name[32]; 
     // driver version

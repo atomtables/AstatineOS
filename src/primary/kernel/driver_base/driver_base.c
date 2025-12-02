@@ -12,8 +12,7 @@
 #include <basedevice/device.h>
 #include <basedevice/discovery/discovery.h>
 #include <basedevice/devicelogic.h>
-
-#define COOKED(x) for (u32 i = 0; x[i] != 0x00; i++) *((u8*)0xb8000 + i * 2) = x[i];
+#include <modules/dynarray.h>
 
 int verify_driver(u8 items[128]) {
     if (((u64*)(items))[0] != (u64)0xDEADBEEFDEADBEEFl) {
@@ -34,9 +33,82 @@ struct KernelFunctionPointers* get_kernel_function_pointers() {
     return &kfp;
 }
 
-AstatineDriverFile** available_drivers;
-u32 available_driver_count = 0;
-static u32 available_driver_size = 0;
+// Maintains a AstatineDriverFile* list of available drivers on
+// the system: not every driver will have a use at
+// the moment, but the actual driver is still
+// registered so if such a device appears later
+// the driver can be initialised for it.
+// These drivers are NOT ABLE TO BE LOADED
+// these just contain the values to check if the driver
+// is compatible as well as a file path.
+Dynarray* available_drivers;
+Dynarray* active_drivers;
+AstatineDriverFile** loaded_drivers;
+u32 loaded_driver_count = 0;
+static u32 loaded_driver_size = 0;
+
+
+static int initialise_driver_with_subsystem(AstatineDriverFile* driver, Device* device) {
+    // depending on the driver type, we can call the relevant
+    // registration function
+    switch (driver->device_type) {
+        case DEVICE_TYPE_TTYPE:
+            return register_teletype_driver(driver, device);
+        default:
+            printf("Driver type %u not supported for auto-registration.\n",
+                    driver->driver_type);
+            return -1;
+    }
+}
+u32 postregister_driver(AstatineDriverFile* driver) {
+    // for any given driver we will need to probe the system
+    // in the case that it needs to detect some hardware that
+    // can otherwise not be detected
+    u32 detected_devices = 0;
+    Device probe_device;
+    if (driver->probe && driver->probe(&probe_device, get_kernel_function_pointers())) {
+        printf("Driver %s probed and found its device.\n", driver->name);
+        // We don't register here because either way the register_driver function
+        // does that. It's somewhat inefficient but it means that 
+        // =======
+        // wait i just had a fucking brainfart of course the fucking registration
+        // function can just take a device and driver if we're searching for the
+        // fucking device anyway 
+        // and when we search for the driver for a device WE STILL HAVE BOTH OF
+        // THE FUCKING DEVICES TS CAN NOT BE REAL
+        Device* device = register_device(device);
+        initialise_driver_with_subsystem(driver, device);
+        detected_devices++;
+    }
+    // During post-registration, we use the base to probe
+    // all devices on the system that match the device type.
+    for (int i = 0; i < device_count; i++) {
+        Device* device = devices[i];
+        if (device->type != driver->device_type || device->type != DEVICE_TYPE_UNKNOWN) {
+            continue;
+        }
+        if (device->conn != driver->driver_type || device->conn != CONNECTION_TYPE_UNKNOWN) {
+            continue;
+        }
+        // driver is responsible for owning device
+        // unowning a device can be done by the driver
+        // but will be done after calling deinit just in case
+        if (device->owned) {
+            continue;
+        }
+
+        if (driver->check && driver->check(device, get_kernel_function_pointers())) {
+            // This driver base is able to manage this device
+            // so we can create an instance of the driver
+            // through the driver's manager registration. (like register_teletype_driver)
+            if (initialise_driver_with_subsystem(driver, device) == 0) {
+                detected_devices++;
+            }
+        }
+    }
+
+    return detected_devices;
+}
 
 static int temp;
 int attempt_install_driver(File* file) {
@@ -64,6 +136,7 @@ int attempt_install_driver(File* file) {
     // get the size of our elf so we can use it for alignment
     u32 elf_size = (elf_high - elf_low + 0xFFF) & ~0xFFF;
     
+    Dynarray* addrs = dynarray_create(sizeof(u32));
     // Determine if this is a position-independent driver or fixed-address
     // If elf_low is 0, it's position-independent and we choose the address
     // If elf_low is non-zero, the driver expects to load at that address
@@ -71,6 +144,7 @@ int attempt_install_driver(File* file) {
     if (elf_low == 0) {
         // Position-independent: we choose where to load
         u32 load_base = alloc_page(PAGEF_NOUSER);
+        dynarray_add(addrs, &load_base);
         load_offset = (i32)load_base - (i32)elf_low;
     } else {
         // Fixed address: load at the address specified in the ELF
@@ -81,9 +155,7 @@ int attempt_install_driver(File* file) {
     // program headers
     // seek to the program header offset
     ELF_Program_Header current_header;
-    u32* addrs = kmalloc(sizeof(u32) * header.program_entry_count);
-    u32 addrs_size = header.program_entry_count;
-    u32 addrs_count = 0;
+    ELF_Section_Header section_headers[header.section_entry_size * header.section_entry_count];
     // now for each file, read it in
     for (u32 i = 0; i < header.program_entry_count; i++) {
         // Sanity checks
@@ -107,20 +179,14 @@ int attempt_install_driver(File* file) {
             goto cleanup;
         }
 
-        // Calculate the actual load address (original + offset)
-        u32 actual_addr = current_header.virtual_addr + load_offset;
-
         // we should allocate virtual memory for this segment
-        // at the address WE choose (not what the ELF says).
+        // at the address WE choose (not what the ELF says) when 
+        // load_offset != 0. If code is NOT pic then load_offset == 0.
+        u32 actual_addr = current_header.virtual_addr + load_offset;
         bool first = true;
         for (u32 addr = actual_addr;
              addr < actual_addr + current_header.size_mem;
              addr += 0x1000) {
-            addrs[addrs_count++] = addr;
-            if (addrs_count > addrs_size) {
-                addrs = krealloc(addrs, sizeof(u32) * addrs_size * 2);
-                addrs_size *= 2;
-            }
             // If this is not the first page or this is NOT relocatable,
             // we can allocate it normally.
             // This is because we allocate the first page up there.
@@ -129,9 +195,11 @@ int attempt_install_driver(File* file) {
                     printf("Failed to allocate page for ELF segment at address %x.\n", addr);
                     goto cleanup;
                 }
+                dynarray_add(addrs, &addr);
                 first = false;
             }
         }
+        
         // Now we should read the segment data from the file at our chosen address
         fat_file_seek(file, current_header.offset_in_file, FAT_SEEK_START);
         if (fat_file_read(file, (void*)actual_addr, current_header.size_file, &temp) != 0) {
@@ -147,7 +215,6 @@ int attempt_install_driver(File* file) {
     }
     
     // We load the section headers now for relocations and .astatine_driver
-    ELF_Section_Header* section_headers = kmalloc(header.section_entry_size * header.section_entry_count);
     fat_file_seek(file, header.section_header_offset, FAT_SEEK_START);
     if (fat_file_read(file, section_headers, header.section_entry_size * header.section_entry_count, &temp) != 0) {
         printf("Failed to read section headers.\n");
@@ -172,7 +239,6 @@ int attempt_install_driver(File* file) {
         u8  st_other;
         u16 st_shndx;
     } Elf32_Sym;
-
     // Cache for loaded symbol tables (indexed by section index)
     Elf32_Sym** symtab_cache = kcalloc(sizeof(Elf32_Sym*) * header.section_entry_count);
 
@@ -186,11 +252,10 @@ int attempt_install_driver(File* file) {
             } Elf32_Rela;
 
             // Load relocation entries from file
-            Elf32_Rela* relocs = kmalloc(section_headers[i].size);
+            Elf32_Rela relocs[section_headers[i].size];
             fat_file_seek(file, section_headers[i].offset, FAT_SEEK_START);
             if (fat_file_read(file, relocs, section_headers[i].size, &temp) != 0) {
                 printf("Failed to read RELA section.\n");
-                kfree(relocs);
                 continue;
             }
 
@@ -331,20 +396,40 @@ int attempt_install_driver(File* file) {
                         driver_base->author);
                 goto cleanup;
             }
-            available_driver_count++;
-            if (available_driver_size == 0) {
-                available_driver_size = 4;
-                available_drivers = kmalloc(sizeof(AstatineDriver*) * available_driver_size);
-            } else if (available_driver_count > available_driver_size) {
-                available_drivers = krealloc(available_drivers,
-                                            sizeof(AstatineDriver*) * available_driver_size * 2);
-                available_driver_size *= 2;
-            }
-            
-            available_drivers[available_driver_count - 1] = driver_base;
 
-            int postregister_driver(AstatineDriverFile* driver);
-            postregister_driver(driver_base);
+            // After post-registration, we should know if this driver
+            // is currently being used by devices.
+            // We can store that information in the size section of the
+            // driver base for later use.
+            u32 devices_inited = postregister_driver(driver_base);
+            if (devices_inited != 0) {
+                loaded_driver_count++;
+                if (loaded_driver_size == 0) {
+                    loaded_driver_size = 4;
+                    loaded_drivers = kmalloc(sizeof(AstatineDriver*) * loaded_driver_size);
+                } else if (loaded_driver_count > loaded_driver_size) {
+                    loaded_drivers = krealloc(loaded_drivers,
+                                                sizeof(AstatineDriver*) * loaded_driver_size * 2);
+                    loaded_driver_size *= 2;
+                }
+                loaded_drivers[loaded_driver_count - 1] = kmalloc(sizeof(AstatineDriverFile));
+                memcpy(loaded_drivers[loaded_driver_count - 1], driver_base, sizeof(AstatineDriverFile));
+            } else {
+                // we can unload the driver since it's not being used
+                for (u32 p = 0; p < addrs->count; p++) {
+                    u32 addr = *(u32*)dynarray_get(addrs, p);
+                    free_page(addr);
+                }
+            }
+
+            // we store this in the available_drivers list
+            if (!available_drivers) available_drivers = dynarray_create(sizeof(AstatineDriverFile));
+            driver_base->sig[0] = 0x0; // mark as loaded
+            char* path = kmalloc(strlen(driver_base->name) + 1);
+            strcpy(path, driver_base->name);
+            ((void**)driver_base->name)[0] = path;
+            dynarray_add(available_drivers, driver_base);
+
             printf("Successfully registered driver: %s v%s by %s\n",
                     driver_base->name,
                     driver_base->version,
@@ -354,10 +439,12 @@ int attempt_install_driver(File* file) {
     }
     sleep(1000);
     cleanup:
-    for (u32 i = 0; i < addrs_count; i++) {
-        free_page(addrs[i]);
+    for (u32 p = 0; p < addrs->count; p++) {
+        u32 addr = *(u32*)dynarray_get(addrs, p);
+        free_page(addr);
     }
     safe:
+    dynarray_destroy(addrs);
     if (symtab_cache) {
         for (u32 i = 0; i < header.section_entry_count; i++) {
             if (symtab_cache[i] != null) {
@@ -366,65 +453,5 @@ int attempt_install_driver(File* file) {
         }
         kfree(symtab_cache);
     }
-    if (addrs) kfree(addrs);
-    if (section_headers) kfree(section_headers);
-    return 0;
-}
-
-static int initialise_driver_with_subsystem(AstatineDriverFile* driver, Device* device) {
-    // depending on the driver type, we can call the relevant
-    // registration function
-    switch (driver->device_type) {
-        case DEVICE_TYPE_TTYPE:
-            return register_teletype_driver(driver, device);
-        default:
-            printf("Driver type %u not supported for auto-registration.\n",
-                    driver->driver_type);
-            return -1;
-    }
-}
-
-int postregister_driver(AstatineDriverFile* driver) {
-    // for any given driver we will need to probe the system
-    // in the case that it needs to detect some hardware that
-    // can otherwise not be detected
-    Device probe_device;
-    if (driver->probe && driver->probe(&probe_device, get_kernel_function_pointers())) {
-        printf("Driver %s probed and found its device.\n", driver->name);
-        // We don't register here because either way the register_driver function
-        // does that. It's somewhat inefficient but it means that 
-        // =======
-        // wait i just had a fucking brainfart of course the fucking registration
-        // function can just take a device and driver if we're searching for the
-        // fucking device anyway 
-        // and when we search for the driver for a device WE STILL HAVE BOTH OF
-        // THE FUCKING DEVICES TS CAN NOT BE REAL
-        Device* device = register_device(device);
-        initialise_driver_with_subsystem(driver, device);
-    }
-    // During post-registration, we use the base to probe
-    // all devices on the system that match the device type.
-    for (int i = 0; i < device_count; i++) {
-        Device* device = devices[i];
-        if (device->type != driver->device_type) {
-            continue;
-        }
-        if (device->conn != driver->driver_type) {
-            continue;
-        }
-        if (device->owned) {
-            continue;
-        }
-
-        if (driver->check && driver->check(device, get_kernel_function_pointers())) {
-            // This driver base is able to manage this device
-            // so we can create an instance of the driver
-            // through the driver's manager registration. (like register_teletype_driver)
-            initialise_driver_with_subsystem(driver, device);
-        }
-    }
-
-    COOKED("No more devices to check.\n");
-
     return 0;
 }

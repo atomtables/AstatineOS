@@ -46,9 +46,9 @@ The specific versions that include the changes I made are below.
 - [X] libraries (newlib)
 - [x] custom boot filesystem for loading boot image (instead of being sane and pulling a grub)
 - [x] os-specific toolchain for building apps
-- [ ] libc or any functions to run apps that don't involve building them yourselves
+- [x] libc or any functions to run apps that don't involve building them yourselves
 - [ ] sound support (technically exists but 1-bit sound is kinda sad even for 1995)
-- [ ] modular driver support
+- [-] modular driver support
 - [ ] documentation
 - [x] custom build system (hey if it works it works)
 - [x] kernelmode code execution

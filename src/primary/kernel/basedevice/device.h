@@ -43,10 +43,15 @@ enum DeviceType {
 };
 
 enum ConnectionType {
+    // There would realistically never be a scenario where
+    // we don't know how a device is connected but apparently
+    // legacy code is a W thing.
     CONNECTION_TYPE_UNKNOWN,
     CONNECTION_TYPE_IO,
     CONNECTION_TYPE_PCI,
     CONNECTION_TYPE_USB,
+    // Why the hell would we have an other connection type
+    // if we had a unknown one ts is actually fried.
     CONNECTION_TYPE_OTHER
 };
 
