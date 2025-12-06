@@ -16,7 +16,7 @@ export default {
     output: ["textmode.adv"],
     install: {
         fat32: [[
-            "$BUILD/textmode.adv", "textmode.adv"
+            "$BUILD/textmode.adv", "drivers/textmode.adv"
         ]]
     }
 }

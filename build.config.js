@@ -26,6 +26,9 @@ export default {
         mformat: {
             testCommand() { return `${this.path} --version`; }
         },
+        mmd: {
+            testCommand() { return `${this.path} --version`; }
+        },
         mcopy: {
             testCommand() { return `${this.path} --version`; }
         },
@@ -92,13 +95,18 @@ export default {
             name: "fat32",
             output: "$BUILD/fat32.img",
             require: {
-                tools: {"mformat": "MFORMAT", "mcopy": "MCOPY", "dd": "DD"}
+                tools: {"mformat": "MFORMAT", "mcopy": "MCOPY", "dd": "DD", "mmd": "MMD"}
             },
             build(files) {
                 let steps = [];
                 steps.push(`$DD bs=67M count=1 if=/dev/zero of=$BUILD/fat32.img`);
                 steps.push(`$MFORMAT -F -i $BUILD/fat32.img ::`);
                 for (let [location, copyTo] of files) {
+                    let dirs = copyTo.split("/").slice(0, -1);
+                    for (let i = 0; i < dirs.length; i++) {
+                        let dirPath = dirs.slice(0, i + 1).join("/");
+                        steps.push(`$MMD -i $BUILD/fat32.img ::/${dirPath}`);
+                    }
                     steps.push(`$MCOPY -i $BUILD/fat32.img ${location} ::/${copyTo}`);
                 }
                 return steps;

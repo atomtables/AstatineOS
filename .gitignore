@@ -17,3 +17,4 @@ out
 .build.log
 node_modules
 *.tar.gz
+.atomtools-cache.json

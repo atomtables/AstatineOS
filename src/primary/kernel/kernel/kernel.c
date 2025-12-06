@@ -32,7 +32,6 @@
 extern void ahsh();
 
 static Fat fat;
-
 bool write_stub(const u8* buf, unsigned int sect) {
     u8 err = ide_write_sectors(0, 1, sect, (void*)buf);
     return err == 0;
@@ -59,12 +58,10 @@ u8 mount() {
     return 0;
 }
 
-
 // only blocking thread.
 int main() {
     clear_screen();
     println_color("AstatineOS v0.3.0-alpha", COLOR_LIGHT_RED);
-
 
     gdt_init();
     printf("Target complete: gdt\n");
@@ -80,7 +77,6 @@ int main() {
     fpu_init();
     printf("Target complete: fpu\n");
 
-
     pcs_init();
     printf("Target complete: pcspeaker\n");
 
@@ -89,7 +85,6 @@ int main() {
 
     keyboard_init();
     printf("Target complete: keyboard\n");
-
 
     // clear the 0x100000-0x1FFFFF region to prevent dynamic memory corruption
     printf("Setting up dymem region...");
@@ -128,7 +123,7 @@ int main() {
 
     clear_screen();
     printf("Ready to load driver, enter path: ");
-    char elf_path[127] = "/primary/textmode.adv";
+    char elf_path[127] = "/primary/drivers/textmode.adv";
     if (is_elf(elf_path) == 0) {
         printf("ELF file detected, loading...\n");
         File file;
@@ -138,12 +133,8 @@ int main() {
             for (u32 i = 0; x[i] != 0x00; i++) {
                 *((u8*)0xb8000 + i * 2) = x[i];
             }
-            reboot();
+            goto skiploading;
         }
-        // char* x = "loaded";
-        // for (u32 i = 0; x[i] != 0x00; i++) {
-        //     *((u8*)0xb8000 + i * 2) = x[i];
-        // }
         int errno;
         if ((errno = attempt_install_driver(&file)) != 0) {
             printf("Failed to load and run ELF file.\n");
@@ -152,7 +143,7 @@ int main() {
             for (u32 i = 0; x[i] != 0x00; i++) {
                 *((u8*)0xb8000 + i * 2) = x[i];
             }
-            reboot();
+            goto skiploading;
         }
     } else {
         printf("The specified file is not a valid ELF file.\n");
@@ -160,8 +151,10 @@ int main() {
         for (u32 i = 0; x[i] != 0x00; i++) {
             *((u8*)0xb8000 + i * 2) = x[i];
         }
-        reboot();
+        goto skiploading;
     }
+    skiploading:
+
     while(1) {
         clear_screen();
         printf("Ready to load elf, enter path: ");

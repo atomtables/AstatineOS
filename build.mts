@@ -67,7 +67,9 @@ console.misc = function (...args: string[]) {
 }
 
 let projectConfiguration: any;
-let buildFiles: { [path: string]: any } = [];
+let buildFiles: { [path: string]: any } = {};
+const CONFIG_CACHE_PATH = "./.atomtools-cache.json";
+const CACHE_VERSION = 1;
 
 function isIterable(obj: any): boolean {
     // checks for null and undefined
@@ -111,6 +113,10 @@ async function populateToolPaths() {
     let success = true;
     let promises = []
     for (let tool of Object.keys(tools) as (string)[]) {
+        if (tools[tool].path) {
+            console.debug(`   -> Using cached ${tool} at ${tools[tool].path}`);
+            continue;
+        }
         promises.push(
             which(tool).catch(() => null).then(item => {
                 if (!item) {
@@ -147,6 +153,10 @@ async function populateDirectoryPaths() {
     let promises = [];
     for (let dir of Object.keys(directories) as (keyof typeof directories)[]) {
         let item = directories[dir];
+        if (item.path) {
+            console.debug(`   -> Using cached ${item.name} path at ${item.path}`);
+            continue;
+        }
         promises.push(runCommand("sh", ["-c", item.find[0] as string]).catch(() => ({ code: -1, stdout: "", stderr: "" })).then(({
             stdout, stderr, code
         }) => {
@@ -182,31 +192,61 @@ async function populateDirectoryPaths() {
 let primaryTarget: string;
 
 async function getBuildFiles() {
-    // walk every subdirectory in project
-    for (let item of projectConfiguration.source) {
-        let folders = fs.readdirSync(item)
-        for (let folder of folders) {
-            let fullPath = `${item}/${folder}`;
-            let stat = await promisify(fs.stat)(fullPath);
-            if (stat.isDirectory()) {
-                folders.push(...fs.readdirSync(fullPath).map(subitem => `${folder}/${subitem}`));
+    buildFiles = {} as any;
+    const importPromises: Promise<void>[] = [];
+
+    for (let sourceRoot of projectConfiguration.source) {
+        const queue: string[] = [sourceRoot];
+        while (queue.length) {
+            const current = queue.pop() as string;
+            let entries: string[] = [];
+            try {
+                entries = fs.readdirSync(current);
+            } catch {
+                continue;
             }
-            if (stat.isFile() && (folder.endsWith("/build.js") || folder.endsWith("/build.json"))) {
-                const file = await import(fullPath);
-                if (!file.default.atomtools) continue;
-                console.debug(`   -> Found build file: ${fullPath}`);
-                buildFiles[fullPath] = file.default;
+            for (let entry of entries) {
+                const fullPath = `${current}/${entry}`;
+                let stat;
+                try {
+                    stat = fs.statSync(fullPath);
+                } catch {
+                    continue;
+                }
+                if (stat.isDirectory()) {
+                    queue.push(fullPath);
+                    continue;
+                }
+                if (entry === "build.js" || entry === "build.json") {
+                    importPromises.push(
+                        import(fullPath).then(file => {
+                            if (!file.default?.atomtools) return;
+                            console.debug(`   -> Found build file: ${fullPath}`);
+                            buildFiles[fullPath] = file.default;
+                        }).catch((err) => {
+                            console.warn(`   Warning: skipping build file ${fullPath}: ${err}`);
+                        })
+                    );
+                }
             }
         }
     }
+
+    await Promise.all(importPromises);
     console.info(`-> Found ${Object.keys(buildFiles).length} build files`);
 }
 
 async function configure() {
-    console.info("-> Configuring tools...");
-    await populateToolPaths();
-    console.info("-> Getting required paths...");
-    await populateDirectoryPaths();
+    const cacheLoaded = await loadConfigurationCache();
+    if (!cacheLoaded) {
+        console.info("-> Configuring tools...");
+        await populateToolPaths();
+        console.info("-> Getting required paths...");
+        await populateDirectoryPaths();
+        await writeConfigurationCache();
+    } else {
+        console.info("-> Using cached tool/path resolution...");
+    }
     console.info("-> Enumerating build files...");
     await getBuildFiles();
 }
@@ -218,6 +258,65 @@ async function getCreationDateOfPath(path: string): Promise<number> {
         return stat.mtimeMs;
     } catch {
         return 0;
+    }
+}
+
+async function isOutputStale(inputPath: string, outputPath: string): Promise<boolean> {
+    // Skip work when the produced output is already newer than its input
+    const [inputTime, outputTime] = await Promise.all([
+        getCreationDateOfPath(inputPath),
+        getCreationDateOfPath(outputPath)
+    ]);
+    return outputTime < inputTime;
+}
+
+async function loadConfigurationCache(): Promise<boolean> {
+    if (!fs.existsSync(CONFIG_CACHE_PATH)) return false;
+    try {
+        const cache = JSON.parse(fs.readFileSync(CONFIG_CACHE_PATH, "utf-8"));
+        if (cache.version !== CACHE_VERSION) return false;
+
+        const configStamp = await getCreationDateOfPath("./build.config.js");
+        if (cache.configStamp !== configStamp) return false;
+
+        let toolsComplete = true;
+        for (let tool of Object.keys(projectConfiguration.tools || {})) {
+            const cachedPath = cache.tools?.[tool];
+            if (!cachedPath) {
+                toolsComplete = false;
+                continue;
+            }
+            projectConfiguration.tools[tool].path = cachedPath;
+        }
+
+        let pathsComplete = true;
+        for (let pathKey of Object.keys(projectConfiguration.paths || {})) {
+            const cachedPath = cache.paths?.[pathKey];
+            if (!cachedPath) {
+                pathsComplete = false;
+                continue;
+            }
+            projectConfiguration.paths[pathKey].path = cachedPath;
+        }
+
+        return toolsComplete && pathsComplete;
+    } catch {
+        return false;
+    }
+}
+
+async function writeConfigurationCache() {
+    const configStamp = await getCreationDateOfPath("./build.config.js");
+    const cache = {
+        version: CACHE_VERSION,
+        configStamp,
+        tools: Object.fromEntries(Object.entries(projectConfiguration.tools || {}).map(([key, value]: [string, any]) => [key, value.path])),
+        paths: Object.fromEntries(Object.entries(projectConfiguration.paths || {}).map(([key, value]: [string, any]) => [key, value.path]))
+    };
+    try {
+        fs.writeFileSync(CONFIG_CACHE_PATH, JSON.stringify(cache, null, 2));
+    } catch (err: any) {
+        console.warn(`   Warning: Unable to write configuration cache: ${err}`);
     }
 }
 
@@ -235,11 +334,16 @@ async function buildTarget() {
         exit(1);
     }
 
+    // reset per-run mutation markers
+    target.wasModified = false;
+    const targetOutputPath = escapeCommand(target.output, target.require || {}, "./");
+
     // Step 1.5: see if the target is newer than its dependencies
     // if so, we can skip the build entirely
-    let targetTime = await getCreationDateOfPath(escapeCommand(target.output, target.require || {}, "./"));
+    let targetTime = await getCreationDateOfPath(targetOutputPath);
     // Step 2: let's find dependencies first and foremost.
     // these deps need to be built first.
+    let depsModified = false;
     for (let dep of (target.depends || [])) {
         console.info(`-> Building dependency "${dep}"...`);
         // let's look to see if this is a target or location
@@ -251,8 +355,10 @@ async function buildTarget() {
             primaryTarget = dep;
             await buildTarget();
             primaryTarget = currentTarget;
+            depsModified = depsModified || !!projectConfiguration.targets.find((t: any) => t.name === dep)?.wasModified;
             continue;
         }
+        if (depLocation) depLocation.wasModified = false;
         let collectedFiles = []
         for (let [dir, buildFile] of Object.entries(buildFiles)) {
             dir = dir.split("/").slice(0, -1).join("/")
@@ -300,6 +406,11 @@ async function buildTarget() {
                                 let outputFile = outputPattern.replaceAll("$FILE_BASE", fileBase);
                                 if (!fs.existsSync(outputFile.split("/").slice(0, -1).join("/"))) {
                                     fs.mkdirSync(outputFile.split("/").slice(0, -1).join("/"), { recursive: true });
+                                }
+
+                                if (!(await isOutputStale(inputFile, outputFile))) {
+                                    console.misc(`   -> Skipping ${inputFile} (cached)`);
+                                    continue;
                                 }
                                 for (let subcommand of command.build) {
                                     if (subcommand.type === "command") {
@@ -354,6 +465,7 @@ async function buildTarget() {
         }
         if (projectConfiguration.locations.find(({name}: any) => name === depLocation.name).wasModified) {
             projectConfiguration.targets.find(({name}: any) => name === primaryTarget).wasModified = true;
+            depsModified = true;
 
             let nextCommands = depLocation.build(collectedFiles);
             for (let command of nextCommands) {
@@ -383,8 +495,8 @@ async function buildTarget() {
     // Step 3: We built all the dependencies to the target
     // so now we build the actual target
     // very simple since targets are assumed to be commands only with no dynamics
-    if (!projectConfiguration.targets.find(({name}: any) => name === primaryTarget).wasModified) {
-        console.misc(`   -> Using cached build for target "${primaryTarget}"`);
+    if (!depsModified && fs.existsSync(targetOutputPath)) {
+        console.misc(`   -> Using cached build for target "${primaryTarget}" (deps unchanged)`);
         return;
     }
     let targetPrerequisites: any = {};
@@ -399,6 +511,7 @@ async function buildTarget() {
             targetPrerequisites[prereqVar] = prereqResult.stdout.trim();
         }
     }
+    target.wasModified = true;
     for (let command of target.build) {
         let commandStr = escapeCommand(command, target.require, "./");
         for (let [prereqVar, prereqValue] of Object.entries(targetPrerequisites) as [string, string][]) {
