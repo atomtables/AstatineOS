@@ -88,8 +88,8 @@ Or, download an ISO from the releases section below and test it out yourself on
 ## it works on fake hardware bro trust me
 source: this video
 
-[https://github.com/user-attachments/assets/e6b3a090-fb49-4749-a7fc-41baafcaaeb1
-](https://github.com/user-attachments/assets/e6b3a090-fb49-4749-a7fc-41baafcaaeb1
+[https://github.com/user-attachments/assets/7a022678-c8fa-461c-a093-f2d61037b7d0
+](https://github.com/user-attachments/assets/7a022678-c8fa-461c-a093-f2d61037b7d0
 )
 
 
