@@ -9,6 +9,7 @@ static void dynarray_resize(struct dynarray* array, u32 new_capacity) {
 
 struct dynarray* dynarray_create(u32 sizeof_element) {
     struct dynarray* array = kmalloc(sizeof(Dynarray));
+    array->initialised = true;
     array->sizeof_element = sizeof_element;
     array->capacity = 4;
     array->count = 0;
@@ -28,13 +29,14 @@ void* dynarray_get(struct dynarray* array, u32 index) {
     return (u8*)array->elements + (index * array->sizeof_element);
 }
 
-void dynarray_add(struct dynarray* array, void* element) {
+int dynarray_add(struct dynarray* array, void* element) {
     if (array->count >= array->capacity) {
         array->capacity *= 2;
         array->elements = krealloc(array->elements, array->sizeof_element * array->capacity);
     }
     memcpy((u8*)array->elements + (array->count * array->sizeof_element), element, array->sizeof_element);
     array->count++;
+    return array->count - 1;
 }
 
 void dynarray_remove(struct dynarray* array, u32 index) {

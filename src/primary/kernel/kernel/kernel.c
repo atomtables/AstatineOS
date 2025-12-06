@@ -65,6 +65,7 @@ int main() {
     clear_screen();
     println_color("AstatineOS v0.3.0-alpha", COLOR_LIGHT_RED);
 
+
     gdt_init();
     printf("Target complete: gdt\n");
 
@@ -79,6 +80,7 @@ int main() {
     fpu_init();
     printf("Target complete: fpu\n");
 
+
     pcs_init();
     printf("Target complete: pcspeaker\n");
 
@@ -87,6 +89,7 @@ int main() {
 
     keyboard_init();
     printf("Target complete: keyboard\n");
+
 
     // clear the 0x100000-0x1FFFFF region to prevent dynamic memory corruption
     printf("Setting up dymem region...");
@@ -104,6 +107,7 @@ int main() {
     init_mem();
     STI();
     printf("Target complete: memory\n");
+
 
     discover_isa_devices();
 
@@ -140,9 +144,11 @@ int main() {
         // for (u32 i = 0; x[i] != 0x00; i++) {
         //     *((u8*)0xb8000 + i * 2) = x[i];
         // }
-        if (attempt_install_driver(&file) != 0) {
+        int errno;
+        if ((errno = attempt_install_driver(&file)) != 0) {
             printf("Failed to load and run ELF file.\n");
-            char* x = "Failed to load and run ELF file.";
+            char x[45] = "Failed to load and run ELF file.  ";
+            itoa(errno, x + strlen(x) - 1);
             for (u32 i = 0; x[i] != 0x00; i++) {
                 *((u8*)0xb8000 + i * 2) = x[i];
             }

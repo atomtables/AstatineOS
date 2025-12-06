@@ -1,5 +1,7 @@
 # AstatineOS
 
+Make sure to look at UPDATE.md for pure sadness
+
 Do `./build.sh` to compile, `./build.sh run` to compile and run. Before running, compile and install `mkabp` to PATH.
 
 ## Dependencies

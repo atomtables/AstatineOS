@@ -11,7 +11,7 @@
 #define uint16_t u16
 #define uint32_t u32  
 #define int32_t  i32
-#define bool     u8
+// #define bool     u8
 //------------------------------------------------------------------------------
 enum
 {

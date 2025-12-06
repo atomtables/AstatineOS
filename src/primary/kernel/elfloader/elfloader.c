@@ -4,6 +4,7 @@
 #include <memory/paging.h>
 #include <timer/PIT.h>
 #include <memory/malloc.h>
+#include <modules/dynarray.h>
 
 // check if the file path is an ELF file
 // and make sure it can execute on this system.
@@ -13,16 +14,12 @@
 static int temp;
 
 extern void entryuser32(u32 addr, u32 useresp);
-int is_elf(char* file_path) {
-    File file;
-    if (fat_file_open(&file, file_path, FAT_READ) != 0) {
-        printf("Failed to open file: %s\n", file_path);
-        return 3;
-    }
 
+static int is_elf_file(File* file) {
+    fat_file_seek(file, 0, FAT_SEEK_START);
     ELF_Ident ident;
-    if (fat_file_read(&file, &ident, sizeof(ELF_Ident), &temp) != 0) {
-        fat_file_close(&file);
+    if (fat_file_read(file, &ident, sizeof(ELF_Ident), &temp) != 0) {
+        fat_file_close(file);
         printf("Failed to read ELF identification.\n");
         return 3;
     }
@@ -30,20 +27,80 @@ int is_elf(char* file_path) {
     // Check magic number
     if (ident.magic_number[0] != 0x7F || ident.magic_number[1] != 'E' ||
         ident.magic_number[2] != 'L' || ident.magic_number[3] != 'F') {
-        printf("File is not a valid ELF file: %s, reads %x%c%c%c\n", file_path, ident.magic_number[0], ident.magic_number[1], ident.magic_number[2], ident.magic_number[3]);
-        fat_file_close(&file);
+        printf("File is not a valid ELF file, reads %x%c%c%c\n", ident.magic_number[0], ident.magic_number[1], ident.magic_number[2], ident.magic_number[3]);
+        fat_file_close(file);
         return 1;
     }
 
     // Check architecture (1 = 32bit)
     if (ident.arch != 1) {
-        printf("ELF file is not for 32-bit architecture: %s\n", file_path);
-        fat_file_close(&file);
+        printf("ELF file is not for 32-bit architecture\n");
+        fat_file_close(file);
         return 2;
     }
 
-    fat_file_close(&file);
     return 0;
+}
+
+int is_elf(char* file_path) {
+    File file;
+    if (fat_file_open(&file, file_path, FAT_READ) != 0) {
+        printf("Failed to open file: %s\n", file_path);
+        return 3;
+    }
+
+    int ret = is_elf_file(&file);
+
+    fat_file_close(&file);
+    return ret;
+}
+
+bool load_program_headers_elf(File* file, Dynarray* addrs) {
+    if (is_elf_file(file) != 0) {
+        printf("File is not a valid ELF file.\n");
+        return false;
+    }
+    fat_file_seek(file, 0, FAT_SEEK_START);
+    ELF_Header primary_header;
+    if (fat_file_read(file, &primary_header, sizeof(ELF_Header), &temp) != 0) {
+        printf("Failed to read the ELF header.\n");
+        return false;
+    }
+    ELF_Program_Header current_header;
+    for (u32 i = 0; i < primary_header.program_entry_count; i++) {
+        // seek to the program header
+        fat_file_seek(file, primary_header.program_header_offset + i * sizeof(ELF_Program_Header), FAT_SEEK_START);
+        if (fat_file_read(file, &current_header, sizeof(ELF_Program_Header), &temp) != 0) {
+            printf("Failed to read the ELF headers.\n");
+            return false;
+        }
+        dynarray_add(addrs, &current_header);
+    }
+};
+
+bool load_section_headers_elf(File* file, Dynarray* addrs) {
+    if (is_elf_file(file) != 0) {
+        printf("File is not a valid ELF file.\n");
+        return false;
+    }
+    fat_file_seek(file, 0, FAT_SEEK_START);
+    ELF_Header primary_header;
+    if (fat_file_read(file, &primary_header, sizeof(ELF_Header), &temp) != 0) {
+        printf("Failed to read the ELF header.\n");
+        return false;
+    }
+    fat_file_seek(file, primary_header.section_header_offset, FAT_SEEK_START);
+    ELF_Section_Header current_header;
+    for (u32 i = 0; i < primary_header.section_entry_count; i++) {
+        // seek to the section header
+        fat_file_seek(file, primary_header.section_header_offset + i * sizeof(ELF_Section_Header), FAT_SEEK_START);
+        if (fat_file_read(file, &current_header, sizeof(ELF_Section_Header), &temp) != 0) {
+            printf("Failed to read the ELF section headers.\n");
+            return false;
+        }
+        dynarray_add(addrs, &current_header);
+    }
+    return true;
 }
 
 // Now we know it's an ELF file for this system,

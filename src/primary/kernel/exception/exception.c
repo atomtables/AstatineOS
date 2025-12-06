@@ -18,6 +18,13 @@ void reboot() {
 }
 
 void panic(char* reason) {
+    // just in case the screen driver hasn't loaded yet
+    char* screen_text = (char*)0xb8000;
+    for (u32 i = 0; reason[i] != 0; i++) {
+        screen_text[i * 2] = reason[i];
+        screen_text[i * 2 + 1] = 0x4f; // white on red
+    }
+
     clear_screen();
 
     disable_vga_cursor();
@@ -41,6 +48,12 @@ void panic(char* reason) {
 
 void interrupt_panic(const int code, char* reason, const struct registers* registers) {
     int* eip = (int*)registers->eip;
+
+    char* screen_text = (char*)0xb8000;
+    for (u32 i = 0; reason[i] != 0; i++) {
+        screen_text[i * 2] = reason[i];
+        screen_text[i * 2 + 1] = 0x4f; // white on red
+    }
 
     clear_screen();
 

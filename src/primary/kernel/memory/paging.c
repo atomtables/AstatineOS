@@ -6,6 +6,7 @@
 #include <display/simple/display.h>
 
 #define FLUSH_TLB(addr) __asm__ volatile("invlpg (%0)" : : "r" (addr) : "memory");
+#define TOTAL_PAGE_ENTRIES (1024 * 1024)
 
 extern void load_page_directory(u32 pd_addr);
 
@@ -14,7 +15,7 @@ void page_set_kernel(PageTableEntry* pt, u32 index) {
     pt[index].rw = true;
     // We don't want any user access to our paging
     // directory so they can't see or modify it.
-    pt[index].allowuser = true;
+    pt[index].allowuser = false;
     // Remember that each increment of i represents 0x1000 bytes
     // so we can just directly assign it, and it would make an 
     // identity mapping.
@@ -49,6 +50,7 @@ void paging_init() {
     // Our table address is at 0x1000, so we can set that up now.
     PageTableEntry* pt = (PageTableEntry*)(0x2000);
     memset(pt, 0, 4096);
+    pt[0].notforuse = 1;
 
     // page_set_kernel(pt, 0);      // 0x00000000 - 0x00000FFF
     page_set_kernel(pt, 1);      // 0x00001000 - 0x00001FFF
@@ -88,47 +90,41 @@ static void allocate_a_page_directory_entry(u32 pd_index) {
 }
 
 u32 alloc_page(u32 flags) {
-    u32 phys_addr = alloc_frame();
-
-    // Find a free virtual address
-    u32 virt_addr = 0;
-    while(1) {
+    while (1) {
         u32 pd_index = rand() % 1024;
         u32 pt_index = rand() % 1024;
 
-        // If the pd is not present, then it means 
         if (!pd[pd_index].present) {
             allocate_a_page_directory_entry(pd_index);
-        } else {
-            PageTableEntry* pt = (PageTableEntry*)((u32)(pd[pd_index].table_addr << 12));
-            if (pt[pt_index].present) {
-                // already allocated
-                continue;
-            }
         }
+
         PageTableEntry* pt = (PageTableEntry*)((u32)(pd[pd_index].table_addr << 12));
-        pt[pt_index].present = true;
-        pt[pt_index].address = phys_addr >> 12;
-        pt[pt_index].rw = true;
-        pt[pt_index].allowuser = true;
-        if (flags && PAGEF_NOUSER) {
-            pt[pt_index].allowuser = false;
-        } else if (flags && PAGEF_READONLY) {
-            pt[pt_index].rw = false;
+        PageTableEntry* entry = &pt[pt_index];
+        if (entry->present || entry->notforuse) {
+            continue;
         }
-        virt_addr = (pd_index << 22) | (pt_index << 12);
+
+        u32 phys_addr = alloc_frame();
+        entry->present = true;
+        entry->address = phys_addr >> 12;
+        entry->rw = true;
+        entry->allowuser = true;
+        if (flags & PAGEF_NOUSER) {
+            entry->allowuser = false;
+        }
+        if (flags & PAGEF_READONLY) {
+            entry->rw = false;
+        }
+        u32 virt_addr = (pd_index << 22) | (pt_index << 12);
         page_directory_counts[pd_index]++;
-        break;
+        FLUSH_TLB(virt_addr);
+        return virt_addr;
     }
-    FLUSH_TLB(virt_addr);
-    return virt_addr;
 }
 
 // We allocate a new 4KB page at the given virtual address
 // mapping to the given physical address.
 bool alloc_page_at_addr(u32 virt_addr, u32 flags) {
-    u32 phys_addr = alloc_frame();
-
     // Get the directory index and table index
     u32 pd_index = (virt_addr >> 22) & 0x3FF;
     u32 pt_index = (virt_addr >> 12) & 0x3FF;
@@ -140,22 +136,26 @@ bool alloc_page_at_addr(u32 virt_addr, u32 flags) {
 
     // get the page table
     PageTableEntry* pt = (PageTableEntry*)((u32)(pd[pd_index].table_addr << 12));
+    PageTableEntry* entry = &pt[pt_index];
 
-    if (pt[pt_index].present) {
+    if (entry->present || entry->notforuse) {
         // already allocated
         return false;
     }
 
+    u32 phys_addr = alloc_frame();
+
     // set up the page table entry
-    pt[pt_index].present = true;
-    pt[pt_index].rw = true;
-    pt[pt_index].global = false;
-    pt[pt_index].allowuser = true; // allow user programs
-    pt[pt_index].address = phys_addr >> 12;
-    if (flags && PAGEF_NOUSER) {
-        pt[pt_index].allowuser = false;
-    } else if (flags && PAGEF_READONLY) {
-        pt[pt_index].rw = false;
+    entry->present = true;
+    entry->rw = true;
+    entry->global = false;
+    entry->allowuser = true; // allow user programs
+    entry->address = phys_addr >> 12;
+    if (flags & PAGEF_NOUSER) {
+        entry->allowuser = false;
+    }
+    if (flags & PAGEF_READONLY) {
+        entry->rw = false;
     }
 
     page_directory_counts[pd_index]++;
@@ -192,6 +192,78 @@ void free_page(u32 virt_addr) {
         memset(&pd[pd_index], 0, sizeof(pd[pd_index]));
         FLUSH_TLB(virt_addr);
     }
+}
+
+// needs to generate a contiguous range of pages
+u32 alloc_page_range(u32 pages, u32 flags) {
+    if (pages == 0 || pages > TOTAL_PAGE_ENTRIES) {
+        return 0;
+    }
+
+    u32 run_length = 0;
+    u32 candidate_start = 0;
+    bool found = false;
+
+    for (u32 pd_index = 0; pd_index < 1024 && !found; pd_index++) {
+        bool table_present = pd[pd_index].present;
+        PageTableEntry* pt = table_present ? (PageTableEntry*)((u32)(pd[pd_index].table_addr << 12)) : null;
+
+        for (u32 pt_index = 0; pt_index < 1024; pt_index++) {
+            bool entry_free;
+            if (table_present) {
+                PageTableEntry* entry = &pt[pt_index];
+                entry_free = (!entry->present) && (!entry->notforuse);
+            } else {
+                entry_free = true;
+            }
+
+            if (entry_free) {
+                if (run_length == 0) {
+                    candidate_start = (pd_index << 22) | (pt_index << 12);
+                }
+                run_length++;
+                if (run_length == pages) {
+                    found = true;
+                    break;
+                }
+            } else {
+                run_length = 0;
+            }
+        }
+    }
+
+    if (!found) {
+        return 0;
+    }
+
+    for (u32 j = 0; j < pages; j++) {
+        alloc_page_at_addr(candidate_start + (j * 0x1000), flags);
+    }
+
+    return candidate_start;
+}
+
+bool alloc_page_range_at_addr(u32 start_addr, u32 pages, u32 flags) {
+    // check if the range is free
+    for (u32 i = 0; i < pages; i++) {
+        u32 addr = start_addr + (i * 0x1000);
+        u32 pd_index = (addr >> 22) & 0x3FF;
+        u32 pt_index = (addr >> 12) & 0x3FF;
+
+        if (pd[pd_index].present) {
+            PageTableEntry* pt = (PageTableEntry*)((u32)(pd[pd_index].table_addr << 12));
+            if (pt[pt_index].present) {
+                // already allocated
+                return false;
+            }
+        }
+    }
+
+    // allocate the range
+    for (u32 i = 0; i < pages; i++) {
+        alloc_page_at_addr(start_addr + (i * 0x1000), flags);
+    }
+    return true;
 }
 
 void allow_null_page_read() {

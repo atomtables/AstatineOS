@@ -60,6 +60,10 @@ typedef u8 bool;
         __typeof__ (b) _b = (b); \
         _a > _b ? _a : _b; })
 
+#define ABS(a) \
+    ({ __typeof__ (a) _a = (a); \
+        _a < 0 ? -_a : _a; })
+
 #define CLAMP(_x, _mi, _ma) \
     (MAX(_mi, MIN(_x, _ma)))
 

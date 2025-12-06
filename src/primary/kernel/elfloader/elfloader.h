@@ -2,6 +2,8 @@
 #define ELFLOADER_H
 
 #include <modules/modules.h>
+#include <modules/dynarray.h>
+#include <fat32/fat32.h>
 
 typedef struct ELF_Ident {
     // Must be 0x7F, 'E', 'L', 'F'
@@ -46,6 +48,61 @@ typedef struct ELF_Header {
     // and I have no idea what this even does.
     u16 section_string_table_section_index;
 } PACKED ELF_Header;
+
+typedef enum {
+    DT_NULL            = 0,     /* Marks end of dynamic array */
+    DT_NEEDED          = 1,     /* Name of needed library */
+    DT_PLTRELSZ        = 2,     /* Size of PLT relocation table */
+    DT_PLTGOT          = 3,     /* Processor-dependent */
+    DT_HASH            = 4,     /* Address of symbol hash table */
+    DT_STRTAB          = 5,     /* Address of string table */
+    DT_SYMTAB          = 6,     /* Address of symbol table */
+    DT_RELA            = 7,     /* Address of Rela reloc table */
+    DT_RELASZ          = 8,     /* Size of Rela table */
+    DT_RELAENT         = 9,     /* Size of each Rela entry */
+    DT_STRSZ           = 10,    /* Size of string table */
+    DT_SYMENT          = 11,    /* Size of symbol table entry */
+    DT_INIT            = 12,    /* Address of initialization func */
+    DT_FINI            = 13,    /* Address of termination func */
+    DT_SONAME          = 14,    /* Shared object name */
+    DT_RPATH           = 15,    /* Library search path (deprecated) */
+    DT_SYMBOLIC        = 16,    /* Symbol resolution changes */
+    DT_REL             = 17,    /* Address of Rel reloc table */
+    DT_RELSZ           = 18,    /* Size of Rel table */
+    DT_RELENT          = 19,    /* Size of each Rel entry */
+    DT_PLTREL          = 20,    /* Type of PLT relocation */
+    DT_DEBUG           = 21,    /* Debugging entry (unused) */
+    DT_TEXTREL         = 22,    /* Relocations to text segment */
+    DT_JMPREL          = 23,    /* Address of PLT reloc table */
+    DT_BIND_NOW        = 24,    /* Binder handles immediately */
+    DT_INIT_ARRAY      = 25,    /* Array of init function pointers */
+    DT_FINI_ARRAY      = 26,    /* Array of fini function pointers */
+    DT_INIT_ARRAYSZ    = 27,    /* Size of DT_INIT_ARRAY */
+    DT_FINI_ARRAYSZ    = 28,    /* Size of DT_FINI_ARRAY */
+    DT_RUNPATH         = 29,    /* Search path for libraries */
+    DT_FLAGS           = 30,    /* Flags for the object */
+    DT_ENCODING        = 31,    /* Start of encoded range */
+
+    /* OS / processor-specific */
+    DT_PREINIT_ARRAY   = 32,    /* Pre-initialization array */
+    DT_PREINIT_ARRAYSZ = 33,    /* Size of preinit array */
+
+    /* GNU extensions */
+    DT_FLAGS_1         = 0x6ffffffb,
+    DT_VERDEF          = 0x6ffffffc,
+    DT_VERDEFNUM       = 0x6ffffffd,
+    DT_VERNEED         = 0x6ffffffe,
+    DT_VERNEEDNUM      = 0x6fffffff,
+
+    /* Sun extensions */
+    DT_AUXILIARY       = 0x7ffffffd,
+    DT_FILTER          = 0x7fffffff
+} Elf32_Dynamic_Tag;
+
+typedef struct ELF_Dynamic_Entry {
+    i32 tag;
+    u32 val;
+} PACKED ELF_Dynamic_Entry;
 
 typedef enum ELF_Program_Header_Type {
     ELF_PT_NULL = 0,
@@ -93,6 +150,12 @@ enum ShT_Types {
     SHT_REL     = 9,   // Relocation (no addend)
 };
 
+enum ShT_Flags {
+    SHF_WRITE        = 0x1,
+    SHF_ALLOC        = 0x2,
+    SHF_EXECINSTR    = 0x4,
+};
+
 typedef struct ELF_Section_Header {
     // String for header (we use this to compare)
     // Another point of interest is that the sh_name field does 
@@ -119,7 +182,38 @@ typedef struct ELF_Section_Header {
     u32 entry_size;
 } PACKED ELF_Section_Header;
 
+typedef struct ELF_Relocation_Entry {
+    u32 offset;
+    u32 info;
+} PACKED ELF_Relocation_Entry;
+
+typedef struct ELF_Relocation_Entry_Addend {
+    u32 offset;
+    u32 info;
+    i32 addend;
+} PACKED ELF_Relocation_Entry_Addend;
+
+enum ELF_Relocation_Types_i386 {
+    R_386_NONE        = 0,
+    R_386_32          = 1,
+    R_386_PC32        = 2,
+    R_386_GOT32       = 3,
+    R_386_PLT32       = 4,
+    R_386_COPY        = 5,
+    R_386_GLOB_DAT    = 6,
+    R_386_JMP_SLOT    = 7,
+    R_386_RELATIVE    = 8,
+    R_386_GOTOFF      = 9,
+    R_386_GOTPC       = 10,
+    R_386_32PLT      = 11,
+    R_386_TLS_TPOFF  = 14,
+    R_386_TLS_IE     = 15,
+    R_386_TLS_GOTIE  = 16,
+};
+
 int is_elf(char* file_path);
+bool load_program_headers_elf(File* file, Dynarray* addrs);
+bool load_section_headers_elf(File* file, Dynarray* addrs);
 int elf_load_and_run(char* file_path);
 
 #endif

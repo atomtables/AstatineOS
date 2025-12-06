@@ -33,7 +33,7 @@ struct KernelFunctionPointers* get_kernel_function_pointers() {
     return &kfp;
 }
 
-// Maintains a AstatineDriverFile* list of available drivers on
+// Maintains a AstatineDriverIndex* list of available drivers on
 // the system: not every driver will have a use at
 // the moment, but the actual driver is still
 // registered so if such a device appears later
@@ -41,19 +41,25 @@ struct KernelFunctionPointers* get_kernel_function_pointers() {
 // These drivers are NOT ABLE TO BE LOADED
 // these just contain the values to check if the driver
 // is compatible as well as a file path.
+struct AstatineDriverIndex {
+    // TODO
+};
 Dynarray* available_drivers;
+// List of active drivers on the system
+// AstatineDriver*
 Dynarray* active_drivers;
-AstatineDriverFile** loaded_drivers;
-u32 loaded_driver_count = 0;
-static u32 loaded_driver_size = 0;
+// List of loaded drivers in memory
+// AstatineDriverFile*
+Dynarray* loaded_drivers;
 
 
 static int initialise_driver_with_subsystem(AstatineDriverFile* driver, Device* device) {
     // depending on the driver type, we can call the relevant
     // registration function
-    switch (driver->device_type) {
+    switch (device->type) {
         case DEVICE_TYPE_TTYPE:
-            return register_teletype_driver(driver, device);
+            int ret = register_teletype_driver(driver, device);
+            return ret;
         default:
             printf("Driver type %u not supported for auto-registration.\n",
                     driver->driver_type);
@@ -82,12 +88,13 @@ u32 postregister_driver(AstatineDriverFile* driver) {
     }
     // During post-registration, we use the base to probe
     // all devices on the system that match the device type.
-    for (int i = 0; i < device_count; i++) {
-        Device* device = devices[i];
-        if (device->type != driver->device_type || device->type != DEVICE_TYPE_UNKNOWN) {
+    for (int i = 0; i < devices->count; i++) {
+        
+        Device* device = dynarray_get(devices, i);
+        if (device->type != driver->device_type && device->type != DEVICE_TYPE_UNKNOWN) {
             continue;
         }
-        if (device->conn != driver->driver_type || device->conn != CONNECTION_TYPE_UNKNOWN) {
+        if (device->conn != driver->driver_type && device->conn != CONNECTION_TYPE_UNKNOWN) {
             continue;
         }
         // driver is responsible for owning device
@@ -97,14 +104,14 @@ u32 postregister_driver(AstatineDriverFile* driver) {
             continue;
         }
 
-        if (driver->check && driver->check(device, get_kernel_function_pointers())) {
+        if (driver->check != 0 && driver->check(device, get_kernel_function_pointers())) {
             // This driver base is able to manage this device
             // so we can create an instance of the driver
             // through the driver's manager registration. (like register_teletype_driver)
             if (initialise_driver_with_subsystem(driver, device) == 0) {
                 detected_devices++;
             }
-        }
+        } 
     }
 
     return detected_devices;
@@ -112,346 +119,282 @@ u32 postregister_driver(AstatineDriverFile* driver) {
 
 static int temp;
 int attempt_install_driver(File* file) {
+    int errno = 0;
     // Then we should read just the ELF header
     ELF_Header header;
     if (fat_file_read(file, &header, sizeof(ELF_Header), &temp) != 0) {
         printf("Failed to read the ELF header.\n");
-        return 2;
-    }
-
-    // For position-independent drivers, we choose where to load them.
-    // First, find the extent of the ELF (lowest and highest virtual addresses)
-    u32 elf_low = 0xFFFFFFFF;
-    u32 elf_high = 0;
-    ELF_Program_Header ph_temp;
-    for (u32 i = 0; i < header.program_entry_count; i++) {
-        fat_file_seek(file, header.program_header_offset + i * sizeof(ELF_Program_Header), FAT_SEEK_START);
-        if (fat_file_read(file, &ph_temp, sizeof(ELF_Program_Header), &temp) != 0) continue;
-        if (ph_temp.type != ELF_PT_LOAD) continue;
-        if (ph_temp.virtual_addr < elf_low) elf_low = ph_temp.virtual_addr;
-        if (ph_temp.virtual_addr + ph_temp.size_mem > elf_high) 
-            elf_high = ph_temp.virtual_addr + ph_temp.size_mem;
-    }
-    
-    // get the size of our elf so we can use it for alignment
-    u32 elf_size = (elf_high - elf_low + 0xFFF) & ~0xFFF;
-    
-    Dynarray* addrs = dynarray_create(sizeof(u32));
-    // Determine if this is a position-independent driver or fixed-address
-    // If elf_low is 0, it's position-independent and we choose the address
-    // If elf_low is non-zero, the driver expects to load at that address
-    i32 load_offset;
-    if (elf_low == 0) {
-        // Position-independent: we choose where to load
-        u32 load_base = alloc_page(PAGEF_NOUSER);
-        dynarray_add(addrs, &load_base);
-        load_offset = (i32)load_base - (i32)elf_low;
-    } else {
-        // Fixed address: load at the address specified in the ELF
-        load_offset = 0;
-    }
-
-    // Now we should go through the list of 
-    // program headers
-    // seek to the program header offset
-    ELF_Program_Header current_header;
-    ELF_Section_Header section_headers[header.section_entry_size * header.section_entry_count];
-    // now for each file, read it in
-    for (u32 i = 0; i < header.program_entry_count; i++) {
-        // Sanity checks
-        if (header.program_header_offset + i * sizeof(ELF_Program_Header) >= file->size) {
-            printf("ELF program header offset out of bounds.\n");
-            goto cleanup;
-        }
-
-        // seek to the program header
-        fat_file_seek(file, header.program_header_offset + i * sizeof(ELF_Program_Header), FAT_SEEK_START);
-        if (fat_file_read(file, &current_header, sizeof(ELF_Program_Header), &temp) != 0) {
-            printf("Failed to read the ELF headers.\n");
-            goto cleanup;
-        }
-
-        // Check if we can load this segment
-        if (current_header.type != ELF_PT_LOAD) continue;
-
-        if (current_header.size_mem < current_header.size_file) {
-            printf("ELF segment size in memory is smaller than size in file.\n");
-            goto cleanup;
-        }
-
-        // we should allocate virtual memory for this segment
-        // at the address WE choose (not what the ELF says) when 
-        // load_offset != 0. If code is NOT pic then load_offset == 0.
-        u32 actual_addr = current_header.virtual_addr + load_offset;
-        bool first = true;
-        for (u32 addr = actual_addr;
-             addr < actual_addr + current_header.size_mem;
-             addr += 0x1000) {
-            // If this is not the first page or this is NOT relocatable,
-            // we can allocate it normally.
-            // This is because we allocate the first page up there.
-            if (!first || load_offset == 0) {
-                if (!alloc_page_at_addr(addr, PAGEF_NOUSER)) {
-                    printf("Failed to allocate page for ELF segment at address %x.\n", addr);
-                    goto cleanup;
-                }
-                dynarray_add(addrs, &addr);
-                first = false;
-            }
-        }
-        
-        // Now we should read the segment data from the file at our chosen address
-        fat_file_seek(file, current_header.offset_in_file, FAT_SEEK_START);
-        if (fat_file_read(file, (void*)actual_addr, current_header.size_file, &temp) != 0) {
-            printf("Failed to read segment data.\n");
-            goto cleanup;
-        }
-
-        // zero out the rest of the memory (elf spec)
-        memset((void*)(actual_addr + current_header.size_file),
-                0,
-                current_header.size_mem - current_header.size_file
-        );
-    }
-    
-    // We load the section headers now for relocations and .astatine_driver
-    fat_file_seek(file, header.section_header_offset, FAT_SEEK_START);
-    if (fat_file_read(file, section_headers, header.section_entry_size * header.section_entry_count, &temp) != 0) {
-        printf("Failed to read section headers.\n");
+        errno = 2;
         goto cleanup;
     }
-    
-    // Adjust section addresses by load_offset so relocations work correctly
-    for (u32 i = 0; i < header.section_entry_count; i++) {
-        if (section_headers[i].addr != 0) {
-            section_headers[i].addr += load_offset;
-        }
+
+    struct page_keep_track {
+        u32 page_addr;
+        u32 size;
+    } pkt;
+    // ts is the array rip
+    Dynarray* pages_for_each_segment = dynarray_create(sizeof(struct page_keep_track));
+    Dynarray* program_headers = dynarray_create(sizeof(ELF_Program_Header));
+    Dynarray* section_headers = dynarray_create(sizeof(ELF_Section_Header));
+    if (!available_drivers) available_drivers = dynarray_create(sizeof(AstatineDriverFile*));
+    if (!active_drivers) active_drivers = dynarray_create(sizeof(AstatineDriverFile*));
+    char* string_table = 0;
+
+    if (!load_program_headers_elf(file, program_headers)) {
+        printf("Failed to load ELF program headers.\n");
+        errno = 3;
+        goto cleanup;
+    }
+    if (!load_section_headers_elf(file, section_headers)) {
+        printf("Failed to load ELF section headers.\n");
+        errno = 3;
+        goto cleanup;
     }
 
-    // For relocatable objects, we need to load symbol table and relocation
-    // sections from the file since they're not in program headers.
-    // First pass: load SYMTAB sections and process relocations
-    typedef struct {
-        u32 st_name;
-        u32 st_value;
-        u32 st_size;
-        u8  st_info;
-        u8  st_other;
-        u16 st_shndx;
-    } Elf32_Sym;
-    // Cache for loaded symbol tables (indexed by section index)
-    Elf32_Sym** symtab_cache = kcalloc(sizeof(Elf32_Sym*) * header.section_entry_count);
-
-    // Process relocations
-    for (u32 i = 0; i < header.section_entry_count; i++) {
-        if (section_headers[i].type == SHT_RELA) {
-            typedef struct {
-                u32 r_offset;
-                u32 r_info;
-                i32 r_addend;
-            } Elf32_Rela;
-
-            // Load relocation entries from file
-            Elf32_Rela relocs[section_headers[i].size];
-            fat_file_seek(file, section_headers[i].offset, FAT_SEEK_START);
-            if (fat_file_read(file, relocs, section_headers[i].size, &temp) != 0) {
-                printf("Failed to read RELA section.\n");
-                continue;
-            }
-
-            // Load symbol table if not cached
-            u32 symtab_idx = section_headers[i].link;
-            if (symtab_cache[symtab_idx] == null) {
-                symtab_cache[symtab_idx] = kmalloc(section_headers[symtab_idx].size);
-                fat_file_seek(file, section_headers[symtab_idx].offset, FAT_SEEK_START);
-                if (fat_file_read(file, symtab_cache[symtab_idx], section_headers[symtab_idx].size, &temp) != 0) {
-                    printf("Failed to read symbol table.\n");
-                    kfree(relocs);
-                    continue;
-                }
-            }
-            Elf32_Sym* symtab = symtab_cache[symtab_idx];
-
-            // Target section for relocations
-            u32 target_idx = section_headers[i].info;
-            u32 target_base = section_headers[target_idx].addr;
-
-            u32 reloc_count = section_headers[i].size / sizeof(Elf32_Rela);
-            for (u32 j = 0; j < reloc_count; j++) {
-                u32 reloc_type = relocs[j].r_info & 0xFF;
-                u32 sym_idx = relocs[j].r_info >> 8;
-                i32 addend = relocs[j].r_addend;
-
-                // Address to patch = target section base + offset within section
-                u32* reloc_addr = (u32*)(target_base + relocs[j].r_offset);
-
-                // For relocatable objects, symbol value is section-relative
-                // We need to add the loaded address of the symbol's section
-                u32 sym_value = symtab[sym_idx].st_value;
-                u16 sym_shndx = symtab[sym_idx].st_shndx;
-                if (sym_shndx != 0 && sym_shndx < header.section_entry_count) {
-                    sym_value += section_headers[sym_shndx].addr;
-                }
-
-                switch (reloc_type) {
-                    case 1: // R_386_32: S + A
-                        *reloc_addr = sym_value + addend;
-                        break;
-                    case 2: // R_386_PC32: S + A - P
-                        *reloc_addr = sym_value + addend - (u32)reloc_addr;
-                        break;
-                    default:
-                        printf("Unknown RELA type: %u\n", reloc_type);
-                        break;
-                }
-            }
-            kfree(relocs);
-
-        } else if (section_headers[i].type == SHT_REL) {
-            typedef struct {
-                u32 r_offset;
-                u32 r_info;
-            } Elf32_Rel;
-
-            // Load relocation entries from file
-            Elf32_Rel* relocs = kmalloc(section_headers[i].size);
-            fat_file_seek(file, section_headers[i].offset, FAT_SEEK_START);
-            if (fat_file_read(file, relocs, section_headers[i].size, &temp) != 0) {
-                printf("Failed to read REL section.\n");
-                kfree(relocs);
-                continue;
-            }
-
-            // Load symbol table if not cached
-            u32 symtab_idx = section_headers[i].link;
-            if (symtab_cache[symtab_idx] == null) {
-                symtab_cache[symtab_idx] = kmalloc(section_headers[symtab_idx].size);
-                fat_file_seek(file, section_headers[symtab_idx].offset, FAT_SEEK_START);
-                if (fat_file_read(file, symtab_cache[symtab_idx], section_headers[symtab_idx].size, &temp) != 0) {
-                    printf("Failed to read symbol table.\n");
-                    kfree(relocs);
-                    continue;
-                }
-            }
-            Elf32_Sym* symtab = symtab_cache[symtab_idx];
-
-            // Target section for relocations
-            u32 target_idx = section_headers[i].info;
-            u32 target_base = section_headers[target_idx].addr;
-
-            u32 reloc_count = section_headers[i].size / sizeof(Elf32_Rel);
-            for (u32 j = 0; j < reloc_count; j++) {
-                u32 reloc_type = relocs[j].r_info & 0xFF;
-                u32 sym_idx = relocs[j].r_info >> 8;
-
-                // Address to patch = target section base + offset within section
-                u32* reloc_addr = (u32*)(target_base + relocs[j].r_offset);
-                // For REL, addend is stored at the relocation site
-                i32 addend = (i32)*reloc_addr;
-
-                // For relocatable objects, symbol value is section-relative
-                u32 sym_value = symtab[sym_idx].st_value;
-                u16 sym_shndx = symtab[sym_idx].st_shndx;
-                if (sym_shndx != 0 && sym_shndx < header.section_entry_count) {
-                    sym_value += section_headers[sym_shndx].addr;
-                }
-
-                switch (reloc_type) {
-                    case 1: // R_386_32: S + A
-                        *reloc_addr = sym_value + addend;
-                        break;
-                    case 2: // R_386_PC32: S + A - P
-                        *reloc_addr = sym_value + addend - (u32)reloc_addr;
-                        break;
-                    default:
-                        printf("Unknown REL type: %u\n", reloc_type);
-                        break;
-                }
-            }
-            kfree(relocs);
-        }
+    // Drivers must be an executable compiled with -pie (so their address base is zero)
+    // ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), static-pie linked, not stripped
+    // they must also be static because drivers cannot have dynamic dependencies (well they will later)
+    if (header.type != 2) {
+        printf("ELF file is not a relocatable executable.\n");
+        errno = 4;
+        goto cleanup;
     }
 
-    // Now find and process .astatine_driver section
-    for (u32 i = 0; i < header.section_entry_count; i++) {
-        // seek to the section name
-        char name_buf[32];
-        fat_file_seek(file,
-                      (int)(section_headers[header.section_string_table_section_index].offset + section_headers[i].name),
-                      FAT_SEEK_START); 
-        if (fat_file_read(file, name_buf, 31, &temp) != 0) {
-            printf("Failed to read section name.\n");
-            goto cleanup;
-        }
-        name_buf[31] = 0; // null terminate
-        if (strcmp(name_buf, ".astatine_driver") == 0) {
-            // ok so this is a driver
-            // let's check which type
-            // driver should be included in the data segment already
-            AstatineDriverFile* driver_base = (AstatineDriverFile*)section_headers[i].addr;
-            if (!verify_driver(driver_base->verification)) {
-                printf("Driver verification failed for %s v%s by %s\n",
-                        driver_base->name,
-                        driver_base->version,
-                        driver_base->author);
+    // TODO: do a quick check that this is static-PIE
+    // by checking the program headers for dynamic linking info
+
+    // This is PIE code so we can kinda just load it into memory
+    // First, allocate the pages necessary
+    // Zeroth, find the size of the load section
+    u32 current_delta = 0;
+    u32 base_virtual_page = 0;
+    bool base_delta_ready = false;
+    ELF_Program_Header* ph;
+    ELF_Dynamic_Entry* dyn_location = null;
+    u32 dyn_count = 0;
+    for (u32 i = 0; i < program_headers->count; i++) {
+        ph = dynarray_get(program_headers, i);
+        // looking for loadable headers
+        if (ph->type == ELF_PT_LOAD) {
+            u32 segment_virtual_page = ph->virtual_addr & ~0xFFF;
+            u32 page_offset = ph->virtual_addr & 0xFFF;
+            u32 bytes_span = ph->size_mem + page_offset;
+            u32 pages_needed = (bytes_span + 0xFFF) >> 12;
+            u32 segment_page = 0;
+
+            if (!base_delta_ready) {
+                segment_page = alloc_page_range(pages_needed, PAGEF_NOUSER);
+                if (!segment_page) {
+                    printf("Failed to allocate pages for driver segment.\n");
+                    errno = 5;
+                    goto cleanup;
+                }
+                base_virtual_page = segment_virtual_page;
+                current_delta = segment_page - base_virtual_page;
+                base_delta_ready = true;
+            } else {
+                segment_page = current_delta + segment_virtual_page;
+                if (!alloc_page_range_at_addr(segment_page, pages_needed, PAGEF_NOUSER)) {
+                    printf("Failed to allocate pages for driver segment at required address.\n");
+                    errno = 5;
+                    goto cleanup;
+                }
+            }
+
+            pkt.page_addr = segment_page;
+            pkt.size = pages_needed * 4096;
+            dynarray_add(pages_for_each_segment, &pkt);
+
+            u32 load_address = current_delta + ph->virtual_addr;
+            fat_file_seek(file, ph->offset_in_file, FAT_SEEK_START);
+            if (fat_file_read(file, (void*)load_address, ph->size_file, &temp) != 0) {
+                printf("Failed to read driver segment from file.\n");
+                errno = 6;
                 goto cleanup;
             }
 
-            // After post-registration, we should know if this driver
-            // is currently being used by devices.
-            // We can store that information in the size section of the
-            // driver base for later use.
-            u32 devices_inited = postregister_driver(driver_base);
-            if (devices_inited != 0) {
-                loaded_driver_count++;
-                if (loaded_driver_size == 0) {
-                    loaded_driver_size = 4;
-                    loaded_drivers = kmalloc(sizeof(AstatineDriver*) * loaded_driver_size);
-                } else if (loaded_driver_count > loaded_driver_size) {
-                    loaded_drivers = krealloc(loaded_drivers,
-                                                sizeof(AstatineDriver*) * loaded_driver_size * 2);
-                    loaded_driver_size *= 2;
-                }
-                loaded_drivers[loaded_driver_count - 1] = kmalloc(sizeof(AstatineDriverFile));
-                memcpy(loaded_drivers[loaded_driver_count - 1], driver_base, sizeof(AstatineDriverFile));
-            } else {
-                // we can unload the driver since it's not being used
-                for (u32 p = 0; p < addrs->count; p++) {
-                    u32 addr = *(u32*)dynarray_get(addrs, p);
-                    free_page(addr);
-                }
+            // Zero out the rest of the heap as per the spec
+            for (u32 b = ph->size_file; b < ph->size_mem; b++) {
+                *((u8*)(load_address + b)) = 0;
             }
-
-            // we store this in the available_drivers list
-            if (!available_drivers) available_drivers = dynarray_create(sizeof(AstatineDriverFile));
-            driver_base->sig[0] = 0x0; // mark as loaded
-            char* path = kmalloc(strlen(driver_base->name) + 1);
-            strcpy(path, driver_base->name);
-            ((void**)driver_base->name)[0] = path;
-            dynarray_add(available_drivers, driver_base);
-
-            printf("Successfully registered driver: %s v%s by %s\n",
-                    driver_base->name,
-                    driver_base->version,
-                    driver_base->author);
-            goto safe;
+        } else if (ph->type == ELF_PT_DYNAMIC) {
+            // If we see anything that requires dynamic linking then dip harder than WITF
+            // To load this we have to look at the offset, subtract by delta, and
+            // parse it from there. This should point to .dynamic
+            dyn_location = (ELF_Dynamic_Entry*)(ph->virtual_addr + current_delta);
+            dyn_count = ph->size_file / sizeof(ELF_Dynamic_Entry);
         }
     }
-    sleep(1000);
+
+    if (!dyn_location) {
+        printf("Driver ELF has no dynamic section; cannot proceed.\n");
+        errno = 7;
+        goto cleanup;
+    }
+    
+    ELF_Dynamic_Entry de;
+    struct {
+        void* location;
+        u32 size, entsize;
+    } rela = {0}, rel = {0};
+    for (u32 de_idx = 0; de_idx < dyn_count; de_idx++) {
+        de = dyn_location[de_idx];
+        if (de.tag == DT_NULL) {
+            break;
+        }
+        switch (de.tag) {
+        case DT_RELA:
+            rela.location = (void*)(de.val + current_delta);
+        break;
+        case DT_RELASZ:
+            rela.size = de.val;
+        break;
+        case DT_RELAENT:
+            rela.entsize = de.val;
+        break;
+        case DT_REL:
+            rel.location = (void*)(de.val + current_delta);
+        break;
+        case DT_RELSZ:
+            rel.size = de.val;
+        break;
+        case DT_RELENT:
+            rel.entsize = de.val;
+        break;
+        case DT_NEEDED:
+        case DT_SONAME:
+            // oh no we have to link??? not allowed
+            // we don't support any dynamic linking in drivers yet
+            printf("Driver uses dynamic linking which is unsupported.\n");
+            errno = 7;
+            goto cleanup;
+        break;
+        default:
+            continue;
+        }
+    }
+
+    // We don't NEED rel & rela but we need at least one of them 
+    // to perform relocations (if they aren't there then it prob
+    // means that this wasn't built to be relocatable)
+    if (!rel.location && !rela.location) {
+        printf("Driver has no relocation information; cannot proceed.\n");
+        errno = 8;
+        goto cleanup;
+    }
+    if (rel.entsize != sizeof(ELF_Relocation_Entry) &&
+        rela.entsize != sizeof(ELF_Relocation_Entry_Addend)) {
+        printf("Driver relocation entry size mismatch; cannot proceed.\n");
+        errno = 9;
+        goto cleanup;
+    }
+    
+    // iterate over each relocation
+    ELF_Relocation_Entry e;
+    if (rel.location && rel.entsize != 0) {
+        u32 rel_count = rel.size / rel.entsize;
+        for (u32 i = 0; i < rel_count; i++) {
+            e = ((ELF_Relocation_Entry*)rel.location)[i];
+            u32* reloc_addr = (u32*)(e.offset + current_delta);
+            u32 type = e.info & 0xFF;
+            u32 sym_index = e.info >> 8;
+            switch (type) {
+                case R_386_NONE:
+                    // do nothing
+                break;
+                case R_386_32:
+                    *reloc_addr += current_delta;
+                break;
+                case R_386_PC32:
+                    *reloc_addr += current_delta - (u32)reloc_addr;
+                break;
+                case R_386_RELATIVE:
+                    *reloc_addr = current_delta + (*reloc_addr);
+                break;
+                default:
+                    errno = 10;
+                    goto cleanup;
+                break;
+            }
+        }
+    }
+    ELF_Relocation_Entry_Addend ea;
+    if (rela.location && rela.entsize != 0) {
+        u32 rela_count = rela.size / rela.entsize;
+        for (u32 i = 0; i < rela_count; i++) {
+            ea = ((ELF_Relocation_Entry_Addend*)rela.location)[i];
+            u32* reloc_addr = (u32*)(ea.offset + current_delta);
+            u32 type = ea.info & 0xFF;
+            u32 sym_index = ea.info >> 8;
+            switch (type) {
+                case R_386_NONE:
+                    // do nothing
+                break;
+                case R_386_32:
+                    *reloc_addr += current_delta;
+                break;
+                case R_386_PC32:
+                    *reloc_addr += current_delta - (u32)reloc_addr;
+                break;
+                case R_386_RELATIVE:
+                    *reloc_addr = current_delta + (*reloc_addr);;
+                break;
+                default:
+                    errno = 11;
+                    goto cleanup;
+                break;
+            }
+        }
+    }
+    // Relocation is done: let's get the string table first
+    ELF_Section_Header* string_header = dynarray_get(section_headers,
+        header.section_string_table_section_index);
+    string_table = kmalloc(string_header->size);
+    fat_file_seek(file, string_header->offset, FAT_SEEK_START);
+    if (fat_file_read(file, string_table, string_header->size, &temp) != 0) {
+        printf("Failed to read driver string table.\n");
+        errno = 12;
+        goto cleanup;
+    }
+    
+    // look for the .astatine_driver section
+    for (u32 i = 0; i < section_headers->count; i++) {
+        ELF_Section_Header* sh = dynarray_get(section_headers, i);
+        char* sec_name = string_table + sh->name;
+        if (strcmp(sec_name, ".astatine_driver") == 0) {
+            // found the driver section
+            AstatineDriverFile* driver = (AstatineDriverFile*)(sh->addr + current_delta);
+            // verify the driver
+            if (!verify_driver(driver->verification)) {
+                printf("Driver verification failed.\n");
+                errno = 13;
+                goto cleanup;
+            }
+            // register the driver
+            u32 detected = postregister_driver(driver);
+            printf("Driver %s installed successfully; detected %u devices.\n",
+                    driver->name, detected);
+            if (detected != 0) {
+                goto success_with_devices;
+            }
+            break;
+        }
+    }
+
     cleanup:
-    for (u32 p = 0; p < addrs->count; p++) {
-        u32 addr = *(u32*)dynarray_get(addrs, p);
-        free_page(addr);
-    }
-    safe:
-    dynarray_destroy(addrs);
-    if (symtab_cache) {
-        for (u32 i = 0; i < header.section_entry_count; i++) {
-            if (symtab_cache[i] != null) {
-                kfree(symtab_cache[i]);
+    for (int i = 0; i < pages_for_each_segment->count; i++) {
+        struct page_keep_track* pkt = dynarray_get(pages_for_each_segment, i);
+            u32 pages_to_free = pkt->size / 4096;
+            for (u32 j = 0; j < pages_to_free; j++) {
+                free_page(pkt->page_addr + (j * 4096));
             }
-        }
-        kfree(symtab_cache);
     }
-    return 0;
+    success_with_devices:
+    if (string_table) {
+        kfree(string_table);
+    }
+    dynarray_destroy(pages_for_each_segment);
+    dynarray_destroy(program_headers);
+    dynarray_destroy(section_headers);
+    return errno;
 }

@@ -90,7 +90,8 @@ typedef struct PageTableEntry {
     u8 global         : 1;
     // The next 3 bits are considered 'available'
     // This means we can use them 
-    u8 _reserved      : 3;
+    u8 notforuse      : 1;
+    u8 _reserved      : 2;
     // The actual physical memory
     u32 address    : 20;
 } __attribute__((packed)) PageTableEntry;
@@ -102,6 +103,9 @@ u32 alloc_page(u32 flags);
 // allocates a page at the given virtual address
 bool alloc_page_at_addr(u32 virt_addr, u32 flags);
 void free_page(u32 virt_addr);
+
+u32 alloc_page_range(u32 pages, u32 flags);
+bool alloc_page_range_at_addr(u32 start_addr, u32 pages, u32 flags);
 
 void allow_null_page_read();
 void disallow_null_page();

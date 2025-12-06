@@ -10,8 +10,7 @@ int verify_driver(u8 items[128]);
 
 struct KernelFunctionPointers* get_kernel_function_pointers();
 
-extern AstatineDriverFile** loaded_drivers;
-extern u32 loaded_driver_count;
+extern struct dynarray* loaded_drivers;
 
 int attempt_install_driver(File* file);
 

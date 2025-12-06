@@ -2,6 +2,7 @@
 #include <display/simple/display.h>
 #include <timer/PIT.h>
 #include <exception/exception.h>
+#include <modules/strings.h>
 
 // this is why you never trust a clanker
 // all those companies replacing their coders with
@@ -162,7 +163,9 @@ void kfree(void* ptr) {
     if (bytes == -1) {
         // while(1);
         // invalid pointer
-        panic("Invalid pointer passed to kfree");
+        char buf[64] = "Invalid pointer passed to kfree";
+        xtoa((u32)ptr, buf + strlen(buf));
+        panic(buf);
         return;
     }
 

@@ -4,6 +4,7 @@
 #include <modules/modules.h>
 
 typedef struct dynarray {
+    bool initialised;
     u32 sizeof_element;
     u32 capacity;
     u32 count;
@@ -16,7 +17,7 @@ void dynarray_destroy(struct dynarray* array);
 
 void* dynarray_get(struct dynarray* array, u32 index);
 
-void dynarray_add(struct dynarray* array, void* element);
+int dynarray_add(struct dynarray* array, void* element);
 
 void dynarray_remove(struct dynarray* array, u32 index);
 
