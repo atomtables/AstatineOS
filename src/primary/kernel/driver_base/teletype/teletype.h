@@ -5,7 +5,7 @@
 #include <modules/modules.h>
 #include "teletype_structures.h"
 
-extern TeletypeDriver* teletype_drivers;
+extern struct dynarray* teletype_drivers;
 extern TeletypeDriver* active_teletype_driver;
 
 int register_teletype_driver(AstatineDriverFile* driver, Device* device);

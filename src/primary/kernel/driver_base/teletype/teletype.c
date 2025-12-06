@@ -3,12 +3,11 @@
 #include <memory/malloc.h>
 #include <driver_base/driver_base.h>
 #include <basedevice/devicelogic.h>
+#include <modules/dynarray.h>
 
 // Currently active teletype drivers that have a use.
-TeletypeDriver* teletype_drivers = null;
+Dynarray* teletype_drivers = null;
 TeletypeDriver* active_teletype_driver = null;
-
-int teletype_driver_count = 0;
 
 // This function (as well as any other driver register function) will be ran under two conditions:
 // - 1. the driver is for an ISA (or any non-hot-pluggable) device
@@ -30,39 +29,35 @@ int register_teletype_driver(AstatineDriverFile* driver1, Device* device) {
 
     TeletypeDriverFile* driver = (TeletypeDriverFile*)driver1;
 
-    TeletypeDriver* teletype_driver = kmalloc(sizeof(TeletypeDriver));
-    teletype_driver->base.kfp = get_kernel_function_pointers();
-    teletype_driver->base.driver_type = driver->base.driver_type;
-    teletype_driver->base.device_type = driver->base.device_type;
-    teletype_driver->base.probe = driver->base.probe;
-    teletype_driver->base.check = driver->base.check;
-    teletype_driver->base.init = driver->base.init;
-    teletype_driver->base.deinit = driver->base.deinit;
-    memcpy(&teletype_driver->functions, &driver->functions, sizeof(TeletypeDriverFunctions));
-    teletype_driver->base.device = device;
-
+    TeletypeDriver teletype_driver;
+    teletype_driver.base.kfp = get_kernel_function_pointers();
+    teletype_driver.base.driver_type = driver->base.driver_type;
+    teletype_driver.base.device_type = driver->base.device_type;
+    teletype_driver.base.probe = driver->base.probe;
+    teletype_driver.base.check = driver->base.check;
+    teletype_driver.base.init = driver->base.init;
+    teletype_driver.base.deinit = driver->base.deinit;
+    memcpy(&teletype_driver.functions, &driver->functions, sizeof(TeletypeDriverFunctions));
+    teletype_driver.base.device = device;
     device->owned = true;
     device->name = driver->base.name;
-    device->attached_driver = (AstatineDriver*)teletype_driver;
+    device->attached_driver = (AstatineDriver*)&teletype_driver;
 
-    teletype_driver_count++;
-    if (teletype_drivers == null) {
-        teletype_drivers = kmalloc(sizeof(TeletypeDriver) * teletype_driver_count);
-    } else {
-        teletype_drivers = krealloc(teletype_drivers, sizeof(TeletypeDriver) * (teletype_driver_count));
-    }
+    if (!teletype_drivers) teletype_drivers = dynarray_create(sizeof(TeletypeDriver));
+    dynarray_add(teletype_drivers, &teletype_driver);
+    TeletypeDriver* teletype_driver_addr = dynarray_get(teletype_drivers, teletype_drivers->count - 1);
 
-    memcpy(&teletype_drivers[teletype_driver_count - 1], teletype_driver, sizeof(TeletypeDriver));
-    teletype_driver = &teletype_drivers[teletype_driver_count - 1];
-
-    if (teletype_driver->base.init((AstatineDriver*)teletype_driver) != 0) {
-        teletype_driver_count--;
-        kfree(teletype_driver);
-        teletype_driver = null;
+    if (teletype_driver_addr->base.init((AstatineDriver*)teletype_driver_addr) != 0) {
+        device->owned = false;
+        device->attached_driver = null;
+        dynarray_remove(teletype_drivers, teletype_drivers->count - 1);
+        teletype_driver_addr = null;
         return -4;
     }
 
-    active_teletype_driver = teletype_driver;
+    dynarray_add(active_drivers, &driver1);
+
+    active_teletype_driver = teletype_driver_addr;
 
     return 0;
 }

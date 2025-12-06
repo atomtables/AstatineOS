@@ -41,9 +41,12 @@ struct KernelFunctionPointers* get_kernel_function_pointers() {
 // These drivers are NOT ABLE TO BE LOADED
 // these just contain the values to check if the driver
 // is compatible as well as a file path.
-struct AstatineDriverIndex {
-    // TODO
-};
+typedef struct AstatineDriverIndex {
+    char* path;
+    u32   driver_type;
+    u32   device_type;
+} AstatineDriverIndex;
+// List of AstatineDriverIndex
 Dynarray* available_drivers;
 // List of active drivers on the system
 // AstatineDriver*
@@ -118,7 +121,7 @@ u32 postregister_driver(AstatineDriverFile* driver) {
 }
 
 static int temp;
-int attempt_install_driver(File* file) {
+int attempt_install_driver(File* file, char* path) {
     int errno = 0;
     // Then we should read just the ELF header
     ELF_Header header;
@@ -374,7 +377,18 @@ int attempt_install_driver(File* file) {
             u32 detected = postregister_driver(driver);
             printf("Driver %s installed successfully; detected %u devices.\n",
                     driver->name, detected);
+
+            if (!available_drivers) available_drivers = dynarray_create(sizeof(AstatineDriverIndex));
+            AstatineDriverIndex adi;
+            adi.path = strdup(path); // path is unknown at this time
+            adi.driver_type = driver->driver_type;
+            adi.device_type = driver->device_type;
+            dynarray_add(available_drivers, &adi);
+
             if (detected != 0) {
+                if (!loaded_drivers) loaded_drivers = dynarray_create(sizeof(AstatineDriverFile*));
+                dynarray_add(loaded_drivers, &driver);
+
                 goto success_with_devices;
             }
             break;
