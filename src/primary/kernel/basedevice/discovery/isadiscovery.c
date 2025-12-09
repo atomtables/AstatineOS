@@ -9,11 +9,10 @@ void discover_isa_devices() {
     device.base.name = "VGA Text Display";
     device.base.type = DEVICE_TYPE_TTYPE;
     device.base.conn = CONNECTION_TYPE_IO;
-    device.base.id = get_unique_device_id();
     device.base.size = sizeof(PlatformDevice);
     device.base.owned = false;
     // This is the unique platform ID for the VGA text device
     device.platform_id = ISA_DEVICE_VGA_TEXT;
     
-    register_device((Device*)&device);
+    register_device((Device*)&device, null);
 }

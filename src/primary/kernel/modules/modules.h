@@ -97,27 +97,6 @@ __extension__({ __typeof__(_x) __x = (_x); HIBIT(__x & -__x); })
         "div %ebx;"      \
     );
 
-#define get_registers() \
-    u32* registers[8];\
-    __asm__ volatile ("movl %%eax, %0": "=r"(registers[0])); \
-    __asm__ volatile ("movl %%ebx, %0": "=r"(registers[1])); \
-    __asm__ volatile ("movl %%ecx, %0": "=r"(registers[2])); \
-    __asm__ volatile ("movl %%edx, %0": "=r"(registers[3])); \
-    __asm__ volatile ("movl %%esi, %0": "=r"(registers[4])); \
-    __asm__ volatile ("movl %%edi, %0": "=r"(registers[5])); \
-    __asm__ volatile ("movl %%ebp, %0": "=r"(registers[6])); \
-    __asm__ volatile ("movl %%esp, %0": "=r"(registers[7]));
-
-#define max(a, b) \
-    __extension__ ({ __typeof__ (a) _a = (a); \
-        __typeof__ (b) _b = (b); \
-        _a > _b ? _a : _b; })
-
-#define min(a, b) \
-    __extension__({ __typeof__ (a) _a = (a); \
-       __typeof__ (b) _b = (b); \
-       _a < _b ? _a : _b; })
-
 char* itoa(u32 number, char* str);
 char* itoa_signed(i32 number, char* str);
 char* xtoa(u32 number, char* str);

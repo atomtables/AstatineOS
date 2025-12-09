@@ -26,7 +26,7 @@ void* dynarray_get(struct dynarray* array, u32 index) {
     if (index >= array->count) {
         return null;
     }
-    return (u8*)array->elements + (index * array->sizeof_element);
+    return (u8*)(array->elements + (index * array->sizeof_element));
 }
 
 int dynarray_add(struct dynarray* array, void* element) {

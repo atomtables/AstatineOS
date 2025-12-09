@@ -29,6 +29,10 @@ struct KernelFunctionPointers {
     // paging
     void  (*allow_null_page_read)();
     void  (*disallow_null_page)();
+
+    // device management
+    struct Device*  (*register_device)(struct Device* device, u32 parent_id);
+    void     (*unregister_device)(u32 id);
 };
 
 // This is an active instance of a driver.
@@ -39,10 +43,13 @@ typedef struct AstatineDriver {
     struct Device* device;
     struct KernelFunctionPointers* kfp;
 
+    // a place to put some excess memory
+    char    reserved[32]; 
+
     // Some drivers will want to discover their own devices
     // like ISA drivers that don't use plug-and-play.
     // or other legacy hardware like the pcspk.
-    bool    (*probe)(struct Device* device, struct KernelFunctionPointers* kfp);
+    int     (*probe)(struct Device* device, struct KernelFunctionPointers* kfp);
 
     // Other drivers will rather just get the list of devices
     // and look for ones that they can manage.
@@ -99,7 +106,7 @@ typedef struct AstatineDriverFile {
     // Some drivers will want to discover their own devices
     // like ISA drivers that don't use plug-and-play.
     // or other legacy hardware like the pcspk.
-    bool    (*probe)(struct Device* device, struct KernelFunctionPointers* kfp);
+    int     (*probe)(struct Device* device, struct KernelFunctionPointers* kfp);
 
     // Other drivers will rather just get the list of devices
     // and look for ones that they can manage.

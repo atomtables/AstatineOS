@@ -2,5 +2,6 @@
 #define BASEDEVICE_DISCOVERY_H
 
 void discover_isa_devices();
+void discover_pci_devices();
 
 #endif

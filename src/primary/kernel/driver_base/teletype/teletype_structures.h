@@ -58,6 +58,8 @@ struct TeletypeDriverFunctions {
     bool(*  clear_screen)(struct TeletypeDriver* self, u8 color);
     
     bool(*  set_cursor_position)(struct TeletypeDriver* self, u32 x, u32 y);
+
+    bool(*  set_string)(struct TeletypeDriver* self, u32 x, u32 y, const char* str, u8 color);
 };
 struct TeletypeDriverFile {
     AstatineDriverFile base;

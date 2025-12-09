@@ -4,22 +4,16 @@
 
 #include "basicbasic.h"
 
-#include <display/advanced/graphics.h>
-#include <display/simple/display.h>
-#include <memory/memory.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include <memory/malloc.h>
-#include <modules/strings.h>
-#include <ps2/keyboard.h>
-#include <ps2/manualkeyboard.h>
-#include <timer/PIT.h>
-#include <pcspeaker/pcspeaker.h>
 
 static struct {
     char* input;
-    u32 input_length;
+    uint32_t input_length;
 
     char buffer[78*22];
-    u32 buffer_length;
+    uint32_t buffer_length;
 
     bool ready_for_input_init;
     bool ready_for_next_input;
@@ -78,13 +72,13 @@ static void draw_outline() {
     draw_string(
         0, 0,
         "\xC9\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBB");
-    draw_string(0, VGA_TEXT_HEIGHT - 1,
+    draw_string(0, 25 - 1,
                 "\xC8\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBC");
-    for (u32 i = 1; i < VGA_TEXT_HEIGHT - 1; i++) {
+    for (uint32_t i = 1; i < 25 - 1; i++) {
         draw_char(0, i, '\xBA');
-        draw_char(VGA_TEXT_WIDTH - 1, i, '\xBA');
+        draw_char(80 - 1, i, '\xBA');
     }
-    draw_string_with_color(34, 0, " basicbasic ",
+    draw_string_with_color(34, 0, "\033Bg basicbasic ",
                            VGA_TEXT_COLOR(COLOR_BLACK, COLOR_LIGHT_GREY));
 }
 
@@ -370,7 +364,8 @@ static void keysin() {
 }
 
 void basicbasic() {
-    wait_for_key_release('\n');
+    printf("Press any key to start...\n");
+    wait_for_keypress();
     setup();
     u64 last_frame = 0;
 

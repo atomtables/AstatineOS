@@ -14,6 +14,8 @@ int write(struct registers* regs);
 // Read from a file or device
 int read(struct registers* regs);
 
+int setmode(struct registers* regs);
+
 // File descriptor structure
 struct fd {
     u8          exists;     // 1 if fd is open;
@@ -30,6 +32,7 @@ struct fop {
     int(* write)(struct fd* self, const void* buffer, u32 size);
     int(* open)(struct fd* self, char* identifier, u8 mode);
     int(* close)(struct fd* self);
+    int(* setmode)(struct fd* self, u8 mode);
 };
 
 extern struct fd open_fds[256];

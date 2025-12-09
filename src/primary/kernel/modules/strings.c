@@ -58,7 +58,7 @@ char* strlwr(char* s) {
 }
 
 int strcmp(char* s1, char* s2) {
-    u32 t = max(strlen(s1), strlen(s2)) + 1;
+    u32 t = MAX(strlen(s1), strlen(s2)) + 1;
 
     return strncmp(s1, s2, t);
 }

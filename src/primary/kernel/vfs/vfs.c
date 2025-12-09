@@ -1,39 +1,20 @@
 #include "vfs.h"
 #include <modules/modules.h>
 
-
-typedef struct Device {
-    
-} Device;
-
-// A disk is made up of partitions, so
-// this will be the link between a device
-// and its partitions.
-typedef struct Disk {
-
-} Disk;
-
-// We don't have a garbage collector so we don't care about infinite references
-// Just remember if we're forgetting about a partition to free its memory, then
-// replace the pointer with null in Disk.
-typedef struct Partition {
-    Disk* owner;
-} Partition;
-
 // this is the interface that
 // a filesystem driver must implement
 typedef struct Filesystem {
     // The disk that this filesystem is owning
-    Partition* partition;
+    struct Partition* partition;
     // This inspects the disk to make sure the partition is in fact
     // of the correct type for this filesystem.
     // @returns zero-indexed partition number on success, negative on failure
-    int (*exists)   (Disk* disk);
+    int (*exists)   (struct Disk* disk);
     // Mounts the filesystem on the specified partition,
     // effectively taking ownership of that partition and locking it
     // from usage by other filesystems or raw disk access.
-    int (*mount)    (Partition* partition, const char* prefix);
-    int (*unmount)  (Partition* partition);
+    int (*mount)    (struct Partition* partition, const char* prefix);
+    int (*unmount)  (struct Partition* partition);
     // We need our file mechanisms
     // a file will be associated with an fd struct, which will
     // link to these functions for individual operations.

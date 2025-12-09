@@ -21,6 +21,7 @@
 #include <driver_base/driver_base.h>
 #include <basedevice/devicelogic.h>
 #include <basedevice/discovery/discovery.h>
+#include <driver_base/disk/disk.h>
 
 /* In our kernel, we can reserve memory
  * 0x100000-0x1FFFFF for the storage of heap data (like variables)
@@ -33,11 +34,12 @@ extern void ahsh();
 
 static Fat fat;
 bool write_stub(const u8* buf, unsigned int sect) {
-    u8 err = ide_write_sectors(0, 1, sect, (void*)buf);
+    u8 err = active_disk_driver->functions.write(active_disk_driver, buf, sect);
     return err == 0;
 }
 bool read_stub(u8* buf, unsigned int sect) {
-    u8 err = ide_read_sectors(0, 1, sect, (void*)buf);
+    if (!active_disk_driver) panic("No active disk driver!");
+    u8 err = active_disk_driver->functions.read(active_disk_driver, buf, sect);
     return err == 0;
 }
 u8 mount() {
@@ -62,6 +64,12 @@ u8 mount() {
 int main() {
     clear_screen();
     println_color("AstatineOS v0.3.0-alpha", COLOR_LIGHT_RED);
+
+    for (int i = 0; i < 80; i++) {
+        for (int j = 0; j < 25; j++) {
+            *((u16*)0xb8000 + i + j * 80) = (u16)(' ' | (COLOR_WHITE<< 12));
+        }
+    }
 
     gdt_init();
     printf("Target complete: gdt\n");
@@ -105,9 +113,13 @@ int main() {
 
 
     discover_isa_devices();
+    discover_pci_devices();
+    install_driver(&pci_ide_controller_driver, null);
+    install_driver((AstatineDriverFile*)&pci_ide_disk_driver, null);
 
-    // now initialise disk
-    ide_initialize(0x1F0, 0x3F6, 0x170, 0x376, 0x000);
+    char buf[64] = "Loaded driver: ";
+    xtoa_padded((u32)active_disk_driver, buf + strlen(buf)-1);
+
     printf("Target complete: disk\n");
     printf("Mounting primary partition...\n");
     if (mount() != 0) {
@@ -136,7 +148,7 @@ int main() {
             goto skiploading;
         }
         int errno;
-        if ((errno = attempt_install_driver(&file)) != 0) {
+        if ((errno = attempt_install_driver(&file, elf_path)) != 0) {
             printf("Failed to load and run ELF file.\n");
             char x[45] = "Failed to load and run ELF file.  ";
             itoa(errno, x + strlen(x) - 1);

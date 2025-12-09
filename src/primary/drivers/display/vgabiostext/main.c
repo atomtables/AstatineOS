@@ -2,44 +2,6 @@
 #include <astatine/teletype.h>
 #include <astatine/device.h>
 
-bool    check(Device *device, struct KernelFunctionPointers* kfp);
-int     init(AstatineDriver* self);
-void    deinit(AstatineDriver* self);
-bool    get_mode(TeletypeDriver* self, struct TeletypeMode* mode);
-bool    set_char(TeletypeDriver* self, u32 x, u32 y, u8 character, u8 color);
-u16     get_char(TeletypeDriver* self, u32 x, u32 y);
-bool    clear_screen(TeletypeDriver* self, u8 color);
-bool    set_cursor_position(TeletypeDriver* self, u32 x, u32 y);
-ASTATINE_DRIVER(TeletypeDriverFile) = {
-    .base = {
-        .sig = "ASTATINE", 
-        // teletype item
-        .driver_type = CONNECTION_TYPE_IO,
-        // i have to be another level of stupid
-        .device_type = DEVICE_TYPE_TTYPE,
-        .name = "VGA BIOS Text-mode Driver", 
-        .version = "0.1",
-        .author = "Adithiya Venkatakrishnan", 
-        .description = "BIOS VGA text-mode driver (80x25).",
-        .reserved = {0},
-        .verification = {0xEF, 0xBE, 0xAD, 0xDE, 0xEF, 0xBE, 0xAD, 0xDE},
-
-        .probe = null,
-        .check = check,
-        .init = init,
-        .deinit = deinit,
-    },
-    .functions = {
-        .get_mode = get_mode,
-        .set_char = set_char,
-        .get_char = get_char,
-        .clear_screen = clear_screen,
-        .set_cursor_position = set_cursor_position,
-    }
-};
-
-// not required
-ASTATINE_DRIVER_ENTRYPOINT();
 
 void outb(u16 port, u8 val) {
     asm volatile ( "outb %0, %1" : : "a"(val), "Nd"(port) );
@@ -115,7 +77,7 @@ u16 get_char(TeletypeDriver* self, u32 x, u32 y) {
 }
 
 bool clear_screen(TeletypeDriver* self, u8 color) {
-    for (u32 i = 0; i < mode.width * mode.height; i += 2) {
+    for (u32 i = 0; i < mode.width * mode.height * 2; i += 2) {
         mode.cells[i] = 0;
         mode.cells[i + 1] = color;
     }
@@ -135,3 +97,60 @@ bool set_cursor_position(TeletypeDriver* self, u32 x, u32 y) {
     outb(0x3D5, (u8)(pos & 0xFF));
     return true;
 }
+
+bool set_string(TeletypeDriver* self, u32 x, u32 y, const char* str, u8 color) {
+    u32 cur_x = x;
+    u32 cur_y = y;
+    for (u32 i = 0; str[i] != 0; i++) {
+        if (str[i] == '\n') {
+            cur_x = x;
+            cur_y++;
+            continue;
+        }
+        if (!set_char(self, cur_x, cur_y, (u8)str[i], color)) {
+            return false;
+        }
+        cur_x++;
+        if (cur_x >= mode.width) {
+            cur_x = x;
+            cur_y++;
+        }
+        if (cur_y >= mode.height) {
+            return false;
+        }
+    }
+    return true;
+}
+
+ASTATINE_DRIVER(TeletypeDriverFile) = {
+    .base = {
+        .sig = "ASTATINE", 
+        // teletype item
+        .driver_type = CONNECTION_TYPE_IO,
+        // i have to be another level of stupid
+        .device_type = DEVICE_TYPE_TTYPE,
+        .name = "VGA BIOS Text-mode Driver", 
+        .version = "0.1",
+        .author = "Adithiya Venkatakrishnan", 
+        .description = "BIOS VGA text-mode driver (80x25).",
+        .reserved = {0},
+        .verification = {0xEF, 0xBE, 0xAD, 0xDE, 0xEF, 0xBE, 0xAD, 0xDE},
+
+        .probe = null,
+        .check = check,
+        .init = init,
+        .deinit = deinit,
+    },
+    .functions = {
+        .get_mode = get_mode,
+        .set_char = set_char,
+        .get_char = get_char,
+        .clear_screen = clear_screen,
+        .set_cursor_position = set_cursor_position,
+        .set_string = set_string,
+    }
+};
+
+// not required
+ASTATINE_DRIVER_ENTRYPOINT();
+

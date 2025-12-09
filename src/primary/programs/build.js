@@ -8,7 +8,7 @@ export default {
     build: [
         {
             type: "command",
-            command: "$HOSTED_GCC -g -O0 -o $BUILD/atf.aex $DIR/main.c"
+            command: "$HOSTED_GCC -g -O0 -o $BUILD/atf.aex $DIR/main.c -I $PROJECT/include/user"
         }
     ],
     output: ["atf.aex"],

@@ -39,7 +39,11 @@ enum DeviceType {
     // text-mode device
     DEVICE_TYPE_TTYPE       = 2,
     // just a general serial stream out
-    DEVICE_TYPE_SERIAL      = 3
+    DEVICE_TYPE_SERIAL      = 3,
+    // a disk device (HDD/SSD/RAM Disk)
+    DEVICE_TYPE_DISK        = 4,
+    // a controller device (like an IDE controller)
+    DEVICE_TYPE_CONTROLLER  = 5
 };
 
 enum ConnectionType {
@@ -73,6 +77,11 @@ typedef struct Device {
 
     bool    owned;
     struct AstatineDriver* attached_driver;
+
+    struct Device* parent;
+    struct Device* child;
+    struct Device* left_sibling;
+    struct Device* right_sibling;
 } Device;
 
 // Legacy devices without a specific bus type
@@ -84,39 +93,73 @@ typedef struct PlatformDevice {
 
 // Copilot made ts and gave me a public code warning lmao
 typedef struct PCIDevice {
+    // Base Device properties
     Device  base;
-    u8      bus;
-    u8      device;
-    u8      function;
-    u16     vendor_id;
-    u16     device_id;
-    u16     command;
-    u16     status;
-    u8      revision_id;
-    u8      prog_if;
-    u8      subclass;
-    u8      class_code;
-    u8      cache_line_size;
-    u8      latency_timer;
-    u8      header_type;
-    u8      bist;
-    u32     bar0;
-    u32     bar1;
-    u32     bar2;
-    u32     bar3;
-    u32     bar4;
-    u32     bar5;
-    u32     cardbus_cis_pointer;
-    u16     subsystem_vendor_id;
-    u16     subsystem_id;
+    u8      bus;                     // bus number
+    u8      device;                  // device number
+    u8      function;                // function number
+    u8      devfn;                   // packed device/function like Linux devfn
+
+    // Identification
+    u16     vendor_id;               // vendor ID
+    u16     device_id;               // device ID
+    u16     subsystem_vendor_id;     // subsystem vendor ID
+    u16     subsystem_id;            // subsystem device ID
+
+    // Command / status
+    u16     command;                 // command register
+    u16     status;                  // status register
+
+    // Class information
+    u8      revision_id;             // revision ID
+    u8      prog_if;                 // programming interface
+    u8      subclass;                // subclass code
+    u8      class_code;              // base class code
+
+    // Header basics
+    u8      cache_line_size;         // cache line size
+    u8      latency_timer;           // latency timer
+    u8      header_type;             // header type (bit 7 = multi-function)
+    u8      bist;                    // built-in self-test
+
+    // BARs (keep individual for compatibility)
+    u32     bars[6];
+    u32     bar_size[6];             // decoded BAR sizes
+    u32     bar_flags[6];            // decoded BAR flags (I/O vs mem, prefetch, 64-bit)
+
+    // Expansion ROM
     u32     expansion_rom_base_address;
-    u8      capabilities_pointer;
+    u32     expansion_rom_size;      // decoded ROM size
+
+    // CardBus / capabilities
+    u32     cardbus_cis_pointer;     // CardBus CIS pointer (legacy)
+    u8      capabilities_pointer;    // head of capabilities list
     u8      reserved1[3];
     u32     reserved2;
-    u8      interrupt_line;
-    u8      interrupt_pin;
-    u8      min_grant;
-    u8      max_latency;
+
+    // Interrupt info
+    u8      interrupt_line;          // legacy PIC/IOAPIC line
+    u8      interrupt_pin;           // INTA#/INTB#/INTC#/INTD#
+    u8      min_grant;               // minimum grant (legacy)
+    u8      max_latency;             // maximum latency (legacy)
+
+    // Bridge-specific (valid for header type 1/2)
+    u8      primary_bus_number;      // primary bus number
+    u8      secondary_bus_number;    // secondary bus number
+    u8      subordinate_bus_number;  // highest bus number downstream
+    u8      secondary_latency_timer; // secondary latency timer
+    u8      io_base;                 // I/O base (lower bits)
+    u8      io_limit;                // I/O limit (lower bits)
+    u16     secondary_status;        // secondary status
+    u16     memory_base;             // memory base (prefetchable off)
+    u16     memory_limit;            // memory limit (prefetchable off)
+    u16     prefetchable_memory_base;// prefetchable memory base
+    u16     prefetchable_memory_limit;// prefetchable memory limit
+    u32     prefetchable_base_upper32; // upper 32 bits of prefetch base
+    u32     prefetchable_limit_upper32;// upper 32 bits of prefetch limit
+    u16     io_base_upper16;         // upper 16 bits I/O base
+    u16     io_limit_upper16;        // upper 16 bits I/O limit
+    u16     bridge_control;          // bridge control register
 } PCIDevice;
 
 #endif

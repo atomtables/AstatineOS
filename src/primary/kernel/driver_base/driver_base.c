@@ -13,6 +13,8 @@
 #include <basedevice/discovery/discovery.h>
 #include <basedevice/devicelogic.h>
 #include <modules/dynarray.h>
+#include "disk/disk.h"
+#include "generic/generic.h"
 
 int verify_driver(u8 items[128]) {
     if (((u64*)(items))[0] != (u64)0xDEADBEEFDEADBEEFl) {
@@ -30,6 +32,8 @@ struct KernelFunctionPointers* get_kernel_function_pointers() {
     kfp.PIC_install = PIC_install;
     kfp.allow_null_page_read = allow_null_page_read;
     kfp.disallow_null_page = disallow_null_page;
+    kfp.register_device = register_device;
+    kfp.unregister_device = unregister_device;
     return &kfp;
 }
 
@@ -41,11 +45,7 @@ struct KernelFunctionPointers* get_kernel_function_pointers() {
 // These drivers are NOT ABLE TO BE LOADED
 // these just contain the values to check if the driver
 // is compatible as well as a file path.
-typedef struct AstatineDriverIndex {
-    char* path;
-    u32   driver_type;
-    u32   device_type;
-} AstatineDriverIndex;
+;
 // List of AstatineDriverIndex
 Dynarray* available_drivers;
 // List of active drivers on the system
@@ -56,13 +56,18 @@ Dynarray* active_drivers;
 Dynarray* loaded_drivers;
 
 
-static int initialise_driver_with_subsystem(AstatineDriverFile* driver, Device* device) {
+int initialise_driver_with_subsystem(AstatineDriverFile* driver, Device* device) {
     // depending on the driver type, we can call the relevant
     // registration function
     switch (device->type) {
         case DEVICE_TYPE_TTYPE:
             int ret = register_teletype_driver(driver, device);
             return ret;
+        case DEVICE_TYPE_CONTROLLER:
+            // this is a generic device
+            return register_astatine_generic_driver(driver, device);
+        case DEVICE_TYPE_DISK:
+            return register_disk_driver(driver, device);
         default:
             printf("Driver type %u not supported for auto-registration.\n",
                     driver->driver_type);
@@ -75,25 +80,27 @@ u32 postregister_driver(AstatineDriverFile* driver) {
     // can otherwise not be detected
     u32 detected_devices = 0;
     Device probe_device;
-    if (driver->probe && driver->probe(&probe_device, get_kernel_function_pointers())) {
-        printf("Driver %s probed and found its device.\n", driver->name);
-        // We don't register here because either way the register_driver function
-        // does that. It's somewhat inefficient but it means that 
-        // =======
-        // wait i just had a fucking brainfart of course the fucking registration
-        // function can just take a device and driver if we're searching for the
-        // fucking device anyway 
-        // and when we search for the driver for a device WE STILL HAVE BOTH OF
-        // THE FUCKING DEVICES TS CAN NOT BE REAL
-        Device* device = register_device(device);
-        initialise_driver_with_subsystem(driver, device);
-        detected_devices++;
+    if (driver->probe) {
+        // Keep running probe until no more devices are found.
+        while (driver->probe(&probe_device, get_kernel_function_pointers()) != 0) {
+            printf("Driver %s probed and found its device.\n", driver->name);
+            // We don't register here because either way the register_driver function
+            // does that. It's somewhat inefficient but it means that 
+            // =======
+            // wait i just had a fucking brainfart of course the fucking registration
+            // function can just take a device and driver if we're searching for the
+            // fucking device anyway 
+            // and when we search for the driver for a device WE STILL HAVE BOTH OF
+            // THE FUCKING DEVICES TS CAN NOT BE REAL
+            Device* device = register_device(device, 0);
+            initialise_driver_with_subsystem(driver, device);
+            detected_devices++;
+        }
     }
     // During post-registration, we use the base to probe
     // all devices on the system that match the device type.
     for (int i = 0; i < devices->count; i++) {
-        
-        Device* device = dynarray_get(devices, i);
+        Device* device = *(Device**)dynarray_get(devices, i);
         if (device->type != driver->device_type && device->type != DEVICE_TYPE_UNKNOWN) {
             continue;
         }
@@ -111,6 +118,9 @@ u32 postregister_driver(AstatineDriverFile* driver) {
             // This driver base is able to manage this device
             // so we can create an instance of the driver
             // through the driver's manager registration. (like register_teletype_driver)
+            char buf[64] = "Founddevice:device=        driver=          ";
+            xtoa_padded((u32)device->type, &buf[19]);
+            xtoa_padded((u32)driver->driver_type, &buf[27]);
             if (initialise_driver_with_subsystem(driver, device) == 0) {
                 detected_devices++;
             }
@@ -118,6 +128,38 @@ u32 postregister_driver(AstatineDriverFile* driver) {
     }
 
     return detected_devices;
+}
+
+int install_driver(AstatineDriverFile* driver, char* path) {
+    // found the driver section
+    // verify the driver
+    if (!verify_driver(driver->verification)) {
+        printf("Driver verification failed.\n");
+        return -13;
+    }
+    // register the driver
+    u32 detected = postregister_driver(driver);
+    printf("Driver %s installed successfully; detected %u devices.\n",
+            driver->name, detected);
+
+    if (!available_drivers) available_drivers = dynarray_create(sizeof(AstatineDriverIndex));
+    AstatineDriverIndex adi = {0};
+    // We can also just not have a path in the case that
+    // this is a boot-time registered driver
+    if (path) adi.path = strdup(path); // path is unknown at this time
+    adi.driver_type = driver->driver_type;
+    adi.device_type = driver->device_type;
+
+    if (detected != 0) {
+        if (!loaded_drivers) loaded_drivers = dynarray_create(sizeof(AstatineDriverFile*));
+        dynarray_add(loaded_drivers, &driver);
+        adi.loaded = true;
+        adi.active_instance = driver;
+    }
+
+    dynarray_add(available_drivers, &adi);
+
+    return detected;
 }
 
 static int temp;
@@ -365,30 +407,12 @@ int attempt_install_driver(File* file, char* path) {
         ELF_Section_Header* sh = dynarray_get(section_headers, i);
         char* sec_name = string_table + sh->name;
         if (strcmp(sec_name, ".astatine_driver") == 0) {
-            // found the driver section
-            AstatineDriverFile* driver = (AstatineDriverFile*)(sh->addr + current_delta);
-            // verify the driver
-            if (!verify_driver(driver->verification)) {
-                printf("Driver verification failed.\n");
-                errno = 13;
+            int res = install_driver((AstatineDriverFile*)(sh->addr + current_delta), path);
+            if (res < 0) {
+                errno = -res;
                 goto cleanup;
             }
-            // register the driver
-            u32 detected = postregister_driver(driver);
-            printf("Driver %s installed successfully; detected %u devices.\n",
-                    driver->name, detected);
-
-            if (!available_drivers) available_drivers = dynarray_create(sizeof(AstatineDriverIndex));
-            AstatineDriverIndex adi;
-            adi.path = strdup(path); // path is unknown at this time
-            adi.driver_type = driver->driver_type;
-            adi.device_type = driver->device_type;
-            dynarray_add(available_drivers, &adi);
-
-            if (detected != 0) {
-                if (!loaded_drivers) loaded_drivers = dynarray_create(sizeof(AstatineDriverFile*));
-                dynarray_add(loaded_drivers, &driver);
-
+            if (res != 0) {
                 goto success_with_devices;
             }
             break;
