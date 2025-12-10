@@ -16,6 +16,8 @@ int read(struct registers* regs);
 
 int setmode(struct registers* regs);
 
+int open(struct registers* regs);
+
 // File descriptor structure
 struct fd {
     u8          exists;     // 1 if fd is open;

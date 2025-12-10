@@ -136,6 +136,7 @@ int main() {
     clear_screen();
     printf("Ready to load driver, enter path: ");
     char elf_path[127] = "/primary/drivers/textmode.adv";
+
     if (is_elf(elf_path) == 0) {
         printf("ELF file detected, loading...\n");
         File file;
@@ -169,9 +170,9 @@ int main() {
 
     while(1) {
         clear_screen();
-        printf("Ready to load elf, enter path: ");
-        char elf_path[127] = "";
-        input(elf_path, 127);
+        printf("Autoloading basicbasic.aex...\n");
+        char elf_path[127] = "/primary/basicbasic.aex";
+        // input(elf_path, 127);
         if (is_elf(elf_path) == 0) {
             printf("ELF file detected, loading...\n");
             if (elf_load_and_run(elf_path) != 0) {

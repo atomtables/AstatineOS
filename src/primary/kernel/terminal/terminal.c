@@ -61,7 +61,6 @@ static u8 apply_sgr_code(u8 current, int code) {
 
     return current;
 }
-
 static void flush_segment(char* segment, u32* len, u8 color) {
     if (*len == 0) return;
     segment[*len] = '\0';

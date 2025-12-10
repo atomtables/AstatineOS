@@ -16,8 +16,9 @@ void main() {
     int x = 5;
 
     printf("\033[31mHello, World (from user mode ofc)!\n\033[0m");
-    printf("Please enter a number: ");
+    printf("\033[15;15HPlease enter a number: ");
     scanf("%d", &x);
+    printf("\033[H\033[2J");
     // char buf[1];
     // read(0, buf, 1);
     // x = buf[0] - '0';

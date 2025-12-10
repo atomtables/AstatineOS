@@ -1,398 +1,91 @@
 //
 // Created by Adithiya Venkatakrishnan on 14/1/2025.
 //
-
-#include "basicbasic.h"
+// rewriting this so it actually works better
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <memory/malloc.h>
+#include <astatine/terminal.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
 
-static struct {
-    char* input;
-    uint32_t input_length;
+#define VGA_TEXT_COLOR(fg, bg) (((bg) << 4) | (fg))
+#define COLOR_BLACK         0x0
+#define COLOR_BLUE          0x1
+#define COLOR_GREEN         0x2
+#define COLOR_CYAN          0x3
+#define COLOR_RED           0x4
+#define COLOR_MAGENTA       0x5
+#define COLOR_BROWN         0x6
+#define COLOR_LIGHT_GREY    0x7
+#define COLOR_DARK_GREY     0x8
+#define COLOR_LIGHT_BLUE    0x9
+#define COLOR_LIGHT_GREEN   0xA
+#define COLOR_LIGHT_CYAN    0xB
+#define COLOR_LIGHT_RED     0xC
+#define COLOR_LIGHT_MAGENTA 0xD
+#define COLOR_YELLOW        0xE
+#define COLOR_WHITE         0xF
 
-    char buffer[78*22];
-    uint32_t buffer_length;
+void set_terminal_mode(uint8_t mode) {
+    asm volatile (
+        "int $0x30\n"
+        :
+        : "a"(3), "b"(0), "c"(mode)
+    );
+};
 
-    bool ready_for_input_init;
-    bool ready_for_next_input;
-    bool ready_for_processing;
-
-    bool end;
-} state;
-
-static struct {
-    u32 variables[26];
-
-    bool running;
-
-    struct program {
-        u32 ln;
-        char* line;
-    }* program;
-    u32 program_length;
-    u32 program_maxlen;
-
-    u32 current_line_number;
-    bool goto_performed;
-
-    bool awaiting_input;
-} basic;
-
-static void setup() {
-    state.ready_for_input_init = true;
-    state.ready_for_next_input = false;
-    state.ready_for_processing = false;
-
-    enable_double_buffering();
-
-    memset(state.buffer, ' ', 78*22);
-
-    basic.program = kmalloc(sizeof(struct program) * 50);
-    basic.program_maxlen = 50;
+int xopen(char* identifier) {
+    int fd;
+    asm volatile (
+        "int $0x30\n"
+        : "=a"(fd)
+        : "a"(4), "b"(identifier), "d"(0)
+    );
+    return fd;
 }
 
-static void quit() {
-    disable_double_buffering();
-    clear_screen();
-    enable_vga_cursor();
-
-    kfree(basic.program);
-    state.end = true;
-}
-
-static void append_buffer(const char* line) {
-    memcpy(state.buffer, state.buffer + 78, 78*21);
-    memset(state.buffer + 78*21, 0, 78);
-    strcpy(state.buffer + 78*21, line);
-}
-
-static void draw_outline() {
-    draw_string(
-        0, 0,
-        "\xC9\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBB");
-    draw_string(0, 25 - 1,
-                "\xC8\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBC");
-    for (uint32_t i = 1; i < 25 - 1; i++) {
-        draw_char(0, i, '\xBA');
-        draw_char(80 - 1, i, '\xBA');
-    }
-    draw_string_with_color(34, 0, "\033Bg basicbasic ",
-                           VGA_TEXT_COLOR(COLOR_BLACK, COLOR_LIGHT_GREY));
-}
-
-static void render_command() {
-    // history
-    for (u32 i = 0, x = 1, y = 1; i < 78*22; i++) {
-        draw_char(x, y, state.buffer[i]);
-        x++;
-        if (x == 79) {
-            x = 1;
-            y++;
-        }
-    }
-
-    // command
-    if (!basic.running) {
-        draw_string(1, 23, "] ");
-        for (u32 i = 0; i < state.input_length; i++) {
-            draw_char(i + 3, 23, state.input[i]);
-        }
-        enable_vga_cursor();
-        set_vga_cursor(state.input_length + 3, 23);
+void output(void) {
+    // draw a white frame
+    for (int x = 0; x < 80; x++) {
+        printf("\033[0;%dH\033[47m \033[0m", x+1);
+        printf("\033[24;%dH\033[47m \033[0m", x+1);
     }
 }
 
-static void render() {
-    draw_outline();
-    render_command();
-}
+struct teletype_packet {
+    uint8_t yes;
+    uint32_t x;
+    uint32_t y;
+    char* buffer;
+    uint32_t size;
+    uint8_t with_color;
+    uint8_t color;
+    uint8_t move_cursor;
+} packet;
 
-char* remove_spaces(char* s) {
-    char* r = s;
-    char* d = s;
-    do {
-        while (*d == ' ') {
-            ++d;
-        }
-    } while ((*s++ = *d++));
-    return r;
-}
-
-static u32 eval(char* exp) {
-    exp = remove_spaces(exp);
-    StrtokA cmd = strtok_a(exp, "+-*/");
-
-    if (cmd.count == 1) {
-        return atoi(exp);
-    }
-
-    u32 num1;
-    if (cmd.ret[0][0] >= 'a' && cmd.ret[0][0] <= 'z') {
-        num1 = basic.variables[cmd.ret[0][0] - 'a'];
-    } else {
-        num1 = atoi(cmd.ret[0]);
-    }
-    u32 num2;
-    if (cmd.ret[1][0] >= 'a' && cmd.ret[1][0] <= 'z') {
-        num2 = basic.variables[cmd.ret[1][0] - 'a'];
-    } else {
-        num2 = atoi(cmd.ret[1]);
-    }
-    char op = *(exp + strlen(cmd.ret[0]));
-
-    if (op == '+') {
-        return num1 + num2;
-    }
-    if (op == '-') {
-        return num1 - num2;
-    }
-    if (op == '*') {
-        return num1 * num2;
-    }
-    if (op == '/') {
-        return num1 / num2;
-    }
-    return -1;
-}
-
-static bool commit_instruction(StrtokA cmd, char* line) {
-    line = remove_spaces(strdup(line));
-    if (!strcmp(cmd.ret[0], "run")) {
-        if (basic.running) {
-            beep();
-            append_buffer("?RUNNING ERROR");
-        }
-        basic.running = true;
-        kfree(line);
-        return true;
-    }
-    if (!strcmp(cmd.ret[0], "end")) {
-        basic.running = false;
-        kfree(line);
-        return true;
-    }
-    if (!strcmp(cmd.ret[0], "goto")) {
-        u32 ln = atoi(cmd.ret[1]);
-        for (u32 i = 0; i < basic.program_length; i++) {
-            if (basic.program[i].ln == ln) {
-                basic.current_line_number = i;
-                if (basic.running) basic.goto_performed = true;
-                basic.running = true;
-                kfree(line);
-                return true;
-            }
-        }
-        beep();
-        append_buffer("?LINE ERROR");
-        kfree(line);
-        return false;
-    }
-    if (!strcmp(cmd.ret[0], "pru32")) {
-        char* str = strlwr(line + 5);
-        if (str[0] == '\"') {
-            str++;
-            str[strlen(str) - 1] = 0;
-            append_buffer(str);
-            kfree(line);
-            return true;
-        }
-        if (str[0] >= 'a' && str[0] <= 'z' && str[1] == 0) {
-            char* buf = itoa(basic.variables[str[0] - 'a'], kmalloc(11));
-            append_buffer(buf);
-            kfree(buf);
-            kfree(line);
-            return true;
-        }
-        beep();
-        append_buffer("?SYNTAX ERROR");
-        kfree(line);
-        return false;
-    }
-    if (!strcmp(cmd.ret[0], "cls")) {
-        memset(state.buffer, ' ', 78*22);
-        kfree(line);
-        return true;
-    }
-    if (line[0] >= 'a' && line[0] <= 'z' && (line[1] == '=') ) {
-        basic.variables[line[0] - 'a'] = eval(line + 2);
-        kfree(line);
-        return true;
-    }
-    if (!strcmp(cmd.ret[0], "list")) {
-        for (u32 i = 0; i < basic.program_length; i++) {
-            char* num = itoa(basic.program[i].ln, kmalloc(11));
-            u32 bytes = strlen(basic.program[i].line) + 12;
-            char* buf = kmalloc(bytes);
-            u32 j = 0;
-            for (j = 0; num[j] != 0; j++) {
-                buf[j] = num[j];
-            }
-            buf[j++] = ' ';
-            for (u32 k = j; buf[j - k] != 0; j++) {
-                buf[j] = basic.program[i].line[j - k];
-            }
-            kfree(buf);
-            append_buffer(buf);
-        }
-        append_buffer(itoa(basic.current_line_number, "          "));
-        kfree(line);
-        return true;
-    }
-    if (!strcmp(cmd.ret[0], "quit")) {
-        quit();
-        kfree(line);
-        return true;
-    }
-    beep();
-    append_buffer("?SYNTAX ERROR");
-    kfree(line);
-    return false;
-}
-
-static void continue_program() {
-    char* line = strlwr(basic.program[basic.current_line_number].line);
-    StrtokA cmd = strtok_a(line, " ");
-
-    if (!commit_instruction(cmd, line)) {
-        basic.running = false;
-        return;
-    }
-    if (basic.goto_performed) {
-        if (basic.running) {
-            basic.goto_performed = false;
-            return;
-        }
-        basic.goto_performed = false;
-    }
-
-    basic.current_line_number++;
-
-    if (basic.current_line_number == basic.program_length) {
-        basic.running = false;
-        basic.goto_performed = false;
-        basic.current_line_number = 0;
-    }
-}
-
-static void u32erpret_basic() {
-    StrtokA cmd = strtok_a(state.input, " ");
-
-    cmd.ret[0] = strlwr(cmd.ret[0]);
-
-    if (state.input[0] >= '0' && state.input[0] <= '9') {
-        u32 ln = atoi(cmd.ret[0]);
-        for (u32 i = 0; i < basic.program_length; i++) {
-            if (basic.program[i].ln < ln) {
-                continue;
-            }
-            if (basic.program[i].ln == ln) {
-                kfree(basic.program[i].line);
-                basic.program[i].line = strdup(state.input + strlen(cmd.ret[0]) + 1);
-                goto complete;
-            }
-            if (basic.program[i].ln > ln){
-                // i am not implementing a pushing thing too much work
-                beep();
-                append_buffer("?LAZINESS ERROR");
-                goto complete;
-            }
-        }
-        // we have to append now
-        if (basic.program_length == basic.program_maxlen) {
-            basic.program = krealloc(basic.program, sizeof(struct program) * basic.program_maxlen);
-            basic.program_maxlen *= 2;
-        }
-        basic.program[basic.program_length].ln = ln;
-        basic.program[basic.program_length].line = strdup(state.input + strlen(cmd.ret[0]) + 1);
-        basic.program_length++;
-    } else {
-        commit_instruction(cmd, state.input);
-    }
-
-    complete:
-    kfree(cmd.ret);
-}
-
-static void input_routine() {
-    static bool tick = false;
-
-    if (state.ready_for_input_init) {
-        state.input = kcalloc(64);
-        state.input_length = 0;
-        state.ready_for_input_init = false;
-        state.ready_for_next_input = true;
-        tick = simple_state.tick;
-    }
-
-    if (state.ready_for_next_input) {
-        if (simple_state.tick != tick) {
-            tick = simple_state.tick;
-
-            if (simple_state.current_char == KEY_LF) {
-                // push the input to the buffer
-                char* buffer = kcalloc(79);
-                append_buffer(strcat(strcat(buffer, "] "), state.input));
-                kfree(buffer);
-
-                state.ready_for_processing = true;
-                state.ready_for_next_input = false;
-            } else if (simple_state.current_char == KEY_BS) {
-                if (state.input_length > 0) {
-                    state.input_length--;
-                    state.input[state.input_length] = 0;
-                }
-            } else {
-                state.input[state.input_length] = simple_state.current_char;
-                state.input_length++;
-            }
-        }
-    }
-
-    if (state.ready_for_processing) {
-        u32erpret_basic();
-        kfree(state.input);
-        state.ready_for_input_init = true;
-        state.ready_for_processing = false;
-    }
-}
-
-static void keysin() {
-    if (!basic.running) input_routine();
-    if (keyboard_char(KEY_ESC)) basic.running = false;
-}
-
-void basicbasic() {
-    printf("Press any key to start...\n");
-    wait_for_keypress();
-    setup();
-    u64 last_frame = 0;
-
+void main(void) {
+    // printf("\033[H\033[2J");
+    setvbuf(stdout, NULL, _IOFBF, 0);
+    setvbuf(stderr, NULL, _IOFBF, 0);
+    int fd = xopen("teletype");
+    packet.yes = true;
+    packet.x = 10;
+    packet.y = 5;
+    char* msg = "Hello from BasicBasic!";
+    packet.buffer = msg;
+    packet.size = strlen(msg);
+    packet.with_color = true;
+    // VGA color btw
+    packet.color = VGA_TEXT_COLOR(COLOR_LIGHT_GREEN, COLOR_BLACK);
+    packet.move_cursor = true;
+    write(fd, &packet, sizeof(packet));
+    // Clear the screen
     while(1) {
-        u64 current_tick = timer_get();
-
-        draw_outline();
-
-        clear_and_set_screen_color(0x0f);
-        render();
-
-        if ((current_tick - last_frame) > (15)) {
-            disable_vga_cursor();
-            // 1000/60 ~ 15
-            last_frame = current_tick;
-
-            if (basic.running) {
-                continue_program();
-            }
-            keysin();
-
-            if (state.end) {
-                state.end = false;
-                return;
-            };
-
-            swap_graphics_buffer();
-        }
-    }
+        // output();
+        fflush(stdout);
+        while(1);
+    };
 }
