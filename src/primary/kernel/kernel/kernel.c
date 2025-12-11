@@ -170,9 +170,9 @@ int main() {
 
     while(1) {
         clear_screen();
-        printf("Autoloading basicbasic.aex...\n");
+        printf("Load a file: ");
         char elf_path[127] = "/primary/basicbasic.aex";
-        // input(elf_path, 127);
+        input(elf_path, 127);
         if (is_elf(elf_path) == 0) {
             printf("ELF file detected, loading...\n");
             if (elf_load_and_run(elf_path) != 0) {

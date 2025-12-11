@@ -9,6 +9,8 @@
 #include "fat32.h"
 #include <modules/modules.h>
 #include <modules/strings.h>
+#include <systemcalls/calls/calls.h>
+#include <display/simple/display.h>
 
 #define uint8_t  u8
 #define uint16_t u16
@@ -1727,3 +1729,14 @@ __attribute__((weak)) void fat_get_timestamp(Timestamp* ts)
   ts->min   = 0;
   ts->sec   = 0;
 }
+
+int fat32_read_struct(struct fd *self, void *buffer, u32 size) {
+  File* file = (File*)self->internal;
+  int bytes;
+  return fat_file_read(file, buffer, size, &bytes) == FAT_ERR_NONE ? bytes : -1;
+}
+
+
+struct fop fat32_fops = {
+  .read = fat32_read_struct,
+};

@@ -12,9 +12,11 @@ int read(struct registers* regs) {
     if (regs->ebx < (sizeof(open_fds) / sizeof(struct fd))) {
         struct fd* filedesc = &open_fds[regs->ebx];
         if (!filedesc->exists) {
+            printf("Attempted to read from non-existent fd %d\n", regs->ebx);
             return -1; // fd does not exist
         }
         if (filedesc->fops->read == null) {
+            printf("Read not supported on this fd %d\n", regs->ebx);
             return -1; // read not supported
         }
         return filedesc->fops->read(filedesc, (const void*)regs->ecx, (u32)regs->edx);

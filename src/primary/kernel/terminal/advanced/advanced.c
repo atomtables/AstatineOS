@@ -3,6 +3,7 @@
 #include <systemcalls/calls/calls.h>
 #include <driver_base/teletype/teletype.h>
 #include <modules/strings.h>
+#include <display/simple/display.h>
 
 int teletype_setmode(struct fd* self, u8 mode) {
     // teletypes only support one mode for now
@@ -31,19 +32,24 @@ int teletype_open(struct fd* self, char* identifier, u8 mode) {
 
 int teletype_write(struct fd* self, const void* buffer, u32 size) {
     struct teletype_packet* buf = (struct teletype_packet*)buffer;
-    active_teletype_driver->functions.set_string(
-        active_teletype_driver,
-        buf->x,
-        buf->y,
-        buf->buffer,
-        buf->with_color ? buf->color : 0x0f
-    );
-    static struct TeletypeMode mode;
-    if (!mode.width) active_teletype_driver->functions.get_mode(active_teletype_driver, &mode);
-    buf->x += strlen(buf->buffer);
-    if (mode.width && buf->x >= mode.width) {
-        buf->x = 0;
-        buf->y += 1;
+    if (!buf) {
+        return 0;
+    }
+    if (buf->buffer) {
+        active_teletype_driver->functions.set_string(
+            active_teletype_driver,
+            buf->x,
+            buf->y,
+            buf->buffer,
+            buf->with_color ? buf->color : 0x0f
+        );
+        buf->x += strlen(buf->buffer);
+        static struct TeletypeMode mode;
+        if (!mode.width) active_teletype_driver->functions.get_mode(active_teletype_driver, &mode);
+        if (mode.width && buf->x >= mode.width) {
+            buf->x = 0;
+            buf->y += 1;
+        }
     }
     if (buf->move_cursor) {
         active_teletype_driver->functions.set_cursor_position(active_teletype_driver, buf->x, buf->y);

@@ -103,6 +103,157 @@ bool load_section_headers_elf(File* file, Dynarray* addrs) {
     return true;
 }
 
+u32* addrs_top;
+u32 count_top;
+u32 entrypoint_top;
+
+u32* elf_load(char* file_path, u32* out_count, u32* entrypoint, u32* stack_top_out) {
+    // First we open the file
+    File file;
+    if (fat_file_open(&file, file_path, FAT_READ) != 0) {
+        printf("Failed to open ELF file: %s\n", file_path);
+        return null;
+    }
+
+    // Then we should read just the ELF header
+    ELF_Header header;
+    if (fat_file_read(&file, &header, sizeof(ELF_Header), &temp) != 0) {
+        printf("Failed to read the ELF header.\n");
+        fat_file_close(&file);  
+        return null;
+    }
+
+    // Now we should go through the list of 
+    // program headers
+    // seek to the program header offset
+    ELF_Program_Header current_header;
+    u32* addrs = kmalloc(sizeof(u32) * header.program_entry_count);
+    u32 addrs_size = header.program_entry_count;
+    static u32 addrs_count = 0;
+    addrs_count = 0;
+    // now for each file, read it in
+    for (u32 i = 0; i < header.program_entry_count; i++) {
+        // Sanity checks
+        if (header.program_header_offset + i * sizeof(ELF_Program_Header) >= file.size) {
+            printf("ELF program header offset out of bounds.\n");
+            fat_file_close(&file);
+            goto cleanup;
+        }
+
+        // seek to the program header
+        fat_file_seek(&file, header.program_header_offset + i * sizeof(ELF_Program_Header), FAT_SEEK_START);
+        if (fat_file_read(&file, &current_header, sizeof(ELF_Program_Header), &temp) != 0) {
+            printf("Failed to read the ELF headers.\n");
+            fat_file_close(&file);
+            goto cleanup;
+        }
+        // Check if we can load this segment
+        if (current_header.type != ELF_PT_LOAD) continue;
+
+        if (current_header.size_mem < current_header.size_file) {
+            printf("ELF segment size in memory is smaller than size in file.\n");
+            fat_file_close(&file);
+            goto cleanup;
+        }
+
+        // Allocate virtual memory for this segment, page-aligned and covering full size_mem.
+        u32 seg_start = current_header.virtual_addr & ~0xFFF; // align down
+        u32 seg_end = (current_header.virtual_addr + current_header.size_mem + 0xFFF) & ~0xFFF; // align up
+        for (u32 addr = seg_start; addr < seg_end; addr += 0x1000) {
+            addrs[addrs_count++] = addr;
+            if (addrs_count > addrs_size) {
+                addrs = krealloc(addrs, sizeof(u32) * addrs_size * 2);
+                addrs_size *= 2;
+            }
+            if (!alloc_page_at_addr(addr, 0)) {
+                printf("Failed to allocate page for ELF segment at address %x.\n", addr);
+                fat_file_close(&file);
+                goto cleanup;
+            }
+        }
+        // Now we should read the segment data from the file into the requested virtual address
+        fat_file_seek(&file, current_header.offset_in_file, FAT_SEEK_START);
+        if (fat_file_read(&file, (void*)current_header.virtual_addr, current_header.size_file, &temp) != 0) {
+            printf("Failed to read segment data.\n");
+            fat_file_close(&file);
+            goto cleanup;
+        }
+
+        // zero out the rest of the memory (elf spec)
+        // memset((void*)(current_header.virtual_addr + current_header.size_file),
+        //         0,
+        //         current_header.size_mem - current_header.size_file
+        // );
+
+    }
+    fat_file_close(&file);
+
+    // Before we run the program,
+    // we need to initialise the program stack
+    // which is two pages above the highest segment
+    u32 highest_addr = 0;
+    for (u32 i = 0; i < header.program_entry_count; i++) {
+        if (addrs[i] > highest_addr) {
+            highest_addr = addrs[i];
+        }
+    }
+    if (highest_addr == 0) {
+        printf("No loadable segments found in ELF file.\n");
+        return null;
+    }
+
+    // Allocate heap pages between end of program and stack.
+    // Give user program 256KB of heap space (64 pages).
+    // Heap starts right after the last program page.
+    u32 heap_base = (highest_addr + 0x1000) & ~0xFFF; // page-align
+    u32 heap_pages = 64; // 256KB of heap
+    for (u32 i = 0; i < heap_pages; i++) {
+        alloc_page_at_addr(heap_base + i * 0x1000, 0);
+        addrs[addrs_count++] = heap_base + i * 0x1000;
+        if (addrs_count > addrs_size) {
+            addrs = krealloc(addrs, sizeof(u32) * addrs_size * 2);
+            addrs_size *= 2;
+        }
+    }
+
+    // Allocate stack far away from the heap to give sbrk room to grow.
+    // Place stack at a high address (e.g., 0x08200000) with 16 pages (64KB).
+    u32 stack_base = 0x08200000;
+    for (u32 i = 0; i < 16; i++) {
+        alloc_page_at_addr(stack_base + i * 0x1000, 0);
+        addrs[addrs_count++] = stack_base + i * 0x1000;
+        if (addrs_count > addrs_size) {
+            addrs = krealloc(addrs, sizeof(u32) * addrs_size * 2);
+            addrs_size *= 2;
+        }
+    }
+    u32 stack_top = stack_base + 16 * 0x1000; // exclusive
+    u32 stack_entry = stack_top - 0x10; // leave some headroom
+
+    *entrypoint = header.entry_offset;
+    *out_count = addrs_count;
+    if (stack_top_out) *stack_top_out = stack_entry;
+
+    addrs_top = addrs;
+    count_top = addrs_count;
+    entrypoint_top = header.entry_offset;
+
+    return addrs;
+    cleanup:
+    for (u32 i = 0; i < addrs_count; i++) {
+        free_page(addrs[i]);
+    }
+    kfree(addrs);
+    return null;
+}
+
+void elf_free(u32* addrs, u32 count) {
+    for (u32 i = 0; i < count; i++) {
+        free_page(addrs[i]);
+    }
+    kfree(addrs);
+}
+
 // Now we know it's an ELF file for this system,
 // we can make a function that bootstraps it into
 // memory and runs it.
@@ -230,6 +381,10 @@ int elf_load_and_run(char* file_path) {
 
     printf("Loading usermode program...");
     clear_screen();
+
+    addrs_top = addrs;
+    count_top = addrs_count;
+    entrypoint_top = header.entry_offset;
 
     // Now we loaded the file, let's run the program
     entryuser32(header.entry_offset, stack_top);
