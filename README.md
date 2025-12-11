@@ -83,16 +83,14 @@ learning about that responsibility and how to live up to it is really really coo
 Build it yourself using all the dependencies above. 
 
 Or, download an ISO from the releases section below and test it out yourself on
-
  [https://copy.sh/v86] (works 100% with latest release)
 
 ## it works on fake hardware bro trust me
 source: this video
 
-[https://github.com/user-attachments/assets/9c548362-ebc2-4719-b523-f6a34fe98653
-](https://github.com/user-attachments/assets/9c548362-ebc2-4719-b523-f6a34fe98653
+[https://github.com/user-attachments/assets/7a022678-c8fa-461c-a093-f2d61037b7d0
+](https://github.com/user-attachments/assets/7a022678-c8fa-461c-a093-f2d61037b7d0
 )
-
 
 
 
