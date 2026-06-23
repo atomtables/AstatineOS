@@ -23,7 +23,7 @@ extern struct dynarray* available_drivers;
 extern struct dynarray* active_drivers;
 extern struct dynarray* loaded_drivers;
 
-int attempt_install_driver(File* file, char* path);
+int attempt_install_driver(char* path);
 
 u32 postregister_driver(AstatineDriverFile* driver);
 int initialise_driver_with_subsystem(AstatineDriverFile* driver, Device* device);

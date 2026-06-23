@@ -8,9 +8,14 @@
 #include <modules/modules.h>
 #include <interrupt/isr.h>
 
+#define as_str(x) #x
+#define as_str_2(x) as_str(x)
+#define panic(reason) panicking(__FILE__ ", " as_str_2(__LINE__) ": " reason)
+
+
 void reboot();
 
-void panic(char* reason);
+void panicking(char* reason);
 void interrupt_panic(int code, char* reason, const struct registers* registers);
 
 #endif //EXCEPTION_H

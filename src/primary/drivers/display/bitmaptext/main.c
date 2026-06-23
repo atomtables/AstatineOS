@@ -38,12 +38,16 @@ void deinit(AstatineDriver* self) {
     self->device->attached_driver = null;
 }
 
+u8 text_buffer[40 * 25];
+
 struct TeletypeMode mode = {
-    .width = 80,
+    .width = 40,
     .height = 25,
-    .cells = (u8*)0xB8000,
+    .cells = (u8*)text_buffer,
     .cells_valid = 1,
 };
+
+u8* font = (u8*)0xFFA6E;
 
 bool get_mode(TeletypeDriver* self, struct TeletypeMode* out) {
     // Read from BIOS memory area
@@ -61,8 +65,23 @@ bool set_char(TeletypeDriver* self, u32 x, u32 y, u8 character, u8 color) {
         return false;
     }
     u32 index = y * mode.width + x;
-    mode.cells[index * 2] = character;
-    mode.cells[index * 2 + 1] = color;
+    text_buffer[index] = (character << 8) | color;
+
+    // Write to VGA Planar Memory (Mode 0x0D)
+    u16 offset = (y * 8) * (320 / 8) + x;
+    for (int i = 0; i < 8; i++) {
+        u8 font_byte = font[character * 8 + i];
+
+        // Clear background
+        outb(0x3C4, 0x02);
+        outb(0x3C5, 0x0F);
+        mode.cells[offset + i * 40] = 0;
+
+        // Write foreground
+        outb(0x3C4, 0x02);
+        outb(0x3C5, color);
+        mode.cells[offset + i * 40] = font_byte;
+    }
     return true;
 }
 
@@ -71,15 +90,12 @@ u16 get_char(TeletypeDriver* self, u32 x, u32 y) {
         return false;
     }
     u32 index = y * mode.width + x;
-    u8 cell = mode.cells[index * 2];
-    u8 color = mode.cells[index * 2 + 1];
-    return (cell << 8) | color;
+    return text_buffer[index];
 }
 
 bool clear_screen(TeletypeDriver* self, u8 color) {
     for (u32 i = 0; i < mode.width * mode.height * 2; i += 2) {
-        mode.cells[i] = 0;
-        mode.cells[i + 1] = color;
+        text_buffer[i / 2] = (0 << 8) | color;
     }
     return true;
 }
@@ -88,6 +104,8 @@ bool set_cursor_position(TeletypeDriver* self, u32 x, u32 y) {
     if (x >= mode.width || y >= mode.height) {
         return false;
     }
+    // We cannot easily use the hardware cursor in graphics mode,
+    // but the VGA CRTC might still respond to cursor position.
     u16 pos = (u16)(y * mode.width + x);
     // Send the high byte
     outb(0x3D4, 0x0E);
@@ -129,10 +147,10 @@ ASTATINE_DRIVER(TeletypeDriverFile) = {
         .driver_type = CONNECTION_TYPE_IO,
         // i have to be another level of stupid
         .device_type = DEVICE_TYPE_TTYPE,
-        .name = "VGA BIOS Text-mode Driver", 
+        .name = "VGA Graphics-mode-emulati",
         .version = "0.1",
         .author = "Adithiya Venkatakrishnan", 
-        .description = "BIOS VGA text-mode driver (80x25).",
+        .description = "BIOS VGA graphics-mode driv.",
         .reserved = {0},
         .verification = {0xEF, 0xBE, 0xAD, 0xDE, 0xEF, 0xBE, 0xAD, 0xDE},
 
@@ -153,4 +171,3 @@ ASTATINE_DRIVER(TeletypeDriverFile) = {
 
 // not required
 ASTATINE_DRIVER_ENTRYPOINT();
-

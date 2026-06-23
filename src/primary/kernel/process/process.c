@@ -14,15 +14,28 @@ typedef struct { // threads are like stripped processes. only runs when a target
 } thread;
 
 typedef struct process { // processes can call on new threads
+    // PID of the process
     u32 pid;
+    // Parent PID of the process
     u32 ppid;
+    // how many threads it's holding onto
     u32 thread_count;
+    // the thread ids
     thread thread_ids[256];
 } process;
 
-static process processes[256];
+process processes[256] = {0};
+process* current_process = null;
+u32 max_pid = 0;
 
 void process_init() {
     memset(&processes[0], 0, sizeof(processes));
 }
 
+void process_start(char* path) {
+    processes[0].pid = max_pid++;
+    if (current_process) processes[0].ppid = current_process->pid;
+    else processes[0].ppid = 0; // no parent
+
+
+}

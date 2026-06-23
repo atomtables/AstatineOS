@@ -120,6 +120,7 @@ void* kmalloc_aligned(const size_t bytes, const size_t alignment) {
     }
     // at this point, we have no memory to allocate
     // TODO: handle heap full
+    panic("out of malloc heap memory");
     return null;
 }
 
@@ -164,8 +165,8 @@ void kfree(void* ptr) {
         // while(1);
         // invalid pointer
         char buf[64] = "Invalid pointer passed to kfree";
-        xtoa((u32)ptr, buf + strlen(buf));
-        panic(buf);
+        // xtoa((u32)ptr, buf + strlen(buf));
+        panic("Invalid pointer passed to kfree");
         return;
     }
 

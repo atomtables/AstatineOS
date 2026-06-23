@@ -87,10 +87,15 @@ typedef struct PageTableEntry {
     // Basically if this page isn't likely to get deleted
     // and is important, then don't reload this page
     // set 1 to enable, 0 to disable.
+    // for kernel
     u8 global         : 1;
-    // The next 3 bits are considered 'available'
-    // This means we can use them 
-    u8 notforuse      : 1;
+    // ASTATINE ONLY: this is to set a page
+    // as being a Copy-On-Write page or some other
+    // type of page that will have a handler run when it
+    // is written to. These will be used by the page fault
+    // handler, and need to be individually tracked
+    u8 responsive     : 1;
+    // we can use these for whatever we want
     u8 _reserved      : 2;
     // The actual physical memory
     u32 address    : 20;

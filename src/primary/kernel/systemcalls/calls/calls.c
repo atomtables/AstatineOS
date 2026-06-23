@@ -8,5 +8,5 @@ int(* syscall_handlers[500])(struct registers* regs) = {
     setmode, // 3
     open, // 4
     loadnew,
-    freenew
+    // freenew
 };

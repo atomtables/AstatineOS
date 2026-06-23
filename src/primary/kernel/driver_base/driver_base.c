@@ -163,11 +163,19 @@ int install_driver(AstatineDriverFile* driver, char* path) {
 }
 
 static int temp;
-int attempt_install_driver(File* file, char* path) {
+int attempt_install_driver(char* path) {
+    File file = {0};
+    if (fat_file_open(&file, path, FAT_READ) != 0) {
+        printf("Failed to open ELF file: %s\n", path);
+        char* x = "Failed to load ELF file.";
+        for (u32 i = 0; x[i] != 0x00; i++) {
+            *((u8*)0xb8000 + i * 2) = x[i];
+        }
+    }
     int errno = 0;
     // Then we should read just the ELF header
     ELF_Header header;
-    if (fat_file_read(file, &header, sizeof(ELF_Header), &temp) != 0) {
+    if (fat_file_read(&file, &header, sizeof(ELF_Header), &temp) != 0) {
         printf("Failed to read the ELF header.\n");
         errno = 2;
         goto cleanup;
@@ -185,12 +193,12 @@ int attempt_install_driver(File* file, char* path) {
     if (!active_drivers) active_drivers = dynarray_create(sizeof(AstatineDriverFile*));
     char* string_table = 0;
 
-    if (!load_program_headers_elf(file, program_headers)) {
+    if (!load_program_headers_elf(&file, program_headers)) {
         printf("Failed to load ELF program headers.\n");
         errno = 3;
         goto cleanup;
     }
-    if (!load_section_headers_elf(file, section_headers)) {
+    if (!load_section_headers_elf(&file, section_headers)) {
         printf("Failed to load ELF section headers.\n");
         errno = 3;
         goto cleanup;
@@ -251,8 +259,8 @@ int attempt_install_driver(File* file, char* path) {
             dynarray_add(pages_for_each_segment, &pkt);
 
             u32 load_address = current_delta + ph->virtual_addr;
-            fat_file_seek(file, ph->offset_in_file, FAT_SEEK_START);
-            if (fat_file_read(file, (void*)load_address, ph->size_file, &temp) != 0) {
+            fat_file_seek(&file, ph->offset_in_file, FAT_SEEK_START);
+            if (fat_file_read(&file, (void*)load_address, ph->size_file, &temp) != 0) {
                 printf("Failed to read driver segment from file.\n");
                 errno = 6;
                 goto cleanup;
@@ -395,8 +403,8 @@ int attempt_install_driver(File* file, char* path) {
     ELF_Section_Header* string_header = dynarray_get(section_headers,
         header.section_string_table_section_index);
     string_table = kmalloc(string_header->size);
-    fat_file_seek(file, string_header->offset, FAT_SEEK_START);
-    if (fat_file_read(file, string_table, string_header->size, &temp) != 0) {
+    fat_file_seek(&file, string_header->offset, FAT_SEEK_START);
+    if (fat_file_read(&file, string_table, string_header->size, &temp) != 0) {
         printf("Failed to read driver string table.\n");
         errno = 12;
         goto cleanup;

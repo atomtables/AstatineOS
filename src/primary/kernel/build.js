@@ -45,7 +45,7 @@ export default {
             ]],
             command: "$LD -m elf_i386 -Ttext 0x10000 --oformat binary -Map kernel.map -o $BUILD/kernel.bin $ALL_OBJECTS",
         }
-    ],
+    ],  
     // the output is always relative to $BUILD
     output: ["kernel.bin"],
     install: {

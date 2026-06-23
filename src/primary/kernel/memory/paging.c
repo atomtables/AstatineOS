@@ -5,10 +5,19 @@
 #include <exception/exception.h>
 #include <display/simple/display.h>
 
+#include "modules/dynarray.h"
+
 #define FLUSH_TLB(addr) __asm__ volatile("invlpg (%0)" : : "r" (addr) : "memory");
 #define TOTAL_PAGE_ENTRIES (1024 * 1024)
 
 extern void load_page_directory(u32 pd_addr);
+
+
+struct responsive_page {
+    void(*handler)();
+};
+// We need to keep track
+Dynarray* pages_arr;
 
 void page_set_kernel(PageTableEntry* pt, u32 index) {
     pt[index].present = true;
@@ -23,7 +32,6 @@ void page_set_kernel(PageTableEntry* pt, u32 index) {
 }
 
 PageDirectoryEntry* pd = (PageDirectoryEntry*)0x1000;
-
 u16* page_directory_counts;
 
 void paging_init() {
@@ -50,7 +58,6 @@ void paging_init() {
     // Our table address is at 0x1000, so we can set that up now.
     PageTableEntry* pt = (PageTableEntry*)(0x2000);
     memset(pt, 0, 4096);
-    pt[0].notforuse = 1;
 
     // page_set_kernel(pt, 0);      // 0x00000000 - 0x00000FFF
     page_set_kernel(pt, 1);      // 0x00001000 - 0x00001FFF
@@ -89,45 +96,29 @@ static void allocate_a_page_directory_entry(u32 pd_index) {
     pd[pd_index].page_size = 0;
 }
 
+// We allocate a new 4KB page at any virtual address necessary,
+// in case the kernel is just allocating some additional
+// memory or the program doesn't need all that.
 u32 alloc_page(u32 flags) {
     while (1) {
         u32 pd_index = rand() % 1024;
         u32 pt_index = rand() % 1024;
 
-        if (!pd[pd_index].present) {
-            allocate_a_page_directory_entry(pd_index);
-        }
-
-        PageTableEntry* pt = (PageTableEntry*)((u32)(pd[pd_index].table_addr << 12));
-        PageTableEntry* entry = &pt[pt_index];
-        if (entry->present || entry->notforuse) {
-            continue;
-        }
-
-        u32 phys_addr = alloc_frame();
-        entry->present = true;
-        entry->address = phys_addr >> 12;
-        entry->rw = true;
-        entry->allowuser = true;
-        if (flags & PAGEF_NOUSER) {
-            entry->allowuser = false;
-        }
-        if (flags & PAGEF_READONLY) {
-            entry->rw = false;
-        }
         u32 virt_addr = (pd_index << 22) | (pt_index << 12);
-        page_directory_counts[pd_index]++;
-        FLUSH_TLB(virt_addr);
-        return virt_addr;
+        if (!alloc_page_at_addr(virt_addr, flags)) return virt_addr;
     }
 }
-
 // We allocate a new 4KB page at the given virtual address
 // mapping to the given physical address.
 bool alloc_page_at_addr(u32 virt_addr, u32 flags) {
     // Get the directory index and table index
     u32 pd_index = (virt_addr >> 22) & 0x3FF;
     u32 pt_index = (virt_addr >> 12) & 0x3FF;
+
+    // i copy pasted this line of code across 3 different functions because
+    // i realised that having an entry called "not for use" just for the null page
+    // might be the stupidest idea I've (or any human being) has ever had.
+    if (pd_index == 0 && pt_index == 0) return false;
 
     // check if the page directory entry is present
     if (!pd[pd_index].present) {
@@ -138,7 +129,7 @@ bool alloc_page_at_addr(u32 virt_addr, u32 flags) {
     PageTableEntry* pt = (PageTableEntry*)((u32)(pd[pd_index].table_addr << 12));
     PageTableEntry* entry = &pt[pt_index];
 
-    if (entry->present || entry->notforuse) {
+    if (entry->present /*|| entry->notforuse*/) {
         // already allocated
         return false;
     }
@@ -174,27 +165,31 @@ void free_page(u32 virt_addr) {
     }
 
     // get the page table
-    PageTableEntry* pt = (PageTableEntry*)((u32)(pd[pd_index].table_addr << 12));
+    PageTableEntry* pt = (PageTableEntry*)(pd[pd_index].table_addr << 12);
     if (!pt[pt_index].present) {
         return; // nothing to free
     }
 
     // clear the page table entry
+    u32 phys_addr = pt[pt_index].address << 12;
     memset(&pt[pt_index], 0, sizeof(PageTableEntry));
 
     page_directory_counts[pd_index]--;
-
-    FLUSH_TLB(virt_addr);
-
     // if the page table is now empty, free it
     if (page_directory_counts[pd_index] == 0) {
         kfree(pt);
         memset(&pd[pd_index], 0, sizeof(pd[pd_index]));
-        FLUSH_TLB(virt_addr);
     }
+
+    free_frame(phys_addr);
+    FLUSH_TLB(virt_addr);
 }
 
 // needs to generate a contiguous range of pages
+// issue with the current system is that we have to recalculate a page range
+// everytime we need to allocate a new page. it would make more sense
+// if we just had a buddy system where free pages are allocated
+// as powers of two. I'm going to do that now.
 u32 alloc_page_range(u32 pages, u32 flags) {
     if (pages == 0 || pages > TOTAL_PAGE_ENTRIES) {
         return 0;
@@ -212,7 +207,7 @@ u32 alloc_page_range(u32 pages, u32 flags) {
             bool entry_free;
             if (table_present) {
                 PageTableEntry* entry = &pt[pt_index];
-                entry_free = (!entry->present) && (!entry->notforuse);
+                entry_free = (!entry->present) && !(pd_index == 0 && pt_index == 0); /*(!entry->notforuse);*/
             } else {
                 entry_free = true;
             }
@@ -242,7 +237,6 @@ u32 alloc_page_range(u32 pages, u32 flags) {
 
     return candidate_start;
 }
-
 bool alloc_page_range_at_addr(u32 start_addr, u32 pages, u32 flags) {
     // check if the range is free
     for (u32 i = 0; i < pages; i++) {
@@ -279,7 +273,6 @@ void allow_null_page_read() {
     page_directory_counts[0]++;
     FLUSH_TLB(0x0);
 }
-
 void disallow_null_page() {
     // for the sake of data that might only be stored
     // in the first 4kb of memory,
@@ -288,4 +281,8 @@ void disallow_null_page() {
     pt[0].present = false;
     page_directory_counts[0]--;
     FLUSH_TLB(0x0);
+}
+
+u32 alloc_responsive_page(u32 flags, void(*handler)()) {
+
 }

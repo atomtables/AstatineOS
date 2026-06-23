@@ -105,9 +105,9 @@ export default {
                     let dirs = copyTo.split("/").slice(0, -1);
                     for (let i = 0; i < dirs.length; i++) {
                         let dirPath = dirs.slice(0, i + 1).join("/");
-                        steps.push(`$MMD -i $BUILD/fat32.img ::/${dirPath}`);
+                        steps.push(`$MMD -D s -i $BUILD/fat32.img ::/${dirPath} || echo true`);
                     }
-                    steps.push(`$MCOPY -i $BUILD/fat32.img ${location} ::/${copyTo}`);
+                    steps.push(`$MCOPY -i $BUILD/fat32.img ${location} ::/${copyTo}`);``
                 }
                 return steps;
             }

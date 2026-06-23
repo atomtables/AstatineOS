@@ -17,7 +17,7 @@ void reboot() {
     asm ("hlt");
 }
 
-void panic(char* reason) {
+void panicking(char* reason) {
     // just in case the screen driver hasn't loaded yet
     char* screen_text = (char*)0xb8000;
     for (u32 i = 0; reason[i] != 0; i++) {

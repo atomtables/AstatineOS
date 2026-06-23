@@ -311,3 +311,11 @@ char* num_to_bin(u8 num, char* buf) {
     buf[8] = 0;
     return buf;
 }
+
+u32 pow(u32 base, u32 exp) {
+    u32 result = 1;
+    for (u32 i = 0; i < exp; i++) {
+        result *= base;
+    }
+    return result;
+}

@@ -166,6 +166,9 @@ static void __set_vga_cursor_pos__(const int x, const int y) {
  * @param character The character to write.
  */
 static void __write_char__(const int x, int y, const char character) {
+    // TODO: replace this with actual bitmaps
+    return;
+
     if (active_teletype_driver == null) return;
     if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
 
@@ -220,6 +223,10 @@ static void __write_char__(const int x, int y, const char character) {
  * @param color The color to write
  */
 static void __write_char_color__(const int x, int y, const char character, const u8 color) {
+    // TODO: replace this with actual bitmaps
+    return;
+
+
     if (active_teletype_driver == null) return;
     if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
 
@@ -275,6 +282,9 @@ static void __write_char_color__(const int x, int y, const char character, const
  * @param color The color to write.
  */
 static void __write_color__(const int x, int y, const u8 color) {
+    // TODO: replace this with actual bitmaps
+    return;
+
     if (active_teletype_driver == null) return;
     if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
 
@@ -415,6 +425,9 @@ static void __append_string_color__(char* str, const u8 color) {
  * built in.
  */
 static void __append_newline__() {
+    // TODO: replace this with actual bitmaps
+    return;
+
     if (active_teletype_driver == null) return;
     if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
     display_data.x = 0;
@@ -440,6 +453,9 @@ static void __append_newline__() {
 }
 
 static void __append_backspace__() {
+    // TODO: replace this with actual bitmaps
+    return;
+
     display_data.x--;
     if (display_data.x < 0) {
         display_data.y--;
@@ -463,6 +479,9 @@ static void __append_backspace__() {
  * cursor to 0, 0.
  */
 void clear_screen() {
+    // TODO: replace this with actual bitmaps
+    return;
+
     if (active_teletype_driver == null) return;
     ATD->functions.clear_screen(ATD, 0x0f);
     __reset_displaydata__();
@@ -476,6 +495,9 @@ void clear_screen() {
  * @param color The color to change to.
  */
 void change_screen_color(const u8 color) {
+    // TODO: replace this with actual bitmaps
+    return;
+
     if (active_teletype_driver == null) return;
     if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
     if (mode.cells_valid) {

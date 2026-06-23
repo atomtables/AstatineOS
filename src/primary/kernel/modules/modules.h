@@ -127,4 +127,6 @@ void seed(u32 s);
 
 char* num_to_bin(u8 num, char* str);
 
+u32 pow(u32 base, u32 exp);
+
 #endif

@@ -76,6 +76,7 @@ bool load_program_headers_elf(File* file, Dynarray* addrs) {
         }
         dynarray_add(addrs, &current_header);
     }
+    return true;
 };
 
 bool load_section_headers_elf(File* file, Dynarray* addrs) {

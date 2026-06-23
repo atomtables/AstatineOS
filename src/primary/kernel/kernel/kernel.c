@@ -23,6 +23,8 @@
 #include <basedevice/discovery/discovery.h>
 #include <driver_base/disk/disk.h>
 
+#include "display/bitmaps/bitmaps.h"
+
 /* In our kernel, we can reserve memory
  * 0x100000-0x1FFFFF for the storage of heap data (like variables)
  * Store an array for 32-byte increments
@@ -65,11 +67,11 @@ int main() {
     clear_screen();
     println_color("AstatineOS v0.3.0-alpha", COLOR_LIGHT_RED);
 
-    for (int i = 0; i < 80; i++) {
-        for (int j = 0; j < 25; j++) {
-            *((u16*)0xb8000 + i + j * 80) = (u16)(' ' | (COLOR_WHITE<< 12));
-        }
-    }
+    // for (int i = 0; i < 80; i++) {
+    //     for (int j = 0; j < 25; j++) {
+    //         *((u16*)0xb8000 + i + j * 80) = (u16)(' ' | (COLOR_WHITE<< 12));
+    //     }
+    // }
 
     gdt_init();
     printf("Target complete: gdt\n");
@@ -100,7 +102,6 @@ int main() {
         *ptr = 0;
         if ((u32)ptr % 0x10000 == 0) {
             printf(".");
-            sleep(1); // make it seem like it does something
         }
     }
     printf("Done\n");
@@ -136,37 +137,18 @@ int main() {
     clear_screen();
     printf("Ready to load driver, enter path: ");
     char elf_path[127] = "/primary/drivers/textmode.adv";
-
-    if (is_elf(elf_path) == 0) {
-        printf("ELF file detected, loading...\n");
-        File file;
-        if (fat_file_open(&file, elf_path, FAT_READ) != 0) {
-            printf("Failed to open ELF file: %s\n", elf_path);
-            char* x = "Failed to load ELF file.";
-            for (u32 i = 0; x[i] != 0x00; i++) {
-                *((u8*)0xb8000 + i * 2) = x[i];
-            }
-            goto skiploading;
-        }
-        int errno;
-        if ((errno = attempt_install_driver(&file, elf_path)) != 0) {
-            printf("Failed to load and run ELF file.\n");
-            char x[45] = "Failed to load and run ELF file.  ";
-            itoa(errno, x + strlen(x) - 1);
-            for (u32 i = 0; x[i] != 0x00; i++) {
-                *((u8*)0xb8000 + i * 2) = x[i];
-            }
-            goto skiploading;
-        }
-    } else {
-        printf("The specified file is not a valid ELF file.\n");
-        char* x = "not an elf.";
+    int errno;
+    if ((errno = attempt_install_driver(elf_path)) != 0) {
+        printf("Failed to load and run ELF file.\n");
+        char x[45] = "Failed to load and run ELF file.  ";
+        itoa(errno, x + strlen(x) - 1);
         for (u32 i = 0; x[i] != 0x00; i++) {
             *((u8*)0xb8000 + i * 2) = x[i];
         }
-        goto skiploading;
     }
-    skiploading:
+
+    test_ui_items();
+    while (1);
 
     while(1) {
         clear_screen();
