@@ -107,7 +107,7 @@ u32 atoi(const char* str);
 
 void memset(void* dst, u8 value, u32 n);
 void memset_step(void* dst, u8 value, u32 n, u32 step);
-void* memcpy(void* dst, const void* src, u32 n);
+void* memcpy(volatile void* dst, const void* src, u32 n);
 void* memmove(void* dst, void* src, u32 n);
 int memcmp(const char* s1, const char* s2, u32 t);
 

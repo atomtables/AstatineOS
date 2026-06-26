@@ -12,7 +12,7 @@ void discover_isa_devices() {
     device.base.size = sizeof(PlatformDevice);
     device.base.owned = false;
     // This is the unique platform ID for the VGA text device
-    device.platform_id = ISA_DEVICE_VGA_TEXT;
+    device.platform_id = ISA_DEVICE_VGA_BITMAP_320x240;
     
     register_device((Device*)&device, null);
 }

@@ -24,7 +24,8 @@
 
 enum IsaDevices {
     ISA_DEVICE_VGA_TEXT = 0,
-    ISA_DEVICE_OTHER = 1
+    ISA_DEVICE_OTHER = 1,
+    ISA_DEVICE_VGA_BITMAP_320x240 = 2
 };
 
 // This is also used by driver_base to

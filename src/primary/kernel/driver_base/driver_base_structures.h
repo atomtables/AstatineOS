@@ -33,6 +33,9 @@ struct KernelFunctionPointers {
     // device management
     struct Device*  (*register_device)(struct Device* device, u32 parent_id);
     void     (*unregister_device)(u32 id);
+
+    // system
+    void    (*panic)(char* reason);
 };
 
 // This is an active instance of a driver.

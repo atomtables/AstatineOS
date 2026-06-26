@@ -28,7 +28,9 @@ void page_set_kernel(PageTableEntry* pt, u32 index) {
     // Remember that each increment of i represents 0x1000 bytes
     // so we can just directly assign it, and it would make an 
     // identity mapping.
-    pt[index].address = index; 
+    pt[index].address = index;
+
+    if (index >= 0xa0 && index <= 0xbf) pt[index].cache_disable = 1;
 }
 
 PageDirectoryEntry* pd = (PageDirectoryEntry*)0x1000;

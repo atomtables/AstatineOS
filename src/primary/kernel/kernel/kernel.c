@@ -136,9 +136,10 @@ int main() {
 
     clear_screen();
     printf("Ready to load driver, enter path: ");
-    char elf_path[127] = "/primary/drivers/textmode.adv";
+    char elf_path[127] = "/primary/drivers/bitmaptext.adv";
     int errno;
     if ((errno = attempt_install_driver(elf_path)) != 0) {
+        SERIAL_PRINT("failed to load the active display driver");
         printf("Failed to load and run ELF file.\n");
         char x[45] = "Failed to load and run ELF file.  ";
         itoa(errno, x + strlen(x) - 1);
@@ -146,9 +147,11 @@ int main() {
             *((u8*)0xb8000 + i * 2) = x[i];
         }
     }
+    SERIAL_PRINT("the errno was: ");
+    SERIAL_PUTC(errno + 0x41);
 
-    test_ui_items();
-    while (1);
+    // test_ui_items();
+    // while (1);
 
     while(1) {
         clear_screen();

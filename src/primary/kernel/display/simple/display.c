@@ -65,8 +65,11 @@ static void __reset_displaydata__() {
  * @param y The Y coordinate to set display_data
  */
 static void __set_displaydata__(const int x, const int y) {
-    if (x >= VGA_TEXT_WIDTH) return;
-    if (y >= VGA_TEXT_HEIGHT) return;
+    if (active_teletype_driver == null) return;
+    if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
+
+    if (x >= mode.width) return;
+    if (y >= mode.height) return;
     display_data.x = x;
     display_data.y = y;
 }
@@ -80,13 +83,16 @@ static void __set_displaydata__(const int x, const int y) {
  * configure the text mode VGA cursor.
  */
 static void __inc_displaydata__() {
+    if (active_teletype_driver == null) return;
+    if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
+
     display_data.x++;
-    if (display_data.x >= VGA_TEXT_WIDTH) {
+    if (display_data.x >= mode.width) {
         display_data.y++;
         display_data.x = 0;
     }
-    if (display_data.y >= VGA_TEXT_HEIGHT)
-        display_data.y = VGA_TEXT_HEIGHT - 1;
+    if (display_data.y >= mode.height)
+        display_data.y = mode.height - 1;
 }
 
 /**
@@ -167,7 +173,7 @@ static void __set_vga_cursor_pos__(const int x, const int y) {
  */
 static void __write_char__(const int x, int y, const char character) {
     // TODO: replace this with actual bitmaps
-    return;
+    // return;
 
     if (active_teletype_driver == null) return;
     if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
@@ -197,14 +203,14 @@ static void __write_char__(const int x, int y, const char character) {
             y = mode.height - 1;
             for (int i = 0; i < mode.height - 1; i++) {
                 for (int j = 0; j < mode.width; j++) {
-                    ATD->functions.set_char(ATD, j, i, ATD->functions.get_char(ATD, j, i + 1) >> 8, ATD->functions.get_char(ATD, j, i + 1) & 0xff);
+                    ATD->functions.set_char(ATD, j, i, ATD->functions.get_char(ATD, j, i + 1) & 0xff, ATD->functions.get_char(ATD, j, i + 1) >> 8);
                 }
             }
             for (int j = 0; j < mode.width; j++) {
-                ATD->functions.set_char(ATD, j, mode.height - 1, 0, 0x0f);
+                ATD->functions.set_char(ATD, j, mode.height - 1, 0, ATD->functions.get_char(ATD, j, mode.height - 1) >> 8);
             }
         }
-        ATD->functions.set_char(ATD, x, y, character, 0x0f);
+        ATD->functions.set_char(ATD, x, y, character, ATD->functions.get_char(ATD, x, y) >> 8);
         __set_displaydata__(x, y);
         __set_vga_cursor_pos__(x, y);
     }
@@ -224,7 +230,7 @@ static void __write_char__(const int x, int y, const char character) {
  */
 static void __write_char_color__(const int x, int y, const char character, const u8 color) {
     // TODO: replace this with actual bitmaps
-    return;
+    // return;
 
 
     if (active_teletype_driver == null) return;
@@ -256,11 +262,11 @@ static void __write_char_color__(const int x, int y, const char character, const
             y = mode.height - 1;
             for (int i = 0; i < mode.height - 1; i++) {
                 for (int j = 0; j < mode.width; j++) {
-                    ATD->functions.set_char(ATD, j, i, ATD->functions.get_char(ATD, j, i + 1) >> 8, ATD->functions.get_char(ATD, j, i + 1) & 0xff);
+                    ATD->functions.set_char(ATD, j, i, ATD->functions.get_char(ATD, j, i + 1) & 0xff, ATD->functions.get_char(ATD, j, i + 1) >> 8);
                 }
             }
             for (int j = 0; j < mode.width; j++) {
-                ATD->functions.set_char(ATD, j, mode.height - 1, 0, 0x0f);
+                ATD->functions.set_char(ATD, j, mode.height - 1, 0, ATD->functions.get_char(ATD, j, mode.height - 1) >> 8);
             }
         }
         ATD->functions.set_char(ATD, x, y, character, color);
@@ -283,7 +289,7 @@ static void __write_char_color__(const int x, int y, const char character, const
  */
 static void __write_color__(const int x, int y, const u8 color) {
     // TODO: replace this with actual bitmaps
-    return;
+    // return;
 
     if (active_teletype_driver == null) return;
     if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
@@ -426,7 +432,7 @@ static void __append_string_color__(char* str, const u8 color) {
  */
 static void __append_newline__() {
     // TODO: replace this with actual bitmaps
-    return;
+    // return;
 
     if (active_teletype_driver == null) return;
     if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
@@ -442,11 +448,11 @@ static void __append_newline__() {
         } else {
             for (int i = 0; i < mode.height - 1; i++) {
                 for (int j = 0; j < mode.width; j++) {
-                    ATD->functions.set_char(ATD, j, i, ATD->functions.get_char(ATD, j, i + 1) >> 8, ATD->functions.get_char(ATD, j, i + 1) & 0xff);
+                    ATD->functions.set_char(ATD, j, i, ATD->functions.get_char(ATD, j, i + 1) & 0xff, ATD->functions.get_char(ATD, j, i + 1) >> 8);
                 }
             }
             for (int j = 0; j < mode.width; j++) {
-                ATD->functions.set_char(ATD, j, mode.height - 1, 0, 0x0f);
+                ATD->functions.set_char(ATD, j, mode.height - 1, 0, ATD->functions.get_char(ATD, j, mode.height - 1) >> 8);
             }
         }
     }
@@ -454,12 +460,14 @@ static void __append_newline__() {
 
 static void __append_backspace__() {
     // TODO: replace this with actual bitmaps
-    return;
+    // return;
+    if (active_teletype_driver == null) return;
+    if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
 
     display_data.x--;
     if (display_data.x < 0) {
         display_data.y--;
-        display_data.x = VGA_TEXT_WIDTH - 1;
+        display_data.x = mode.width - 1;
     }
     if (display_data.y < 0) {
         display_data.y = 0;
@@ -480,7 +488,7 @@ static void __append_backspace__() {
  */
 void clear_screen() {
     // TODO: replace this with actual bitmaps
-    return;
+    // return;
 
     if (active_teletype_driver == null) return;
     ATD->functions.clear_screen(ATD, 0x0f);
@@ -496,7 +504,7 @@ void clear_screen() {
  */
 void change_screen_color(const u8 color) {
     // TODO: replace this with actual bitmaps
-    return;
+    // return;
 
     if (active_teletype_driver == null) return;
     if (mode.width == 0) ATD->functions.get_mode(ATD, &mode);
@@ -505,7 +513,7 @@ void change_screen_color(const u8 color) {
     } else {
         for (u32 y = 0; y < mode.height; y++) {
             for (u32 x = 0; x < mode.width; x++) {
-                u8 current_char = ATD->functions.get_char(ATD, x, y) >> 8;
+                u8 current_char = ATD->functions.get_char(ATD, x, y) & 0xff;
                 ATD->functions.set_char(ATD, x, y, current_char, color);
             }
         }
@@ -568,6 +576,11 @@ void printf(const char* fmt, ...) {
             }
             case 'x': {
                 char* digits = xtoa(va_arg(args, u32), &buf[0]);
+                __append_string__(digits);
+                break;
+            }
+            case 'y': {
+                char* digits = xtoa_padded(va_arg(args, u32), &buf[0]);
                 __append_string__(digits);
                 break;
             }

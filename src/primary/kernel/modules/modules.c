@@ -169,11 +169,19 @@ u32 atoi(const char* str) {
 }
 
 void memset(void* dst, u8 value, u32 n) {
-    u8 *d = dst;
+    u32 v32 = value | (value << 8) | (value << 16) | (value << 24);
+    u32 words = n >> 2;
+    u32 bytes = n & 3;
 
-    while (n-- > 0) {
-        *d++ = value;
-    }
+    asm (
+        "cld\n\t"
+        "rep stosl\n\t"
+        "movl %2, %%ecx\n\t"
+        "rep stosb"
+        : "+D"(dst), "+c"(words)
+        : "r"(bytes), "a"(v32)
+        : "memory"
+    );
 }
 
 void memset_step(void* dst, u8 value, u32 n, u32 step) {
@@ -185,12 +193,14 @@ void memset_step(void* dst, u8 value, u32 n, u32 step) {
     }
 }
 
-void* memcpy(void* dst, const void* src, u32 n) {
-    register const char* f = src;
-    register char* t = dst;
-
-    while (n-- != 0) *t++ = *f++;
-
+void* memcpy(volatile void* dst, const void* src, u32 n) {
+    asm (
+        "cld;"
+        "rep movsb;"
+        : "+D"(dst), "+S"(src), "+c"(n)
+        :
+        : "memory"
+    );
     return dst;
 }
 

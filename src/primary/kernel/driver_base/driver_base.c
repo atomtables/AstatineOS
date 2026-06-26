@@ -14,6 +14,7 @@
 #include <basedevice/devicelogic.h>
 #include <modules/dynarray.h>
 #include "disk/disk.h"
+#include "exception/exception.h"
 #include "generic/generic.h"
 
 int verify_driver(u8 items[128]) {
@@ -34,6 +35,7 @@ struct KernelFunctionPointers* get_kernel_function_pointers() {
     kfp.disallow_null_page = disallow_null_page;
     kfp.register_device = register_device;
     kfp.unregister_device = unregister_device;
+    kfp.panic = panicking;
     return &kfp;
 }
 
@@ -62,6 +64,7 @@ int initialise_driver_with_subsystem(AstatineDriverFile* driver, Device* device)
     switch (device->type) {
         case DEVICE_TYPE_TTYPE:
             int ret = register_teletype_driver(driver, device);
+            SERIAL_PUTC(ret + 0x41);
             return ret;
         case DEVICE_TYPE_CONTROLLER:
             // this is a generic device
@@ -84,6 +87,7 @@ u32 postregister_driver(AstatineDriverFile* driver) {
         // Keep running probe until no more devices are found.
         while (driver->probe(&probe_device, get_kernel_function_pointers()) != 0) {
             printf("Driver %s probed and found its device.\n", driver->name);
+            SERIAL_PRINT("Driver probed and found its device");
             // We don't register here because either way the register_driver function
             // does that. It's somewhat inefficient but it means that 
             // =======
@@ -118,9 +122,11 @@ u32 postregister_driver(AstatineDriverFile* driver) {
             // This driver base is able to manage this device
             // so we can create an instance of the driver
             // through the driver's manager registration. (like register_teletype_driver)
-            char buf[64] = "Founddevice:device=        driver=          ";
-            xtoa_padded((u32)device->type, &buf[19]);
-            xtoa_padded((u32)driver->driver_type, &buf[27]);
+            char buf[127] = "Found device: device=";
+            xtoa_padded((u32)device->type, &buf[strlen(buf)]);
+            strcat(buf, ",driver=");
+            xtoa_padded((u32)driver->driver_type, &buf[strlen(buf)]);
+            SERIAL_PRINT(buf);
             if (initialise_driver_with_subsystem(driver, device) == 0) {
                 detected_devices++;
             }

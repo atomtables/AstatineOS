@@ -3,7 +3,7 @@
 set_graphics_mode:
     push   ax
     mov    ah, 0x00
-    mov    al, 0x13          ; Set VESA mode 0x10 (640x480x16)
+    mov    al, 0x13
     int    0x10
     pop    ax
     ret

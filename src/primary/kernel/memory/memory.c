@@ -8,22 +8,6 @@
 
 #include "modules/strings.h"
 
-#define COM1_PORT 0x3F8
-/* Serial Port Hardware Check Macros */
-#define SERIAL_IS_TX_EMPTY(port) (inportb((port) + 5) & 0x20)
-/* High-level Write Macros */
-#define SERIAL_PUTC(port, c) do { \
-while (!SERIAL_IS_TX_EMPTY(port)); \
-outportb(port, c); \
-} while(0)
-#define SERIAL_PRINT(port, str) do { \
-const char* __s = (str); \
-while (*__s) { \
-SERIAL_PUTC(port, *__s); \
-__s++; \
-} \
-} while(0)
-
 // Similar to how Linux does it,
 // we can keep track of free memory pages
 // based on memory maps.

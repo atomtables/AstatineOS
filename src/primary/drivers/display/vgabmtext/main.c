@@ -1,11 +1,10 @@
+#include <astatine/types.h>
+#include <astatine/teletype.h>
+#include <astatine/device.h>
+
 //
 // Created by Adithiya Venkatakrishnan on 22/6/2026.
 //
-
-#include <modules/modules.h>
-#include "bitmaps.h"
-
-#include "timer/PIT.h"
 
 // all right so what we can do is have
 // 7x7 characters with a 1-pixel gap between them
@@ -16,7 +15,7 @@
 
 #define COM1_PORT 0x3F8
 /* Serial Port Hardware Check Macros */
-#define SERIAL_IS_TX_EMPTY() (inportb((COM1_PORT) + 5) & 0x20)
+#define SERIAL_IS_TX_EMPTY() /*(inportb((COM1_PORT) + 5) & 0x20)*/1
 /* High-level Write Macros */
 #define SERIAL_PUTC(c) do { \
 while (!SERIAL_IS_TX_EMPTY()); \
@@ -983,7 +982,9 @@ u8 letter_bitmap[96][7][5] = {
     // 0x7f: DEL (technically not a character)
     {},
 };
-
+void outportb(u16 port, u8 data) {
+    asm ("outb %1, %0" : : "dN" (port), "a" (data));
+}
 void initialise_color_palette() {
     // all palette registers
     outportb(PALETTE_MASK_REG, 0xff);
@@ -1001,8 +1002,8 @@ void initialise_color_palette() {
 void draw_a_character(u32 x, u32 y, u8 item[7][5]) {
     volatile u8 *fb = (u8 *) (0xa0000 + y * 320 + x);
     for (int i = 0; i < 7; i++) {
-        memcpy(fb, &item[i], 5);
-        SERIAL_PUTC('y');
+        // memcpy(fb, &item[i], 5);
+        // SERIAL_PUTC('y');
         fb += 320;
     }
 }
@@ -1041,25 +1042,418 @@ void draw_a_character_opaque(u32 x, u32 y, u8 item[7][5], u8 fg, u8 bg) {
 
 char pack_it_up[] = "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG";
 
-void test_ui_items() {
-    initialise_color_palette();
+// void test_ui_items() {
+//     initialise_color_palette();
+//
+//
+//     while (1) {
+//         int k = 32;
+//         for (int j = 0; j < 25; j++) {
+//             for (int i = 0; i < 53; i++) {
+//                 // draw_a_character(6 * i + 1, 8 * j, letter_bitmap[k++-0x20]);
+//                 draw_a_character_opaque(6*i+1, 8*j, letter_bitmap[k++-0x20], rand() & 0xff, rand() & 0xff);
+//                 if (k > 127) k = 32;
+//             }
+//         }
+//     }
+//     // for (u32 i = 0; i < 320 * 200; i++) {
+//     //     ((u8*)0xa0000)[i] = 0xFF;
+//     // }
+//     SERIAL_PRINT("finished");
+//     while (1);
+//     return;
+// }
 
+u8 check(Device *device, struct KernelFunctionPointers *kfp) {
+    // What would make sense is to make a v86 call to
+    // check the current video mode. But it's a horrible
+    // pain to make a v86 call, especially since v86 isn't
+    // even portable to long mode.
 
-    while (1) {
-        int k = 32;
-        for (int j = 0; j < 25; j++) {
-            for (int i = 0; i < 53; i++) {
-                // draw_a_character(6 * i + 1, 8 * j, letter_bitmap[k++-0x20]);
-                draw_a_character_opaque(6*i+1, 8*j, letter_bitmap[k++-0x20], rand() & 0xff, rand() & 0xff);
-                if (k > 127) k = 32;
-            }
-        }
-        sleep(500);
+    // Assume that this driver will only be used if the
+    // OS has booted in text mode.
+    // the OS should also load a PlatformDevice (ISA)
+    // with platform ID 0x0 for the VGA text device.
+    if (device->conn == CONNECTION_TYPE_IO && ((PlatformDevice*)device)->platform_id == ISA_DEVICE_VGA_BITMAP_320x240) {
+        SERIAL_PRINT("performed a valid check, everything is in order\n");
+        return 1;
     }
-    // for (u32 i = 0; i < 320 * 200; i++) {
-    //     ((u8*)0xa0000)[i] = 0xFF;
-    // }
-    SERIAL_PRINT("finished");
-    while (1);
-    return;
+    return 0;
 }
+
+u16 item[53][25];
+
+int init(AstatineDriver* self) {
+    TeletypeDriver* main = (TeletypeDriver*)self;
+    // Nothing much to do here.
+    // BIOS does everything for us
+    if (!check(main->base.device, main->base.kfp)) return -1;
+    SERIAL_PRINT("performed a valid init, everything is in order\n");
+
+    initialise_color_palette();
+    for (int i = 0; i < 53; i++)
+        for (int j = 0; j < 25; j++)
+            item[i][j] = 0x0f00;
+
+    return 0;
+}
+
+
+void deinit(AstatineDriver* self) {
+    // Will never be ran
+    // BIOS does everything for us
+    self->device->owned = false;
+    self->device->attached_driver = null;
+}
+
+struct TeletypeMode mode = {
+    .width = 53,
+    .height = 25,
+    .cells = (u8*)0,
+    .cells_valid = 0,
+};
+
+bool get_mode(TeletypeDriver* self, struct TeletypeMode* out) {
+    // Read from BIOS memory area
+    // Copy local mode struct to caller's struct
+    u8* src = (u8*)&mode;
+    u8* dst = (u8*)out;
+    for (u32 i = 0; i < sizeof(struct TeletypeMode); i++) {
+        dst[i] = src[i];
+    }
+    return true;
+}
+
+// unfortunately color is 16-color in this case
+bool set_char(TeletypeDriver* self, u32 x, u32 y, u8 character, u8 color) {
+    if (x >= mode.width || y >= mode.height) {
+        return false;
+    }
+
+    item[x][y] = color << 8 | character;
+
+    u8 fg = color & 15, bg = color >> 4;
+    u8 good_fg, good_bg;
+    switch (fg) {
+        case 0:
+            good_fg = 0x00;
+            break;
+        case 1:
+            good_fg = 0b00000010;
+            break;
+        case 2:
+            good_fg = 0b00010100;
+            break;
+        case 3:
+            good_fg = 0b00010110;
+            break;
+        case 4:
+            good_fg = 0b10100000;
+            break;
+        case 5:
+            good_fg = 0b10100010;
+            break;
+        case 6:
+            good_fg = 0b10101000;
+            break;
+        case 7:
+            good_fg = 0b10110110;
+            break;
+        case 8:
+            good_fg = 0b01001001;
+            break;
+        case 9:
+            good_fg = 0b01001011;
+            break;
+        case 10:
+            good_fg = 0b01011101;
+            break;
+        case 11:
+            good_fg = 0b01011111;
+            break;
+        case 12:
+            good_fg = 0b11101001;
+            break;
+        case 13:
+            good_fg = 0b11101011;
+            break;
+        case 14:
+            good_fg = 0b11111101;
+            break;
+        case 15:
+            good_fg = 0b11111111;
+            break;
+        default: good_fg = 0;
+    }
+    switch (bg) {
+        case 0:
+            good_bg = 0x00;
+            break;
+        case 1:
+            good_bg = 0b00000010;
+            break;
+        case 2:
+            good_bg = 0b00010100;
+            break;
+        case 3:
+            good_bg = 0b00010110;
+            break;
+        case 4:
+            good_bg = 0b10100000;
+            break;
+        case 5:
+            good_bg = 0b10100010;
+            break;
+        case 6:
+            good_bg = 0b10101000;
+            break;
+        case 7:
+            good_bg = 0b10110110;
+            break;
+        case 8:
+            good_bg = 0b01001001;
+            break;
+        case 9:
+            good_bg = 0b01001011;
+            break;
+        case 10:
+            good_bg = 0b01011101;
+            break;
+        case 11:
+            good_bg = 0b01011111;
+            break;
+        case 12:
+            good_bg = 0b11101001;
+            break;
+        case 13:
+            good_bg = 0b11101011;
+            break;
+        case 14:
+            good_bg = 0b11111101;
+            break;
+        case 15:
+            good_bg = 0b11111111;
+            break;
+        default: good_bg = 0;
+    }
+
+    draw_a_character_opaque(x*6+1, y*8, letter_bitmap[character >= 0x20 ? character-0x20 : 0x00], good_fg, good_bg);
+
+    return true;
+}
+
+#define as_str(x) #x
+#define as_str_2(x) as_str(x)
+
+u16 get_char(TeletypeDriver* self, u32 x, u32 y) {
+    // self->base.kfp->panic(__FILE__ ":" as_str_2(__LINE__) " unimplemented get_char");
+
+    if (x >= mode.width || y >= mode.height) {
+        return false;
+    }
+    u32 index = y * mode.width + x;
+    // return text_buffer[index];
+    return item[x][y];
+}
+
+void memset_kys(volatile void* dst, u8 value, u32 n) {
+    u32 v32 = value | (value << 8) | (value << 16) | (value << 24);
+    u32 words = n >> 2;
+    u32 bytes = n & 3;
+
+    asm (
+        "cld\n\t"
+        "rep stosl\n\t"
+        "movl %2, %%ecx\n\t"
+        "rep stosb"
+        : "+D"(dst), "+c"(words)
+        : "r"(bytes), "a"(v32)
+        : "memory"
+    );
+}
+
+bool clear_screen(TeletypeDriver* self, u8 color) {
+    u8 fg = color & 15, bg = color >> 4;
+    u8 good_fg, good_bg;
+    switch (fg) {
+        case 0:
+            good_fg = 0x00;
+            break;
+        case 1:
+            good_fg = 0b00000010;
+            break;
+        case 2:
+            good_fg = 0b00010100;
+            break;
+        case 3:
+            good_fg = 0b00010110;
+            break;
+        case 4:
+            good_fg = 0b10100000;
+            break;
+        case 5:
+            good_fg = 0b10100010;
+            break;
+        case 6:
+            good_fg = 0b10101000;
+            break;
+        case 7:
+            good_fg = 0b10110110;
+            break;
+        case 8:
+            good_fg = 0b01001001;
+            break;
+        case 9:
+            good_fg = 0b01001011;
+            break;
+        case 10:
+            good_fg = 0b01011101;
+            break;
+        case 11:
+            good_fg = 0b01011111;
+            break;
+        case 12:
+            good_fg = 0b11101001;
+            break;
+        case 13:
+            good_fg = 0b11101011;
+            break;
+        case 14:
+            good_fg = 0b11111101;
+            break;
+        case 15:
+            good_fg = 0b11111111;
+            break;
+        default: good_fg = 0;
+    }
+    switch (bg) {
+        case 0:
+            good_bg = 0x00;
+            break;
+        case 1:
+            good_bg = 0b00000010;
+            break;
+        case 2:
+            good_bg = 0b00010100;
+            break;
+        case 3:
+            good_bg = 0b00010110;
+            break;
+        case 4:
+            good_bg = 0b10100000;
+            break;
+        case 5:
+            good_bg = 0b10100010;
+            break;
+        case 6:
+            good_bg = 0b10101000;
+            break;
+        case 7:
+            good_bg = 0b10110110;
+            break;
+        case 8:
+            good_bg = 0b01001001;
+            break;
+        case 9:
+            good_bg = 0b01001011;
+            break;
+        case 10:
+            good_bg = 0b01011101;
+            break;
+        case 11:
+            good_bg = 0b01011111;
+            break;
+        case 12:
+            good_bg = 0b11101001;
+            break;
+        case 13:
+            good_bg = 0b11101011;
+            break;
+        case 14:
+            good_bg = 0b11111101;
+            break;
+        case 15:
+            good_bg = 0b11111111;
+            break;
+        default: good_bg = 0;
+    }
+
+    memset_kys((volatile u8*)0xa0000, good_bg, 0x20000);
+    for (int i = 0; i < 53; i++)
+        for (int j = 0; j < 25; j++)
+            item[i][j] = (fg | bg << 4) << 8;
+
+    return true;
+}
+
+bool set_cursor_position(TeletypeDriver* self, u32 x, u32 y) {
+    if (x >= mode.width || y >= mode.height) {
+        return false;
+    }
+    // We cannot easily use the hardware cursor in graphics mode,
+    // but the VGA CRTC might still respond to cursor position.
+    // u16 pos = (u16)(y * mode.width + x);
+    // // Send the high byte
+    // outb(0x3D4, 0x0E);
+    // outb(0x3D5, (u8)((pos >> 8) & 0xFF));
+    // // Send the low byte
+    // outb(0x3D4, 0x0F);
+    // outb(0x3D5, (u8)(pos & 0xFF));
+    return true;
+}
+
+bool set_string(TeletypeDriver* self, u32 x, u32 y, const char* str, u8 color) {
+    u32 cur_x = x;
+    u32 cur_y = y;
+    for (u32 i = 0; str[i] != 0; i++) {
+        if (str[i] == '\n') {
+            cur_x = x;
+            cur_y++;
+            continue;
+        }
+        if (!set_char(self, cur_x, cur_y, (u8)str[i], color)) {
+            return false;
+        }
+        cur_x++;
+        if (cur_x >= mode.width) {
+            cur_x = x;
+            cur_y++;
+        }
+        if (cur_y >= mode.height) {
+            return false;
+        }
+    }
+    return true;
+}
+
+ASTATINE_DRIVER(TeletypeDriverFile) = {
+    .base = {
+        .sig = "ASTATINE", 
+        // teletype item
+        .driver_type = CONNECTION_TYPE_IO,
+        // i have to be another level of stupid
+        .device_type = DEVICE_TYPE_TTYPE,
+        .name = "VGA Graphics-mode-emulati",
+        .version = "0.1",
+        .author = "Adithiya Venkatakrishnan", 
+        .description = "BIOS VGA graphics-mode driv.",
+        .reserved = {0},
+        .verification = {0xEF, 0xBE, 0xAD, 0xDE, 0xEF, 0xBE, 0xAD, 0xDE},
+
+        .probe = null,
+        .check = check,
+        .init = init,
+        .deinit = deinit,
+    },
+    .functions = {
+        .get_mode = get_mode,
+        .set_char = set_char,
+        .get_char = get_char,
+        .clear_screen = clear_screen,
+        .set_cursor_position = set_cursor_position,
+        .set_string = set_string,
+    }
+};
+
+// not required
+ASTATINE_DRIVER_ENTRYPOINT();
