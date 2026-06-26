@@ -1,3 +1,5 @@
+// noinspection TypeScriptUnresolvedReference
+
 /**
  * This is the "atomtools" build system, it's just JavaScript and node.js.
  * 1. The difference between "locations" and "targets" are that locations cannot
@@ -12,13 +14,21 @@
 
 import { spawn } from 'node:child_process';
 import { exit } from 'node:process';
+// @ts-ignore
 import fs from 'node:fs';
+// @ts-ignore
 import which from 'which';
 import { promisify } from 'node:util';
 
 declare global {
     interface Console {
         misc: (...args: string[]) => void;
+    }
+    interface String {
+        replaceAll: (a:string, b:string) => string;
+    }
+    interface Array<T> {
+        at: (a:number)=>T
     }
 }
 
@@ -560,11 +570,13 @@ async function main() {
     await buildTarget();
 }
 
+// @ts-ignore
 if (import.meta.main === true) {
     if (!fs.existsSync("./build.config.js")) {
         console.error("Error: no project in directory (unable to find build.config.js).");
         exit(1);
     }
+    // @ts-ignore
     projectConfiguration = (await import(`./build.config.js`)).default;
 
     if (process.argv.length > 2) {
@@ -595,6 +607,8 @@ if (import.meta.main === true) {
         exit(1);
     }
 
+    // @ts-ignore
     await configure();
+    // @ts-ignore
     await main();
 }
