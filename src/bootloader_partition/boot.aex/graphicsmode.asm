@@ -1,5 +1,146 @@
 [bits 16]
 
+; si: null terminated string
+; return cx: length
+[bits 16]
+strlen:
+    push    ax
+    push    si
+    xor     cx, cx
+.loop:
+    lodsb
+    cmp     al, 0
+    je      .end
+    inc     cx
+    jmp     .loop
+.end:
+    pop     si
+    pop     ax
+    ret
+
+; si: null terminated string
+; bl: color attribute
+; dh: row
+; dl: column
+[bits 16]
+draw_string:
+    push    ax
+    push    bx
+    push    cx
+    push    si
+    push    bp
+    ; we can just use bios write string
+    ; but have to get length of string first
+    call    strlen
+    xor     bh, bh
+    mov     ah, 0x13
+    mov     al, 0x01
+    mov     bp, si
+    int     0x10
+    .end:
+    pop     bp
+    pop     si
+    pop     cx
+    pop     bx
+    pop     ax
+    ret
+
+[bits 16]
+choose_graphics_mode:
+    pusha
+    ; clear the screen
+    mov     ah, 0x06
+    mov     al, 0x00
+    mov     bh, 0x07
+    mov     ch, 0x00
+    mov     cl, 0x00
+    mov     dh, 0x18
+    mov     dl, 0x4F
+    int     0x10
+    ; print the first line
+    mov     dh, 8
+    mov     dl, 16
+    mov     bl, 0x0f
+    mov     si, os_identifier
+    call    draw_string
+    ; now we print the second line
+    mov     dh, 9
+    mov     dl, 16
+    mov     bl, 0x07
+    mov     si, os_callforaction
+    call    draw_string
+    ; now we can start drawing options
+    .loop:
+    ; draw the first option
+    mov     dh, 11
+    mov     dl, 16
+    ; but now we check if its selected (0x70) or not (0x07)
+    movzx   di, byte [currently_selected_graphics_mode]
+    cmp     di, 0
+    jne     .second_selected
+    .first_selected:
+    mov     bl, 0x70
+    mov     si, os_textmode
+    call    draw_string
+    ; second string
+    mov     dh, 12
+    mov     dl, 16
+    mov     bl, 0x07
+    mov     si, os_bitmapmode
+    call    draw_string
+    jmp     .keypress
+    .second_selected:
+    mov     bl, 0x07
+    mov     si, os_textmode
+    call    draw_string
+    ; second string
+    mov     dh, 12
+    mov     dl, 16
+    mov     bl, 0x70
+    mov     si, os_bitmapmode
+    call    draw_string
+    .keypress:
+    mov     ah, 0x00
+    int     0x16
+    ; in ah is the scan code
+    cmp     ah, 0x1C    ; enter
+    je      .done
+    cmp     ah, 0x48    ; arrow down
+    je      .arrow_down
+    cmp     ah, 0x50    ; arrow up
+    je      .arrow_up
+    jmp     .keypress
+    .arrow_up:
+    mov     dh, byte [currently_selected_graphics_mode]
+    cmp     dh, 0
+    je      .allow_arrow_up
+    jmp     .keypress
+    .allow_arrow_up:
+    inc     byte [currently_selected_graphics_mode]
+    jmp     .loop
+    .arrow_down:
+    mov     dh, byte [currently_selected_graphics_mode]
+    cmp     dh, 1
+    je      .allow_arrow_down
+    jmp     .keypress
+    .allow_arrow_down:
+    dec     byte [currently_selected_graphics_mode]
+    jmp     .loop
+    .done:
+    movzx   di, byte [currently_selected_graphics_mode]
+    cmp     di, 1
+    jne     .end
+    .set_graphics:
+    call    set_graphics_mode
+    .end:
+    mov     ax, 0
+    mov     gs, ax
+    mov     ax, di
+    mov     byte [gs:0x1000], al
+    popa
+    ret
+
+[bits 16]
 set_graphics_mode:
     push   ax
     mov    ah, 0x00
@@ -8,6 +149,7 @@ set_graphics_mode:
     pop    ax
     ret
 
+[bits 16]
 get_vesa_info:
     clc
     mov     ax, 0x4F00          ; VBE function 00h - Return VBE Controller Information

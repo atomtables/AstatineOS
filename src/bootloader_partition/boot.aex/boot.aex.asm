@@ -104,7 +104,7 @@ switch_to_32bit:
     ; call    READ_BIOS_KERNEL
     
     .continue:
-    call    set_graphics_mode
+    call    choose_graphics_mode
     call    enable_a20          ; 0. enable A20 line
     cli                         ; 1. disable interrupts
     nop                         ; 1.1. some CPUs require a delay after cli
@@ -163,6 +163,7 @@ init_32bit:                 ; we are now using 32-bit instructions
     mov     eax, [0x500+PART_START_SECTOR]    ; we need to get the lba
     mov     cl,  0x1    ; this command only reliably reads one sector
     mov     edi, 0x8000 ; basically a temp buffer to store
+    [bits 32]
     call    ata_lba_read; TODO: ssumption that we're booting off of 0x80
 
     mov     si, [0x8010] ; amount of entries
@@ -179,7 +180,7 @@ init_32bit:                 ; we are now using 32-bit instructions
     mov     dword [0x7bfa], 1    ; the difference in sector
     check_name:
     cmp     si, 0   ; if the amount of files left is 0
-    je      $       ; hang (there is no bootable file)
+    je      failed       ; hang (there is no bootable file)
     ; check the file name (match1 is the name)
     push    esi
     mov     esi, match1+0x500
@@ -260,6 +261,8 @@ init_32bit:                 ; we are now using 32-bit instructions
     ; after this point, we only read one sector.
     ; hold onto the value of bx so we can read again later
     jmp     check_name
+    failed:
+    jmp     $
 
 %include "src/bootloader_partition/boot.aex/graphicsmode.asm"
 %include "src/bootloader_partition/boot.aex/a20.asm"
@@ -288,3 +291,9 @@ dd 0x00000000
 dd 0x00000000
 match1: db "LOADER", 0
 match2: db "AEX", 0
+
+os_identifier: db "AstatineOS dev build, bootloader", 0
+os_callforaction: db "Choose an option for display graphics below", 0
+os_textmode: db " Text mode (80x25) ", 0
+os_bitmapmode: db " Display (320x200x256, 53x25) ", 0
+currently_selected_graphics_mode: db 0;

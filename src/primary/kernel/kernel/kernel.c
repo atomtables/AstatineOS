@@ -22,6 +22,7 @@
 #include <basedevice/devicelogic.h>
 #include <basedevice/discovery/discovery.h>
 #include <driver_base/disk/disk.h>
+#include "boot.h"
 
 #include "display/bitmaps/bitmaps.h"
 
@@ -31,6 +32,11 @@
 */
 
 // YO THIS GUY ONLINE WAS ACT LEGIT :skull:
+
+// can only be a maximum of 0x1000 (4096) bytes, since this should fit within 0x1000-0x2000
+
+char bitmap_driver[127] = "/primary/drivers/bitmaptext.adv";
+char textmode_driver[127] = "/primary/drivers/textmode.adv";
 
 extern void ahsh();
 
@@ -62,8 +68,12 @@ u8 mount() {
     return 0;
 }
 
+struct astatine_boot_configuration boot_vars;
+
 // only blocking thread.
 int main() {
+    memcpy(&boot_vars, (void*)0x1000, sizeof(struct astatine_boot_configuration));
+
     clear_screen();
     println_color("AstatineOS v0.3.0-alpha", COLOR_LIGHT_RED);
 
@@ -136,7 +146,11 @@ int main() {
 
     clear_screen();
     printf("Ready to load driver, enter path: ");
-    char elf_path[127] = "/primary/drivers/bitmaptext.adv";
+    char* elf_path;
+    if (boot_vars.boot_display_as == BOOT_DISPLAY_TEXTMODE)
+        elf_path = textmode_driver;
+    else
+        elf_path = bitmap_driver;
     int errno;
     if ((errno = attempt_install_driver(elf_path)) != 0) {
         SERIAL_PRINT("failed to load the active display driver");

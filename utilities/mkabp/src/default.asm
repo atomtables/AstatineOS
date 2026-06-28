@@ -15,7 +15,7 @@ VERSION:   db 0x00, 0x01   ; version number (major minor, so 0.1) (0x12/13)
 after:
 mov     ah, 0x0e
 mov     al, 'B'
-int     0x10    ; code breaks without
+;int     0x10    ; code breaks without
 
 mov     ax, 0x07c0
 mov     ds, ax
@@ -39,7 +39,7 @@ jmp     $
 found:
 mov     ah, 0x0e
 mov     al, 'F'
-int     0x10
+;int     0x10
 ; get the starting LBA of the partition
 add     bx, 4       ; the lba is at 4 bytes
 mov     cx, [bx]    ; get low word of starting LBA
@@ -160,7 +160,7 @@ call_lba:
 runexe:
     mov     ah, 0x0e
     mov     al, 'F'
-    int     0x10
+    ;int     0x10
     ; given di - the offset of the entry
     ; load the executable into memory and call it
     add     di, 12  ; the offset is 13 bytes in
