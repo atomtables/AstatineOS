@@ -10,7 +10,7 @@ export default {
             type: "command",
             command: "$GCC $DIR/main.c -o $BUILD/bitmaptext.adv -fPIC -pie -I '$PROJECT/include/kernel' " +
                      "-ffreestanding -nostdlib -nostdinc -fno-stack-protector -fno-builtin -m32 -std=gnu11 " +
-                     "-Wl,-z,notext -Wl,-nostdlib -Wl,--omagic -Wl,--no-dynamic-linker"
+                     "-Wl,-z,notext -Wl,-nostdlib -Wl,--omagic -Wl,--no-dynamic-linker -fno-tree-loop-distribute-patterns"
         }
     ],
     output: ["bitmaptext.adv"],

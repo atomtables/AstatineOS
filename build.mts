@@ -444,7 +444,7 @@ async function buildTarget() {
                                         promises.push(runCommand("bash", ["-c", finalCommand]).then(() => {
                                             console.misc(`   -> ${finalCommand}`);
                                         }).catch(({ code, stdout, stderr }) => {
-                                            console.error(`   Error: Command failed with code ${code}`);
+                                            console.error(`   Error: Command ${finalCommand} failed with code ${code}`);
                                             console.info(stderr);
                                             exit(1);
                                         }))
@@ -493,7 +493,7 @@ async function buildTarget() {
                 }
                 console.misc(`   -> ${commandStr}`);
                 await runCommand("bash", ["-c", commandStr]).catch(({ code, stdout, stderr }) => {
-                    console.error(`   Error: Command failed with code ${code}`);
+                    console.error(`   Error: Command ${commandStr} failed with code ${code}`);
                     console.info(stderr);
                     exit(1);
                 });
@@ -529,7 +529,7 @@ async function buildTarget() {
         }
         console.misc(`   -> ${commandStr}`);
         await runCommand("bash", ["-c", commandStr]).catch(({ code, stdout, stderr }) => {
-            console.error(`   Error: Command failed with code ${code}`);
+            console.error(`   Error: Command ${commandStr} failed with code ${code}`);
             console.info(stderr);
             exit(1);
         });
@@ -560,7 +560,7 @@ async function main() {
             let commandStr = escapeCommand(command, debugTarget.require, "./");
             console.misc(`   -> ${commandStr}`);
             await runCommand("bash", ["-c", commandStr]).catch(({ code, stdout, stderr }) => {
-                console.error(`   Error: Command failed with code ${code}`);
+                console.error(`   Error: Command ${commandStr} failed with code ${code}`);
                 console.info(stderr);
                 exit(1);
             });

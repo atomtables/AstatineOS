@@ -4,6 +4,7 @@
 #include <modules/strings.h>
 #include "calls.h"
 
+// basically just exec syscall
 int loadnew(struct registers* regs) {
     if (!regs->ebx) {
         regs->eax = -1; // invalid pointer
@@ -27,7 +28,7 @@ int loadnew(struct registers* regs) {
         return 0;
     }
 
-    char path[257];
+    char path[max_len + 1];
     memcpy(path, user_path, len + 1);
 
     if (is_elf(path) != 0) {
@@ -39,10 +40,8 @@ int loadnew(struct registers* regs) {
     }
     extern u32* addrs_top;
     extern u32 count_top;
-    extern u32 entrypoint_top;
     // we free and then restart the load process.
     elf_free(addrs_top, count_top);
     elf_load_and_run(path);
-    while(1);
     return 0;
 }

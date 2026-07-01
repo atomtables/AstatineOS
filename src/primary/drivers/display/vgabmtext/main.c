@@ -982,6 +982,7 @@ u8 letter_bitmap[96][7][5] = {
     // 0x7f: DEL (technically not a character)
     {},
 };
+
 void outportb(u16 port, u8 data) {
     asm ("outb %1, %0" : : "dN" (port), "a" (data));
 }
@@ -1118,9 +1119,7 @@ bool get_mode(TeletypeDriver* self, struct TeletypeMode* out) {
     // Copy local mode struct to caller's struct
     u8* src = (u8*)&mode;
     u8* dst = (u8*)out;
-    for (u32 i = 0; i < sizeof(struct TeletypeMode); i++) {
-        dst[i] = src[i];
-    }
+    *out = mode;
     return true;
 }
 

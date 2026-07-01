@@ -150,7 +150,7 @@ export default {
             },
             depends: ["image"],
             run: [
-                "$QEMU -monitor stdio -d int,in_asm -D qemu.log -audiodev coreaudio,id=audio0 -machine pcspk-audiodev=audio0 -debugcon file:qemu.log -no-reboot -no-shutdown -drive file=\"$PRODUCT/AstatineOS.img\",format=raw,index=0,media=disk -m 512M"
+                "$QEMU -monitor stdio -display cocoa,zoom-to-fit=on -d int,in_asm -D qemu.log -audiodev coreaudio,id=audio0 -machine pcspk-audiodev=audio0 -debugcon file:qemu.log -no-reboot -no-shutdown -drive file=\"$PRODUCT/AstatineOS.img\",format=raw,index=0,media=disk -m 512M"
             ]
         },
         {
